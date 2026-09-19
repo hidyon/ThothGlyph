@@ -26,7 +26,7 @@
 | [0016](0016-product-docs.md) | プロダクト全体の仕様文書を書く | closed | [仕様](../specs/0016-product-docs.md) |
 | [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | closed | [仕様](../specs/0017-verify-script-structure.md) |
 | [0018](0018-formula-library.md) | 有名な公式を選んで挿入する | closed | [仕様](../specs/0018-formula-library.md) |
-| [0019](0019-app-icon.md) | アプリのアイコン | open | — |
+| [0019](0019-app-icon.md) | アプリのアイコン | in-progress | [仕様](../specs/0019-app-icon.md) |
 | [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | open | — |
 | [0021](0021-undo.md) | パレットで挿入したあとUndoで戻せない | open | — |
 | [0022](0022-narrow-pane-switch.md) | 狭い画面でソースとプレビューを切り替えられない | open | — |
