@@ -21,7 +21,19 @@ docs/
   issues/              issue。README.md が一覧
   specs/               仕様。issue番号と対応
   retrospectives/      振り返り
+scripts/
+  verify-ui.mjs        ヘッドレスChromiumでの実機検証
+.devcontainer/         開発コンテナ。Node 22 + Chromium + Claude Code
 ```
+
+### 開発環境
+
+**開発はdevcontainer内で行う。** ホストに何が入っているかに依存させない。
+VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Claude Codeが
+揃った状態で始まる。設定は `.devcontainer/`。
+
+ホスト側で直接 `npm run dev` を動かさない。CLAUDE.mdや検証スクリプトに
+ホスト固有のパスを書かない。両方とも再現性を壊す。
 
 ### コマンド
 
@@ -30,6 +42,7 @@ docs/
 | 開発サーバ | `npm run dev`（http://localhost:5173） |
 | 型チェック＋ビルド | `npm run build` |
 | Lint | `npm run lint`（oxlint） |
+| UIの実機検証 | `node scripts/verify-ui.mjs` |
 
 ### 設計上の約束
 
@@ -42,6 +55,8 @@ docs/
 - **ロジックは `lib/` に純粋関数として置く。** コンポーネントは描画と配線だけ。
 - **パレットはデータ駆動。** 記号追加は `palette.ts` に1行足すだけで済ませる。
 - `@types/katex` は入れない。katex 0.18 が型定義を同梱していて衝突する。
+- Viteの `server.host` は消さない。コンテナ内で 0.0.0.0 にバインドしないと
+  ホストのブラウザから届かない。
 
 ## 開発の進め方：仕様駆動開発
 
@@ -113,16 +128,18 @@ docs/
 
 ## 実機検証
 
-UIの変更は実際にブラウザで動かして確認する。Playwrightのブラウザは
-`~/.cache/ms-playwright/` に入っている。`playwright-core` はスクラッチパッドに
-インストールして使う（プロジェクトの依存には加えない）。
+UIの変更は実際にブラウザで動かして確認する。Chromiumはコンテナに焼いてあり、
+`playwright-core` はdevDependencyなので、追加の準備は要らない。
 
-```js
-const browser = await chromium.launch({
-  executablePath: '/home/hide/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome',
-  args: ['--no-sandbox'],
-})
+```bash
+npm run dev                  # 別ターミナルで起動しておく
+node scripts/verify-ui.mjs   # スクリーンショットは tmp/screenshots/ に出る
 ```
+
+`scripts/verify-ui.mjs` は初期表示を確認する最小の型。issueごとの受け入れ基準は
+これを下敷きに書き足して確認する。`chromium.launch()` に `executablePath` は
+**書かない**。`PLAYWRIGHT_BROWSERS_PATH` からplaywright-coreが自力で見つける。
+パスをベタ書きすると環境が変わった瞬間に嘘になる。
 
 確認すること: 対象の操作が期待通り動くか、**スクリーンショットを実際に見る**、
 `console` にエラーが出ていないか。見た目の違和感は目視で判断せず、DOMの座標や
