@@ -1,17 +1,69 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
 import { Preview } from './components/Preview'
 import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
+import type { SaveState } from './components/Toolbar'
+import { loadDocument, saveDocument } from './lib/documentStorage'
 import { insertSnippet } from './lib/insertSnippet'
 import { renderMarkdown } from './lib/renderMarkdown'
 import { sampleDocument } from './sampleDocument'
 
+/** 入力が止まってから保存するまでの待ち時間。localStorageは同期APIなので1文字ごとには書かない。 */
+const SAVE_DELAY_MS = 600
+
 export default function App() {
-  const [source, setSource] = useState(sampleDocument)
+  // 遅延初期化でマウント時の1回だけ読む。再レンダリングで読み直さない。
+  const [restored] = useState(loadDocument)
+
+  const [source, setSource] = useState(restored?.source ?? sampleDocument)
+  const [saveState, setSaveState] = useState<SaveState>(
+    restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // まだ保存していない内容。beforeunloadからも読むのでstateではなくrefに置く。
+  const unsaved = useRef<string | null>(null)
+
+  // 最後に保存した内容。初期値は復元した内容（初回訪問ならサンプル文書）。
+  // 「初回レンダリングか」で判定するとStrictModeの二重マウントで保存が走るため、
+  // 内容そのものを比べる。
+  const savedSource = useRef(source)
+
   const html = useMemo(() => renderMarkdown(source), [source])
+
+  const flush = useCallback(() => {
+    if (unsaved.current === null) return
+    const target = unsaved.current
+    if (saveDocument(target)) {
+      savedSource.current = target
+      unsaved.current = null
+      setSaveState({ status: 'saved', savedAt: new Date().toISOString() })
+    } else {
+      // 失敗した内容はrefに残す。離脱時にもう一度試す余地を残す。
+      setSaveState({ status: 'failed' })
+    }
+  }, [])
+
+  useEffect(() => {
+    // 復元した（または初回表示のサンプル）内容をそのまま保存し直さない。
+    if (source === savedSource.current) return
+
+    unsaved.current = source
+    setSaveState({ status: 'pending' })
+
+    const timer = window.setTimeout(flush, SAVE_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [source, flush])
+
+  // デバウンス待ちのまま離脱すると直前の編集が消える。離脱時に書き切る。
+  useEffect(() => {
+    const saveNow = () => {
+      if (unsaved.current !== null) saveDocument(unsaved.current)
+    }
+    window.addEventListener('beforeunload', saveNow)
+    return () => window.removeEventListener('beforeunload', saveNow)
+  }, [])
 
   const handleInsert = (snippet: string) => {
     const textarea = textareaRef.current
@@ -29,9 +81,15 @@ export default function App() {
     })
   }
 
+  const handleReset = () => {
+    if (!window.confirm('編集中の内容を破棄してサンプル文書に戻します。よろしいですか？')) return
+    setSource(sampleDocument)
+    textareaRef.current?.focus()
+  }
+
   return (
     <div className="app">
-      <Toolbar source={source} />
+      <Toolbar source={source} saveState={saveState} onReset={handleReset} />
       <SymbolPalette onInsert={handleInsert} />
       <main className="panes">
         <Editor value={source} onChange={setSource} textareaRef={textareaRef} />
