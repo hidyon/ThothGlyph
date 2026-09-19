@@ -12,6 +12,7 @@
 | [0002](0002-dark-mode.md) | ダークモード | open | — |
 | [0003](0003-image-export.md) | 数式の画像書き出し | open | — |
 | [0004](0004-multi-document.md) | 複数文書の管理 | open | — |
+| [0005](0005-devcontainer.md) | devcontainerでの開発に移行する | closed | [仕様](../specs/0005-devcontainer.md) |
 
 ## 着手順の目安
 

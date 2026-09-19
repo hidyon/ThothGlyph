@@ -1,0 +1,36 @@
+{
+  "name": "matheditor",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "remoteUser": "node",
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite dev server",
+      "onAutoForward": "notify"
+    }
+  },
+  "mounts": [
+    // WSLのファイルシステムをbindマウント経由で読み書きするとnpmが極端に遅い。
+    // node_modules だけコンテナ側のボリュームに逃がす。
+    "source=matheditor-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    // ホストのClaude Codeの認証・設定を引き継ぐ。認証情報を含むため、
+    // このコンテナはローカル専用でイメージを配布しない前提。
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,consistency=cached"
+  ],
+  "postCreateCommand": "sudo chown node:node node_modules && npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": ["anthropic.claude-code"],
+      "settings": {
+        "editor.formatOnSave": false,
+        "files.eol": "\n"
+      }
+    }
+  }
+}
