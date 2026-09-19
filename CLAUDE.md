@@ -17,6 +17,8 @@ src/
     renderMarkdown.ts  数式を退避 → marked → DOMPurify → KaTeXで差し戻し
     palette.ts         記号パレットの定義データ
     insertSnippet.ts   カーソル位置への挿入（純粋関数）
+    documentStorage.ts localStorageへの保存と復元
+    *.test.ts          上の関数の単体テスト（Vitest）
 docs/
   issues/              issue。README.md が一覧
   specs/               仕様。issue番号と対応
@@ -41,6 +43,7 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
 |---|---|
 | 開発サーバ | `npm run dev`（http://localhost:5173） |
 | 型チェック＋ビルド | `npm run build` |
+| 単体テスト | `npm test`（Vitest。`npm run test:watch` で監視） |
 | Lint | `npm run lint`（oxlint） |
 | UIの実機検証 | `node scripts/verify-ui.mjs` |
 
@@ -125,6 +128,15 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
   だけでなく減らす。** 長くなるほど読まれなくなる。
 
 提案はするが、CLAUDE.mdの変更は**ユーザーの承認を得てから**行う。
+
+## 検証の使い分け
+
+`lib/` の純粋関数は `npm test`（Vitest）で確かめる。入出力の網羅はこちらが速い。
+UIの振る舞い——描画、操作、保存の往復——はヘッドレスChromiumで確かめる。
+受け入れ基準を書くときに、どちらで検証するかを項目ごとに決める。
+
+テストは対象の隣に `*.test.ts` として置く。既知の不具合は `it.fails()` で
+「いま失敗すること」を書き残し、直したときに `it()` へ裏返す。
 
 ## 実機検証
 
