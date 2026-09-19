@@ -33,6 +33,12 @@
 **状態管理ライブラリもUIフレームワークも入れない。** この規模ではReactの状態と
 素のCSSで足りる。`@types/katex` は入れない（katex 0.18 が型定義を同梱していて衝突する）。
 
+**TypeScriptは `strict` で通す。** `tsconfig.app.json`（`src/`）と
+`tsconfig.node.json`（`vite.config.ts`）の両方で有効にしている
+（[0026](specs/0026-typescript-strict.md)）。`null` の扱いを規律ではなく型で
+縛るためで、`textarea?.selectionStart ?? source.length` のような防御は
+この前提の上に立っている。
+
 ## 2. ディレクトリの役割
 
 | 場所 | 役割 |

@@ -15,6 +15,8 @@
 
 **型が通ることは検証ではない。** `npm run build`（`tsc -b` + vite build）と
 `npm run lint`（oxlint）は前提であって、受け入れ基準の確認ではない。
+その型チェックは `strict` で走る（[0026](specs/0026-typescript-strict.md)）ので、
+前提の強さは `strict` の範囲まで。そこから先は上の2つで確かめる。
 
 境界の引き方: 文字列を入れて文字列が返るものはテスト、DOMに出て初めて確かめられる
 ものは実機。`renderMarkdown` の出力は文字列なのでテスト、その文字列が
