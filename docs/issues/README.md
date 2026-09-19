@@ -36,7 +36,7 @@
 | [0026](0026-typescript-strict.md) | TypeScriptがstrictでない | closed | [仕様](../specs/0026-typescript-strict.md) |
 | [0027](0027-verify-flaky.md) | 検証スクリプトの結果が再現しないことがある | closed | [仕様](../specs/0027-verify-flaky.md) |
 | [0028](0028-initial-section-checks.md) | 初期表示の区分にチェックが1件もない | open | — |
-| [0029](0029-greek-complete.md) | ギリシャ文字をすべてパレットから入力できるようにする | open | — |
+| [0029](0029-greek-complete.md) | ギリシャ文字をすべてパレットから入力できるようにする | closed | [仕様](../specs/0029-greek-complete.md) |
 | [0030](0030-formula-library-more.md) | 公式をさらに30件追加する | open | — |
 | [0031](0031-english-ui.md) | 英語に対応する | open | — |
 
