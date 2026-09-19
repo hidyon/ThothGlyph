@@ -13,7 +13,7 @@
 | [0003](0003-image-export.md) | 数式の画像書き出し | open | — |
 | [0004](0004-multi-document.md) | 複数文書の管理 | open | — |
 | [0005](0005-devcontainer.md) | devcontainerでの開発に移行する | closed | [仕様](../specs/0005-devcontainer.md) |
-| [0006](0006-math-in-code.md) | コードブロック内の `$` が数式として描画される | open | — |
+| [0006](0006-math-in-code.md) | コードブロック内の `$` が数式として描画される | closed | [仕様](../specs/0006-math-in-code.md) |
 | [0007](0007-preview-performance.md) | 長い文書でプレビューが重い | open | — |
 | [0008](0008-keyboard-shortcuts.md) | キーボードショートカット | open | — |
 | [0009](0009-wrap-selection.md) | 選択範囲があるときの挿入の扱いを揃える | open | — |
