@@ -26,7 +26,7 @@
 | [0016](0016-product-docs.md) | プロダクト全体の仕様文書を書く | closed | [仕様](../specs/0016-product-docs.md) |
 | [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | closed | [仕様](../specs/0017-verify-script-structure.md) |
 | [0018](0018-formula-library.md) | 有名な公式を選んで挿入する | closed | [仕様](../specs/0018-formula-library.md) |
-| [0019](0019-app-icon.md) | アプリのアイコン | in-progress | [仕様](../specs/0019-app-icon.md) |
+| [0019](0019-app-icon.md) | アプリのアイコン | closed | [仕様](../specs/0019-app-icon.md) |
 | [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | open | — |
 | [0021](0021-undo.md) | パレットで挿入したあとUndoで戻せない | open | — |
 | [0022](0022-narrow-pane-switch.md) | 狭い画面でソースとプレビューを切り替えられない | open | — |
@@ -61,7 +61,8 @@
 翻訳を元の文字列の隣に置く形（`t('平方根', 'Square root')`）にしたので、
 **これ以降に記号や公式を足すときは1行に両方書くだけで済む**。
 以後に画面の文言を足すときは `lib/messages.ts` に2言語で書く。
-0019（アイコン）は他のどれとも独立していて、いつ着手してもよい。
+0019（アイコン）は完了した。次は0011（記号の検索）→0024（バンドルサイズ）の順で
+進めることでユーザーと合意している。
 
 **安いうちにやると得なもの**: 0026（strict）は完了した（実測どおりコードの変更は
 ゼロで済んだ）。0023（履歴からの復旧）は保存形式を変えるので、

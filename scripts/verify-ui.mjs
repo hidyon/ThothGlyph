@@ -789,6 +789,148 @@ section('i18n', '英語対応（0031）', async () => {
   console.log(`スクリーンショット: ${OUT}/i18n-en.png, ${OUT}/i18n-ja.png`)
 })
 
+// ---- 0019: アプリのアイコン ----
+
+section('icon', 'アイコン（0019）', async () => {
+  // 配られているか。1件でも404なら、タブに出るものが欠ける。
+  const assets = [
+    '/favicon.svg',
+    '/favicon-32.png',
+    '/apple-touch-icon.png',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/manifest.webmanifest',
+  ]
+  const statuses = []
+  for (const path of assets) {
+    const res = await page.request.get(`${URL}${path}`)
+    statuses.push(`${path}:${res.status()}`)
+  }
+  check('アイコン6ファイルがすべて200で返る', statuses.every((s) => s.endsWith(':200')), statuses.join(' '))
+
+  const svg = await (await page.request.get(`${URL}/favicon.svg`)).text()
+  check('favicon.svg にClaudeのロゴの紫（#863bff）が残っていない', !svg.includes('863bff'))
+  // コメントを落としてから見る。「<text> を使わない」と書いた説明そのものに
+  // 当たって落ちたため（判定したいのは要素であって、文字列ではない）。
+  const markup = svg.replace(/<!--[\s\S]*?-->/g, '')
+  check(
+    'favicon.svg が <text> 要素と外部参照を持たない（フォントに依存しない）',
+    !/<text[\s>]/.test(markup) && !markup.includes('@font-face') && !/href="http/.test(markup),
+  )
+
+  const manifest = await (await page.request.get(`${URL}/manifest.webmanifest`)).json()
+  const sizes = (manifest.icons ?? []).map((i) => i.sizes).sort()
+  check(
+    'manifestが192と512のアイコンを宣言している',
+    manifest.name === 'matheditor' && sizes.join(',') === '192x192,512x512',
+    sizes.join(' / '),
+  )
+
+  // PNGが指定どおりの大きさで書き出されているか。
+  const pngSizes = await page.evaluate(async (base) => {
+    const read = (path) =>
+      new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => resolve(`${path}=${img.naturalWidth}x${img.naturalHeight}`)
+        img.onerror = () => resolve(`${path}=error`)
+        img.src = base + path
+      })
+    return Promise.all([
+      read('/favicon-32.png'),
+      read('/apple-touch-icon.png'),
+      read('/icon-192.png'),
+      read('/icon-512.png'),
+    ])
+  }, URL)
+  check(
+    'PNG4件が32/180/192/512で書き出されている',
+    pngSizes.join(' ') ===
+      '/favicon-32.png=32x32 /apple-touch-icon.png=180x180 /icon-192.png=192x192 /icon-512.png=512x512',
+    pngSizes.join(' '),
+  )
+
+  /**
+   * 記号の量を「白インク量」で測る。白に近いピクセルだけ数えると、16pxでは
+   * アンチエイリアスの中間色を落としてしまい、太さの差が出ない（仕様の表を参照）。
+   */
+  const ink = (size) =>
+    page.evaluate(
+      async ([base, px]) => {
+        const img = new Image()
+        await new Promise((resolve) => {
+          img.onload = resolve
+          img.src = `${base}/favicon.svg`
+        })
+        const canvas = document.createElement('canvas')
+        canvas.width = px
+        canvas.height = px
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, px, px)
+        const { data } = ctx.getImageData(0, 0, px, px)
+        const lum = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b
+        const bg = lum(37, 99, 235)
+        const fg = lum(255, 255, 255)
+        let amount = 0
+        let opaque = 0
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue
+          opaque += 1
+          const t = (lum(data[i], data[i + 1], data[i + 2]) - bg) / (fg - bg)
+          if (t > 0) amount += Math.min(1, t)
+        }
+        return +((100 * amount) / opaque).toFixed(1)
+      },
+      [URL, size],
+    )
+
+  const ink16 = await ink(16)
+  const ink512 = await ink(512)
+  check('16pxでの白インク量が6〜20%に収まる', ink16 >= 6 && ink16 <= 20, `${ink16}%`)
+  check(
+    '16pxと512pxで白インク量が1.5ポイント以上ずれない（縮めても飛ばない）',
+    Math.abs(ink16 - ink512) <= 1.5,
+    `16px ${ink16}% / 512px ${ink512}%`,
+  )
+
+  // 記号と地のコントラスト比。仕様には計算値5.17:1と書いてある。
+  const contrast = await page.evaluate(() => {
+    const channel = (v) => {
+      const c = v / 255
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    }
+    const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    const [hi, lo] = [lum([255, 255, 255]), lum([37, 99, 235])].sort((a, b) => b - a)
+    return +(((hi + 0.05) / (lo + 0.05)).toFixed(2))
+  })
+  check('記号と地のコントラスト比が4.5:1以上', contrast >= 4.5, `${contrast}:1`)
+
+  // apple-touch-icon は角丸なしで書き出す（iOSが自分で丸める）。四隅が不透明か。
+  const corners = await page.evaluate(async (base) => {
+    const img = new Image()
+    await new Promise((resolve) => {
+      img.onload = resolve
+      img.src = `${base}/apple-touch-icon.png`
+    })
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const last = img.naturalWidth - 1
+    return [[0, 0], [last, 0], [0, last], [last, last]].map(
+      ([x, y]) => ctx.getImageData(x, y, 1, 1).data[3],
+    )
+  }, URL)
+  check(
+    'apple-touch-iconの四隅が不透明（角丸を付けずに書き出している）',
+    corners.every((alpha) => alpha === 255),
+    `alpha ${corners.join(',')}`,
+  )
+
+  await page.screenshot({ path: `${OUT}/icon.png` })
+  console.log(`スクリーンショット: ${OUT}/icon.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

@@ -2,7 +2,15 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <!--
+      SVGを主に、読めない環境にはPNGを渡す。apple-touch-icon だけ角丸なしなのは、
+      iOSが自分で角を丸めるため（角丸付きを渡すと角が二重に落ちる）。
+      PNGは public/favicon.svg から scripts/make-icons.mjs で書き出している。
+    -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>matheditor</title>
     <!--

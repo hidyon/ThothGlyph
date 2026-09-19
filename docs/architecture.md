@@ -47,7 +47,9 @@
 | `src/components/` | 描画と配線だけ。ロジックを持たない |
 | `src/lib/` | 純粋関数。テストはこの隣に置く |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
+| `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
+| `scripts/make-icons.mjs` | `favicon.svg` からPNGを書き出す |
 | `docs/` | 要求・アーキテクチャ・機能・テストの4文書と、issue／issue仕様／振り返り |
 
 コンポーネントに条件分岐やデータ加工を書かない。`lib/` の純粋関数に出して、
@@ -184,6 +186,20 @@ type Text = { ja: string; en: string }
 インラインスクリプトで先に当て（Reactのマウントを待つと読み上げや翻訳判定が
 一瞬ずれる）、Reactからも更新する。ここも保存キーと既定の決め方が
 `lib/langStorage.ts` と重複している。片方を変えるときは両方直す。
+
+### アイコン（`public/`）
+
+`public/favicon.svg` が**唯一の原本**。PNG4件（32 / 180 / 192 / 512）は
+`scripts/make-icons.mjs` がヘッドレスChromiumで書き出す。
+
+**PNGを手で作らない。** 手で作るとSVGを直したときPNGだけ古くなる。
+**ビルド時にも生成しない。** devcontainerの外でもChromiumが要ることになる。
+生成物はコミットし、作り直しは手で流す（`node scripts/make-icons.mjs`）。
+
+記号は直線3本のパスで描き、`<text>` を使わない（見る側のフォントに依存して
+字形が変わるか消える）。地は不透明な角丸正方形にしてあり、
+ライト／ダークの判定をブラウザに任せない。`apple-touch-icon.png` だけは
+角丸を落として書き出す（iOSが自分で丸めるため、付けると角が二重に落ちる）。
 
 ### 保存のタイミング
 
