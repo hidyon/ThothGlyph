@@ -77,14 +77,38 @@ describe('renderMarkdown', () => {
     expect(html).not.toContain('<img')
   })
 
-  // --- 既知の不具合（0006で直す） ---
-  // 直したら it.fails を it に裏返す。放置された不具合を一覧に見えるようにしておく。
-
-  it.fails('インラインコード内の $ を数式にしない', () => {
+  it('インラインコード内の $ を数式にしない', () => {
     expect(hasMath(renderMarkdown('これは `$x^2$` というコード。'))).toBe(false)
   })
 
-  it.fails('コードフェンス内の $ を数式にしない', () => {
+  it('コードフェンス内の $ を数式にしない', () => {
     expect(hasMath(renderMarkdown('```\nsum $x_i$ here\n```'))).toBe(false)
+  })
+
+  it('バッククォート2連の中のバッククォートを取り違えない', () => {
+    const html = renderMarkdown('``code with ` and $x$``')
+
+    expect(hasMath(html)).toBe(false)
+  })
+
+  it('閉じていないコードフェンス以降の $ を数式にしない', () => {
+    expect(hasMath(renderMarkdown('```\n$x$ のまま\n'))).toBe(false)
+  })
+
+  it('コードブロックの前後にある数式はこれまで通り描画する', () => {
+    const html = renderMarkdown('前 $a$\n\n```\n$b$\n```\n\n後 $c$')
+
+    expect(mathCount(html)).toBe(2)
+  })
+
+  it('コードの直後の $$...$$ をブロック数式として描画する', () => {
+    const html = renderMarkdown('```\ncode\n```\n\n$$\nx^2\n$$')
+
+    expect(hasDisplayMath(html)).toBe(true)
+    expect(mathCount(html)).toBe(1)
+  })
+
+  it('チルダのコードフェンス内の $ も数式にしない', () => {
+    expect(hasMath(renderMarkdown('~~~\n$x$\n~~~'))).toBe(false)
   })
 })

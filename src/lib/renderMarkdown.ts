@@ -23,6 +23,85 @@ const placeholderFor = (index: number) =>
 // エスケープされた \$ と、$100 のような通貨表記を巻き込みにくくする。
 const MATH_PATTERN = /\$\$([\s\S]+?)\$\$|(?<![\\$])\$(?!\s)((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\$)/g
 
+type Segment = { text: string; isCode: boolean }
+
+// 行頭（インデント3つまで）の ``` または ~~~ でフェンスが開く。
+const FENCE = /^ {0,3}(`{3,}|~{3,})/
+// 開きと同じ個数のバッククォートで閉じるインラインコード。
+// 個数を合わせるのは ``code with ` inside`` のような入れ子を取り違えないため。
+const INLINE_CODE = /(`+)[\s\S]*?\1/g
+
+/**
+ * ソースをコード領域とそれ以外に切り分ける。
+ *
+ * コード領域の中の `$...$` を数式にしないため。コード自体はプレースホルダへ
+ * 逃がさず、そのままmarkedへ渡す（コードの解釈はmarkedに任せるほうが安全）。
+ *
+ * フェンスは行単位で見る。正規表現だけで「閉じないフェンスは末尾まで」を
+ * 表そうとすると、複数行モードの `$` が行末にも当たって取り違えるため。
+ */
+function splitByCode(source: string): Segment[] {
+  const fenced: Segment[] = []
+  let buffer: string[] = []
+  let openFence: string | null = null
+
+  const flush = (isCode: boolean) => {
+    if (buffer.length === 0) return
+    fenced.push({ text: buffer.join(''), isCode })
+    buffer = []
+  }
+
+  for (const line of source.split('\n')) {
+    const withBreak = `${line}\n`
+
+    if (openFence === null) {
+      const match = line.match(FENCE)
+      if (match) {
+        flush(false)
+        openFence = match[1]
+      }
+      buffer.push(withBreak)
+      continue
+    }
+
+    buffer.push(withBreak)
+    // 閉じフェンスは開きと同じ記号で、同じ個数以上。
+    if (line.trim().startsWith(openFence)) {
+      flush(true)
+      openFence = null
+    }
+  }
+
+  // 閉じないまま終わったフェンスは、末尾までをコードとみなす（markedと同じ扱い）。
+  flush(openFence !== null)
+
+  // 行ごとに改行を足して組み直したので、元が改行で終わっていなければ1つ戻す。
+  const last = fenced.at(-1)
+  if (last && !source.endsWith('\n')) {
+    last.text = last.text.slice(0, -1)
+  }
+
+  return fenced.flatMap((segment) =>
+    segment.isCode ? [segment] : splitByInlineCode(segment.text),
+  )
+}
+
+/** フェンスの外側をインラインコードで分ける。 */
+function splitByInlineCode(text: string): Segment[] {
+  const segments: Segment[] = []
+  let last = 0
+
+  for (const match of text.matchAll(INLINE_CODE)) {
+    const start = match.index
+    if (start > last) segments.push({ text: text.slice(last, start), isCode: false })
+    segments.push({ text: match[0], isCode: true })
+    last = start + match[0].length
+  }
+
+  if (last < text.length) segments.push({ text: text.slice(last), isCode: false })
+  return segments
+}
+
 /** 数式を抜き出し、プレースホルダ入りのMarkdownと数式リストを返す。 */
 function extractFormulas(source: string): {
   masked: string
@@ -30,14 +109,21 @@ function extractFormulas(source: string): {
 } {
   const formulas: Formula[] = []
 
-  const masked = source.replace(MATH_PATTERN, (_match, block, inline) => {
-    const isBlock = block !== undefined
-    const latex = (isBlock ? block : inline).trim()
-    if (latex.length === 0) return _match
+  // 数式の番号は文書全体を通した連番。コード領域を跨いでも狂わない。
+  const masked = splitByCode(source)
+    .map((segment) =>
+      segment.isCode
+        ? segment.text
+        : segment.text.replace(MATH_PATTERN, (_match, block, inline) => {
+            const isBlock = block !== undefined
+            const latex = (isBlock ? block : inline).trim()
+            if (latex.length === 0) return _match
 
-    const index = formulas.push({ latex, displayMode: isBlock }) - 1
-    return placeholderFor(index)
-  })
+            const index = formulas.push({ latex, displayMode: isBlock }) - 1
+            return placeholderFor(index)
+          }),
+    )
+    .join('')
 
   return { masked, formulas }
 }

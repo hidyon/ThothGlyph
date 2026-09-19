@@ -128,6 +128,40 @@ check(
   (await editor().inputValue()).startsWith('# 二次方程式の解の公式'),
 )
 
+// ---- 0006: コードブロック内の $ を数式にしない ----
+
+const codeDoc = [
+  'インラインは `$x^2$` と書く。',
+  '',
+  '```',
+  'sum $x_i$ here',
+  '```',
+  '',
+  '本物の数式 $a+b$ と',
+  '',
+  '$$',
+  'c^2',
+  '$$',
+  '',
+].join('\n')
+
+await editor().fill(codeDoc)
+await page.waitForTimeout(400)
+check(
+  'コード要素の中にKaTeXの出力がない',
+  (await page.locator('.preview code .katex').count()) === 0,
+)
+check(
+  'コードの外の数式は描画される（インライン1・ブロック1）',
+  (await page.locator('.preview .katex-display').count()) === 1 &&
+    (await page.locator('.preview .katex').count()) === 2,
+)
+check(
+  'コード内の $ が文字として残る',
+  (await page.locator('.preview code').first().innerText()).includes('$x^2$'),
+)
+await page.screenshot({ path: `${OUT}/code-block.png` })
+
 // 保存できない環境（容量超過やサイトデータ無効）では、その旨を出し続ける。
 await page.evaluate(() => {
   window.localStorage.setItem = () => {
