@@ -366,6 +366,87 @@ check(
 await page.emulateMedia({ colorScheme: 'light' })
 await page.evaluate(() => window.localStorage.clear())
 
+// ---- 0009: 選択範囲があるときの挿入 ----
+
+// 選択範囲を [start, end) にしてからパレットのボタンを押す。
+// mousedown の既定動作はコンポーネント側で止めているので、選択は保たれる。
+const selectAndInsert = async (start, end, group, title) => {
+  await editor().evaluate(
+    (el, [from, to]) => {
+      el.focus()
+      el.setSelectionRange(from, to)
+    },
+    [start, end],
+  )
+  await page.getByRole('tab', { name: group }).click()
+  await page.locator(`.palette__item[title^="${title}（"]`).click()
+  return editor().evaluate((el) => ({
+    value: el.value,
+    start: el.selectionStart,
+    end: el.selectionEnd,
+  }))
+}
+
+// 自動保存が効いているので、毎回サンプル文書から始めるために消してから開く。
+// 消す前にデバウンス待ちを片付けないと、reload時のbeforeunloadで書き戻される。
+const openFreshDocument = async () => {
+  await page.waitForFunction(() => {
+    const label = document.querySelector('.toolbar__save')?.textContent ?? ''
+    return label === '' || label.startsWith('保存しました')
+  })
+  await page.evaluate((key) => window.localStorage.removeItem(key), STORAGE_KEY)
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+}
+
+await page.goto(URL, { waitUntil: 'networkidle' })
+await openFreshDocument()
+const docBefore = await editor().inputValue()
+const selected6 = docBefore.slice(0, 6)
+
+const afterAlpha = await selectAndInsert(0, 6, 'ギリシャ文字', 'alpha')
+check(
+  '単体記号を押しても選択したテキストが消えない',
+  afterAlpha.value.startsWith(selected6),
+  JSON.stringify(afterAlpha.value.slice(0, 20)),
+)
+check(
+  '単体記号の挿入後はカーソルが挿入文字列の末尾に来る',
+  afterAlpha.start === afterAlpha.end &&
+    afterAlpha.value.slice(0, afterAlpha.start).endsWith('\\alpha '),
+  `start=${afterAlpha.start} end=${afterAlpha.end}`,
+)
+
+await openFreshDocument()
+const afterSqrt = await selectAndInsert(0, 6, '基本', '平方根')
+check(
+  '囲める記号は選択したテキストを包む',
+  afterSqrt.value.startsWith(`\\sqrt{${selected6}}`),
+  JSON.stringify(afterSqrt.value.slice(0, 24)),
+)
+
+await page.getByRole('tab', { name: 'ギリシャ文字' }).click()
+const piTitleShown = await page.locator('.palette__item[title^="pi（"]').getAttribute('title')
+await page.getByRole('tab', { name: '基本' }).click()
+const sqrtTitleShown = await page
+  .locator('.palette__item[title^="平方根（"]')
+  .getAttribute('title')
+check(
+  '単体記号のtooltipが「選択範囲の後ろに挿入」と伝える',
+  piTitleShown === 'pi（選択範囲の後ろに挿入）',
+  piTitleShown,
+)
+check(
+  '囲める記号のtooltipが「選択範囲を囲む」と伝える',
+  sqrtTitleShown === '平方根（選択範囲を囲む）',
+  sqrtTitleShown,
+)
+
+await page.screenshot({ path: `${OUT}/wrap-selection.png` })
+console.log(`スクリーンショット: ${OUT}/wrap-selection.png`)
+
+await page.evaluate((key) => window.localStorage.removeItem(key), STORAGE_KEY)
+
 // ---- まとめ ----
 
 console.log('コンソールエラー:', errors.length ? errors : 'なし')

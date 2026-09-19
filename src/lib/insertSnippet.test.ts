@@ -24,11 +24,18 @@ describe('insertSnippet', () => {
     expect(cursor).toBe('\\sqrt{x + 1'.length)
   })
 
-  it('CURSOR_TOKENがないスニペットでは選択範囲が置き換わる', () => {
+  it('CURSOR_TOKENがないスニペットは選択範囲を消さず直後に挿入する', () => {
     const { text, cursor } = insertSnippet('x + 1', '\\pi', 0, 5)
 
-    expect(text).toBe('\\pi')
-    expect(cursor).toBe(3)
+    expect(text).toBe('x + 1\\pi')
+    expect(cursor).toBe(8)
+  })
+
+  it('選択範囲の後ろに文書が続く場合も、選択は残る', () => {
+    const { text, cursor } = insertSnippet('x + 1 = y', '\\times', 0, 5)
+
+    expect(text).toBe('x + 1\\times = y')
+    expect(cursor).toBe('x + 1\\times'.length)
   })
 
   it('トークンが末尾でない場合も残りの文字列が後ろに付く', () => {

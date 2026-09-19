@@ -1,6 +1,6 @@
 import katex from 'katex'
 import { useMemo, useState } from 'react'
-import { paletteGroups } from '../lib/palette'
+import { describeInsertion, paletteGroups } from '../lib/palette'
 
 type Props = {
   onInsert: (snippet: string) => void
@@ -60,8 +60,8 @@ export function SymbolPalette({ onInsert }: Props) {
             key={item.label}
             type="button"
             className="palette__item"
-            title={item.title}
-            aria-label={item.title}
+            title={describeInsertion(item)}
+            aria-label={describeInsertion(item)}
             // フォーカスがtextareaから外れると選択範囲を失うので、押下前に既定動作を止める。
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onInsert(item.snippet)}

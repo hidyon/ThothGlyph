@@ -8,13 +8,14 @@ export type InsertResult = {
 }
 
 /**
- * source の [start, end) を snippet で置き換える。
+ * source の [start, end) に snippet を挿入する。
  *
- * - 選択範囲があり、snippet に CURSOR_TOKEN が含まれる場合は、
- *   選択中のテキストをそのトークンの位置に埋め込む（`x+1` を選んで
- *   \sqrt を押すと `\sqrt{x+1}` になる）。
- * - 選択範囲がなければ CURSOR_TOKEN の位置にカーソルを置く。
- * - CURSOR_TOKEN がなければ挿入文字列の末尾にカーソルを置く。
+ * - snippet に CURSOR_TOKEN が含まれる場合は、選択中のテキストをその
+ *   トークンの位置に埋め込む（`x+1` を選んで \sqrt を押すと
+ *   `\sqrt{x+1}` になる）。選択が無ければトークンの位置にカーソルを置く。
+ * - CURSOR_TOKEN が無い単体記号は、選択範囲を**置き換えずに直後へ**挿入する。
+ *   記号を押したつもりで書いた式が消えるのを防ぐため（issue 0009）。
+ *   選択を保ったままにはしない。次の打鍵でその選択が消えて同じ問題が起きる。
  */
 export function insertSnippet(
   source: string,
@@ -26,8 +27,9 @@ export function insertSnippet(
   const tokenIndex = snippet.indexOf(CURSOR_TOKEN)
 
   if (tokenIndex === -1) {
-    const text = source.slice(0, start) + snippet + source.slice(end)
-    return { text, cursor: start + snippet.length }
+    // 選択範囲の終わりに差し込むので、選択が無い場合はカーソル位置への挿入と同じになる。
+    const text = source.slice(0, end) + snippet + source.slice(end)
+    return { text, cursor: end + snippet.length }
   }
 
   const before = snippet.slice(0, tokenIndex)
