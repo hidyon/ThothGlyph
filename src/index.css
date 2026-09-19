@@ -65,6 +65,12 @@ body,
   color: var(--text-muted);
 }
 
+.pane__note {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .toolbar__save {
   font-size: 13px;
   color: var(--text-muted);

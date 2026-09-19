@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
 import { Preview } from './components/Preview'
 import { SymbolPalette } from './components/SymbolPalette'
@@ -30,7 +30,12 @@ export default function App() {
   // 内容そのものを比べる。
   const savedSource = useRef(source)
 
-  const html = useMemo(() => renderMarkdown(source), [source])
+  // プレビューの再計算を入力から切り離す。textareaの更新を優先し、重い描画は
+  // Reactが後回しにする。固定のデバウンス時間を置かないので、端末の速さに
+  // 合わせて待ち時間が決まる。
+  const deferredSource = useDeferredValue(source)
+  const html = useMemo(() => renderMarkdown(deferredSource), [deferredSource])
+  const isPreviewStale = deferredSource !== source
 
   const flush = useCallback(() => {
     if (unsaved.current === null) return
@@ -93,7 +98,7 @@ export default function App() {
       <SymbolPalette onInsert={handleInsert} />
       <main className="panes">
         <Editor value={source} onChange={setSource} textareaRef={textareaRef} />
-        <Preview html={html} />
+        <Preview html={html} stale={isPreviewStale} />
       </main>
     </div>
   )

@@ -189,6 +189,53 @@ check('狭い画面でもコピーボタンが画面内に収まる', copyRight 
 await page.screenshot({ path: `${OUT}/narrow.png` })
 await page.setViewportSize({ width: 1440, height: 900 })
 
+// ---- 0007: 長い文書でのプレビュー性能 ----
+
+// 直前の検証で localStorage.setItem を壊しているので、実際の保存込みで測るために
+// ページを読み直す。自動保存のコストも入力の体感に効くため。
+await page.reload({ waitUntil: 'networkidle' })
+await ready()
+
+// 400節・400数式。0007の起票時に測ったのと同じ規模。
+const longDoc = Array.from(
+  { length: 400 },
+  (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
+).join('\n')
+
+await editor().fill(longDoc)
+await page.waitForFunction(
+  () => document.querySelectorAll('.preview .katex').length === 400,
+  null,
+  { timeout: 30000 },
+)
+
+const TYPED = 20
+await editor().click()
+await page.keyboard.press('Control+End')
+const typeStart = Date.now()
+await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
+const perKey = (Date.now() - typeStart) / TYPED
+check(`長文での入力反映が1文字あたり50ms以内`, perKey <= 50, `${perKey.toFixed(1)}ms/文字`)
+
+check('追いついていない間は更新中と出る', (await page.locator('.pane__note').count()) === 1)
+
+const catchUpStart = Date.now()
+await page.waitForFunction(() => document.querySelector('.pane__note') === null, null, {
+  timeout: 10000,
+})
+const catchUp = Date.now() - catchUpStart
+check('入力を止めてから1.5秒以内にプレビューが追いつく', catchUp <= 1500, `${catchUp}ms`)
+check(
+  '長文の数式が最後まで描画されている',
+  (await page.locator('.preview .katex').count()) === 400,
+)
+await page.screenshot({ path: `${OUT}/long-document.png` })
+
+// 短い文書では更新中が目に見えて残らない。
+await editor().fill('短い文書 $x^2$')
+await page.waitForTimeout(300)
+check('短い文書では更新中が残らない', (await page.locator('.pane__note').count()) === 0)
+
 // ---- まとめ ----
 
 console.log('コンソールエラー:', errors.length ? errors : 'なし')

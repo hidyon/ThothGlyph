@@ -128,8 +128,42 @@ function extractFormulas(source: string): {
   return { masked, formulas }
 }
 
+/**
+ * 数式ごとの描画結果のキャッシュ。
+ *
+ * 1文字打つたびに文書全体を描き直すが、そのとき文書中の数式はほとんどが
+ * 前回と同一である。KaTeXの呼び出しが描画コストの大半なので、ここが効く。
+ * 同じ入力からは同じ出力が返るので、関数としての振る舞いは変わらない。
+ */
+const formulaCache = new Map<string, string>()
+
+/** 上限。1件あたり数KBのHTMLなので、この程度なら数MBに収まる。 */
+const CACHE_LIMIT = 500
+
+/** テスト用。キャッシュの有無で結果が変わらないことを確かめるために使う。 */
+export function clearFormulaCache(): void {
+  formulaCache.clear()
+}
+
 /** 1つの数式をKaTeXでHTML化する。壊れた入力でも例外は投げない。 */
-function renderFormula({ latex, displayMode }: Formula): string {
+function renderFormula(formula: Formula): string {
+  const key = `${formula.displayMode ? 'block' : 'inline'}:${formula.latex}`
+  const cached = formulaCache.get(key)
+  if (cached !== undefined) return cached
+
+  const html = renderFormulaUncached(formula)
+
+  // 素朴なFIFO。古い順に捨てる（Mapは挿入順を保つ）。
+  if (formulaCache.size >= CACHE_LIMIT) {
+    const oldest = formulaCache.keys().next().value
+    if (oldest !== undefined) formulaCache.delete(oldest)
+  }
+  formulaCache.set(key, html)
+
+  return html
+}
+
+function renderFormulaUncached({ latex, displayMode }: Formula): string {
   return katex.renderToString(latex, {
     displayMode,
     throwOnError: false,

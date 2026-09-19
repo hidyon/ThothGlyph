@@ -2,7 +2,7 @@
 // （仕様ではnode環境で足りると見込んでいたが、sanitizeがwindowを要求する）
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { renderMarkdown } from './renderMarkdown'
+import { clearFormulaCache, renderMarkdown } from './renderMarkdown'
 
 /** 数式として描画されたか。KaTeXの出力は .katex を持つ。 */
 const hasMath = (html: string) => html.includes('class="katex')
@@ -110,5 +110,31 @@ describe('renderMarkdown', () => {
 
   it('チルダのコードフェンス内の $ も数式にしない', () => {
     expect(hasMath(renderMarkdown('~~~\n$x$\n~~~'))).toBe(false)
+  })
+
+  it('キャッシュの有無で出力が変わらない', () => {
+    const source = '$a+b$ と $$c^2$$ と壊れた $\\frac{$'
+
+    clearFormulaCache()
+    const cold = renderMarkdown(source)
+    const warm = renderMarkdown(source)
+
+    expect(warm).toBe(cold)
+  })
+
+  it('キャッシュの上限を超える数の数式でも全部描画される', () => {
+    clearFormulaCache()
+    const count = 600
+    const source = Array.from({ length: count }, (_, i) => `$x^{${i}}$`).join(' ')
+
+    expect(mathCount(renderMarkdown(source))).toBe(count)
+  })
+
+  it('上限を超えて捨てられた数式も描き直される', () => {
+    clearFormulaCache()
+    // 上限を埋めてから、最初の式をもう一度描く。
+    renderMarkdown(Array.from({ length: 600 }, (_, i) => `$y^{${i}}$`).join(' '))
+
+    expect(hasMath(renderMarkdown('$y^{0}$'))).toBe(true)
   })
 })
