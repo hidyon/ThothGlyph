@@ -10,15 +10,10 @@ Vite 8 + React 19 + TypeScript / KaTeX（数式）/ marked（Markdown）/ DOMPur
 
 ```
 src/
-  App.tsx              source state と挿入ハンドラ。状態はここに集約する
+  App.tsx              状態はここに集約する
   sampleDocument.ts    初期表示の文書
   components/          Toolbar / SymbolPalette / Editor / Preview
-  lib/
-    renderMarkdown.ts  数式を退避 → marked → DOMPurify → KaTeXで差し戻し
-    palette.ts         記号パレットの定義データ
-    insertSnippet.ts   カーソル位置への挿入（純粋関数）
-    documentStorage.ts localStorageへの保存と復元
-    *.test.ts          上の関数の単体テスト（Vitest）
+  lib/                 純粋関数（変換・挿入・保存・パレット定義）と、隣に置く *.test.ts
 docs/
   issues/              issue。README.md が一覧
   specs/               仕様。issue番号と対応
@@ -67,6 +62,10 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
 **受け入れ基準**を含める。受け入れ基準は「どう検証すれば満たしたと言えるか」を
 具体的な操作と期待結果で書く。曖昧な基準は基準ではない。
 
+受け入れ基準は**外から観測できる結果**で書く。内部の状態ではなく、画面に何が出るか、
+値がどうなるかで書く（「保存しない」ではなく「保存状態の表示が出ない」）。
+性能に関わるissueは、**起票の時点で現状を実測**し、基準に数値を書く。
+
 ### サイクル
 
 ```
@@ -84,6 +83,7 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
 2. **仕様を書く** — `docs/specs/NNNN-slug.md` に書く。テンプレートは
    `docs/specs/TEMPLATE.md`。書いたら**必ずユーザーの承認を取ってから実装に入る**。
    仕様が複数の解釈を許すなら、実装ではなく質問で解消する。
+   確かめずに書いた技術的な前提は断定せず、`## 未確認の前提` に挙げる。
 
 3. **実装する** — 仕様のスコープを超えない。実装中に「ついでに直したい」ものを
    見つけたら、直さずに新しいissueとして起票する。仕様の前提が崩れたら、
@@ -112,6 +112,9 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
 - issue着手時に `issue/NNNN-slug` ブランチを切る。`main` に直接コミットしない。
 - コミットメッセージは1行目に `#NNNN <何をしたか>` を書く。
 - コミットとpushはユーザーが指示したときだけ行う。
+- issueをクローズしたら、`main` へ `--no-ff` でマージする（1 issue = 1マージコミット。
+  メッセージは `Merge issue/NNNN-slug: <タイトル>`）。マージ後にブランチを消す。
+  マージもユーザーが指示したときだけ行う。
 
 ## 振り返り
 
@@ -152,6 +155,10 @@ node scripts/verify-ui.mjs   # スクリーンショットは tmp/screenshots/ �
 これを下敷きに書き足して確認する。`chromium.launch()` に `executablePath` は
 **書かない**。`PLAYWRIGHT_BROWSERS_PATH` からplaywright-coreが自力で見つける。
 パスをベタ書きすると環境が変わった瞬間に嘘になる。
+
+受け入れ基準は1項目1チェックでスクリプトに足し、`OK` / `NG` と「n/m 件」を出す。
+1件でも落ちたら終了コードを1にする。前回までのissueのチェックは消さない
+（回帰に気づける）。
 
 確認すること: 対象の操作が期待通り動くか、**スクリーンショットを実際に見る**、
 `console` にエラーが出ていないか。見た目の違和感は目視で判断せず、DOMの座標や
