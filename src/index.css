@@ -222,6 +222,38 @@ body {
   border-color: var(--accent);
 }
 
+/* 公式は名前と式の両方を見せる。式だけでは目で探しにくく、
+   名前だけでは何が入るか分からない。 */
+.palette__tabs--sub {
+  padding: 6px 12px 0;
+  background: var(--bg);
+}
+
+.palette__tabs--sub .palette__tab--active {
+  background: var(--bg-muted);
+}
+
+.palette__panel > .palette__items {
+  background: var(--bg-muted);
+}
+
+.palette__item--formula {
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 6px 10px;
+  background: var(--bg);
+}
+
+.palette__formula-name {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.palette__formula-preview {
+  font-size: 14px;
+}
+
 /* ---- 左右ペイン ---- */
 
 .panes {
