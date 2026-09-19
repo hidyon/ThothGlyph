@@ -24,6 +24,7 @@
 | [0014](0014-unit-tests.md) | 単体テストの土台を入れる | closed | [仕様](../specs/0014-unit-tests.md) |
 | [0015](0015-error-list.md) | 数式エラーの一覧 | open | — |
 | [0016](0016-product-docs.md) | プロダクト全体の仕様文書を書く | closed | [仕様](../specs/0016-product-docs.md) |
+| [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | open | — |
 
 ## 着手順の目安
 
