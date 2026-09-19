@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import type { Theme } from '../lib/themeStorage'
+import { themeLabel } from '../lib/themeStorage'
 
 export type SaveState =
   | { status: 'idle' }
@@ -10,6 +12,8 @@ type Props = {
   source: string
   saveState: SaveState
   onReset: () => void
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 /** `保存しました 12:34` の時刻部分。秒は出さない（1秒ごとに動いて視線を奪う）。 */
@@ -34,7 +38,7 @@ function saveMessage(state: SaveState): string {
   }
 }
 
-export function Toolbar({ source, saveState, onReset }: Props) {
+export function Toolbar({ source, saveState, onReset, theme, onToggleTheme }: Props) {
   const [copied, setCopied] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -69,6 +73,16 @@ export function Toolbar({ source, saveState, onReset }: Props) {
         >
           {saveMessage(saveState)}
         </span>
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={onToggleTheme}
+          title="テーマを切り替える（自動 → ライト → ダーク）"
+        >
+          {/* 狭い画面では「テーマ:」を省いて状態だけ出す。 */}
+          <span className="button__label">テーマ: </span>
+          {themeLabel(theme)}
+        </button>
         <button type="button" className="button button--quiet" onClick={onReset}>
           サンプルに戻す
         </button>

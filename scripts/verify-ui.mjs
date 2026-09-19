@@ -35,9 +35,35 @@ const check = (label, ok, detail = '') => {
 }
 
 const saveStatus = () => page.locator('.toolbar__save').innerText()
+
+/** 要素の実効的な文字色・背景色から、WCAGのコントラスト比を出す。 */
+const contrastOf = (selector, backgroundSelector = 'body') =>
+  page.evaluate(
+    ([sel, bgSel]) => {
+      const parse = (value) => value.match(/[\d.]+/g).slice(0, 3).map(Number)
+      const channel = (v) => {
+        const c = v / 255
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+      }
+      const luminance = (rgb) => {
+        const [r, g, b] = rgb.map(channel)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+      }
+      const fg = parse(getComputedStyle(document.querySelector(sel)).color)
+      const bg = parse(getComputedStyle(document.querySelector(bgSel)).backgroundColor)
+      const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a)
+      return (hi + 0.05) / (lo + 0.05)
+    },
+    [selector, backgroundSelector],
+  )
 const editor = () => page.locator('.editor')
+const themeButton = () => page.getByRole('button', { name: /テーマ/ })
 const ready = async () => {
   await page.waitForSelector('.preview .katex')
+}
+/** 数式を含まない文書を表示しているときの待ち方。 */
+const appReady = async () => {
+  await page.waitForSelector('.editor')
 }
 
 // ---- 初期表示（0001以前からの確認） ----
@@ -235,6 +261,110 @@ await page.screenshot({ path: `${OUT}/long-document.png` })
 await editor().fill('短い文書 $x^2$')
 await page.waitForTimeout(300)
 check('短い文書では更新中が残らない', (await page.locator('.pane__note').count()) === 0)
+
+// ---- 0002: ダークモード ----
+
+await page.evaluate(() => window.localStorage.clear())
+await page.emulateMedia({ colorScheme: 'dark' })
+await page.reload({ waitUntil: 'networkidle' })
+await ready()
+
+const bodyBackground = () =>
+  page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+
+const darkBackground = await bodyBackground()
+check('OSがダークなら暗い背景になる', darkBackground === 'rgb(21, 24, 28)', darkBackground)
+check('OSがダークなら「テーマ: 自動」と出る', (await themeButton().innerText()).includes('自動'))
+
+const textContrast = await contrastOf('.preview')
+check('ダークの本文と背景のコントラストが4.5:1以上', textContrast >= 4.5, `${textContrast.toFixed(2)}:1`)
+
+// 壊れた数式の赤が背景から読めるか。
+await editor().fill('壊れた数式 $\\frac{$ の行')
+await page.waitForSelector('.preview .katex-error')
+const errorContrast = await contrastOf('.preview .katex-error')
+check(
+  'ダークの壊れた数式の赤と背景のコントラストが4.5:1以上',
+  errorContrast >= 4.5,
+  `${errorContrast.toFixed(2)}:1`,
+)
+
+// 罫線・コード背景が背景と区別できるか（同じ色なら見えない）。
+await editor().fill('# 見出し\n\n> 引用\n\n`コード`\n\n| a | b |\n|---|---|\n| 1 | 2 |\n')
+await page.waitForTimeout(400)
+const distinct = await page.evaluate(() => {
+  const bg = getComputedStyle(document.body).backgroundColor
+  const code = getComputedStyle(document.querySelector('.preview code')).backgroundColor
+  const border = getComputedStyle(document.querySelector('.preview td')).borderTopColor
+  return { same: code === bg, border, bg }
+})
+check('ダークでコードの背景が地の色と違う', !distinct.same, `code=${distinct.bg}`)
+check('ダークで表の罫線に色が付いている', distinct.border !== 'rgba(0, 0, 0, 0)', distinct.border)
+
+// 目視用のスクリーンショットは、数式の入ったサンプル文書で撮る。
+page.once('dialog', (d) => d.accept())
+await page.getByRole('button', { name: 'サンプルに戻す' }).click()
+await ready()
+await page.screenshot({ path: `${OUT}/dark.png` })
+
+// 手動切り替え: 自動 → ライト → ダーク → 自動。
+await themeButton().click()
+check('1回押すとライトになる', (await themeButton().innerText()).includes('ライト'))
+const lightBackground = await bodyBackground()
+check('OSがダークでもライトを選べば明るい', lightBackground === 'rgb(255, 255, 255)', lightBackground)
+await page.screenshot({ path: `${OUT}/light-forced.png` })
+
+await themeButton().click()
+check('2回押すとダークになる', (await themeButton().innerText()).includes('ダーク'))
+
+// 選んだテーマはリロードしても保たれる。
+await page.emulateMedia({ colorScheme: 'light' })
+await page.reload({ waitUntil: 'networkidle' })
+await appReady()
+check('選んだダークがリロード後も保たれる', (await themeButton().innerText()).includes('ダーク'))
+check('OSがライトでもダークのまま', (await bodyBackground()) === 'rgb(21, 24, 28)')
+
+// 自動に戻すとOSの設定に従う。
+await themeButton().click()
+check('3回目で自動に戻る', (await themeButton().innerText()).includes('自動'))
+check('自動に戻すとOS（ライト）に従う', (await bodyBackground()) === 'rgb(255, 255, 255)')
+
+// 初期表示のちらつき。ダーク指定でリロードし、最初の描画時点の背景を見る。
+await page.emulateMedia({ colorScheme: 'dark' })
+await page.evaluate(() =>
+  window.localStorage.setItem('matheditor:theme:v1', JSON.stringify({ version: 1, theme: 'dark' })),
+)
+const flash = []
+await page.reload({ waitUntil: 'commit' })
+for (let i = 0; i < 12; i += 1) {
+  flash.push(await bodyBackground().catch(() => 'n/a'))
+  await page.waitForTimeout(16)
+}
+console.log('初期描画の背景色の推移:', [...new Set(flash)].join(' → '))
+check(
+  '初期表示でライトの背景が現れない（ちらつきなし）',
+  !flash.includes('rgb(255, 255, 255)'),
+  [...new Set(flash)].join(' / '),
+)
+
+// OSがライトで手動ダークを選んでいる場合は、メディアクエリでは救えない。
+// data-theme を付けるのがReactのマウント後なので、ここにちらつきが出うる。
+await page.emulateMedia({ colorScheme: 'light' })
+const flashOnLightOs = []
+await page.reload({ waitUntil: 'commit' })
+for (let i = 0; i < 12; i += 1) {
+  flashOnLightOs.push(await bodyBackground().catch(() => 'n/a'))
+  await page.waitForTimeout(16)
+}
+console.log('OSライト＋手動ダークの初期描画:', [...new Set(flashOnLightOs)].join(' → '))
+check(
+  'OSライト＋手動ダークでもライトの背景が現れない',
+  !flashOnLightOs.includes('rgb(255, 255, 255)'),
+  [...new Set(flashOnLightOs)].join(' / '),
+)
+
+await page.emulateMedia({ colorScheme: 'light' })
+await page.evaluate(() => window.localStorage.clear())
 
 // ---- まとめ ----
 

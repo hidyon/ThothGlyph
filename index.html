@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>matheditor</title>
+    <!--
+      本体の読み込み前にテーマを適用する。Reactのマウントを待つと、
+      OSがライトで手動ダークを選んでいる場合に白が一瞬見える（実測20ms）。
+      キー名と値の形は src/lib/themeStorage.ts と合わせること。
+    -->
+    <script>
+      try {
+        const saved = JSON.parse(localStorage.getItem('matheditor:theme:v1') || 'null')
+        if (saved?.theme === 'dark' || saved?.theme === 'light') {
+          document.documentElement.dataset.theme = saved.theme
+        }
+      } catch {
+        // プライベートウィンドウなどでlocalStorageが読めない。OSの設定に任せる。
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
