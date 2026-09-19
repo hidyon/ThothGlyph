@@ -15,8 +15,12 @@ src/
   components/          Toolbar / SymbolPalette / Editor / Preview
   lib/                 純粋関数（変換・挿入・保存・パレット定義）と、隣に置く *.test.ts
 docs/
+  requirements.md      要求仕様。何を満たすべきか
+  architecture.md      アーキテクチャ。どう組み立てているか
+  functional-spec.md   機能仕様。いま何ができるか
+  test-spec.md         テスト仕様。どう確かめるか
   issues/              issue。README.md が一覧
-  specs/               仕様。issue番号と対応
+  specs/               仕様。issue番号と対応（変更の単位）
   retrospectives/      振り返り
 scripts/
   verify-ui.mjs        ヘッドレスChromiumでの実機検証
@@ -93,6 +97,9 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
    検証ではない。UIの変更はヘッドレスChromiumで操作してスクリーンショットを見る
    （手順は下の「実機検証」）。全項目を満たしたらissueをクローズし、
    結果を報告する。満たせなかった項目があれば、隠さずそう言う。
+   クローズするとき、`docs/` の4文書（要求・アーキテクチャ・機能・テスト）の
+   記述が変わるなら**同じコミットで直す**。4文書は「現在の姿」を書いたもので、
+   issue仕様（`docs/specs/`）は「変更の単位」を書いたもの。役割が違う。
 
 ### issue管理
 
