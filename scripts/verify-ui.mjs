@@ -491,7 +491,7 @@ section('selection', '選択範囲の挿入（0009）', async () => {
   const docBefore = await editor().inputValue()
   const selected6 = docBefore.slice(0, 6)
 
-  const afterAlpha = await selectAndInsert(0, 6, 'ギリシャ文字', 'alpha')
+  const afterAlpha = await selectAndInsert(0, 6, 'ギリシャ小文字', 'alpha')
   check(
     '単体記号を押しても選択したテキストが消えない',
     afterAlpha.value.startsWith(selected6),
@@ -512,8 +512,10 @@ section('selection', '選択範囲の挿入（0009）', async () => {
     JSON.stringify(afterSqrt.value.slice(0, 24)),
   )
 
-  await page.getByRole('tab', { name: 'ギリシャ文字' }).click()
-  const piTitleShown = await page.locator('.palette__item[title^="pi（"]').getAttribute('title')
+  await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
+  const piTitleShown = await page
+    .locator('.palette__item[title="pi（選択範囲の後ろに挿入）"]')
+    .getAttribute('title')
   await page.getByRole('tab', { name: '基本' }).click()
   const sqrtTitleShown = await page
     .locator('.palette__item[title^="平方根（"]')
@@ -530,6 +532,59 @@ section('selection', '選択範囲の挿入（0009）', async () => {
   )
 
   await page.screenshot({ path: `${OUT}/wrap-selection.png` })
+})
+
+// ---- 0029: ギリシャ文字 ----
+
+section('greek', 'ギリシャ文字（0029）', async () => {
+  const items = page.locator('.palette__items .palette__item')
+
+  await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
+  const lowerCount = await items.count()
+  check('ギリシャ小文字タブに31個のボタンが出る', lowerCount === 31, `${lowerCount}個`)
+  const lowerHeight = await page.locator('.palette').evaluate((el) =>
+    Math.round(el.getBoundingClientRect().height),
+  )
+  console.log(`ギリシャ小文字タブのパレットの高さ: ${lowerHeight}px`)
+
+  // xi は変更前のパレットに無かった文字。これが入ることが0029の眼目。
+  // 数式の中にカーソルを置いてから押す。外に入れると文字として出るだけで、
+  // 「描画される」ことを確かめられない。
+  // 中身を `x` にしているのは、$ の直後・直前に空白があるとインライン数式として
+  // 扱われない仕様のため（`$5 と $6` を数式にしないための約束）。
+  await editor().fill('ギリシャ文字の検証 $x$')
+  await editor().evaluate((el) => {
+    el.focus()
+    // 開き $ の直後。挿入すると `$\xi x$` になる。
+    const at = el.value.indexOf('$') + 1
+    el.setSelectionRange(at, at)
+  })
+  await page.locator('.palette__item[title="xi（選択範囲の後ろに挿入）"]').click()
+  await page.waitForTimeout(400)
+  check(
+    'xi を押すと \\xi が入る',
+    (await editor().inputValue()).includes('$\\xi x$'),
+    JSON.stringify(await editor().inputValue()),
+  )
+  const renderedXi = await page.locator('.preview .katex').first().innerText()
+  check('挿入した xi がプレビューでξとして描画される', renderedXi.includes('ξ'), renderedXi)
+
+  await page.getByRole('tab', { name: 'ギリシャ大文字' }).click()
+  const upperCount = await items.count()
+  check('ギリシャ大文字タブに11個のボタンが出る', upperCount === 11, `${upperCount}個`)
+  const upperHeight = await page.locator('.palette').evaluate((el) =>
+    Math.round(el.getBoundingClientRect().height),
+  )
+  console.log(`ギリシャ大文字タブのパレットの高さ: ${upperHeight}px`)
+
+  check(
+    '挿入したギリシャ文字にKaTeXのエラーが出ない',
+    (await page.locator('.preview .katex-error').count()) === 0,
+  )
+
+  await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
+  await page.screenshot({ path: `${OUT}/greek.png` })
+  console.log(`スクリーンショット: ${OUT}/greek.png`)
 })
 
 // ---- 0018: 公式の挿入 ----
