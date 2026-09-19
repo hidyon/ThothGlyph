@@ -22,6 +22,7 @@ const OUT = process.env.VERIFY_OUT ?? 'tmp/screenshots'
 const JSON_OUT = process.env.VERIFY_JSON ?? 'tmp/verify-result.json'
 const STORAGE_KEY = 'matheditor:document:v1'
 const THEME_KEY = 'matheditor:theme:v1'
+const LANG_KEY = 'matheditor:lang:v1'
 
 // ---- 区分の宣言 ----
 // run は下で定義する。ここでは名前と表示名だけ先に並べ、実体を後から入れる。
@@ -688,6 +689,106 @@ section('formula', '公式の挿入（0018）', async () => {
   console.log(`スクリーンショット: ${OUT}/formula.png`)
 })
 
+// ---- 0031: 英語に対応する ----
+
+section('i18n', '英語対応（0031）', async () => {
+  const langButton = () => page.getByRole('button', { name: /言語|Language/ })
+  const htmlLang = () => page.evaluate(() => document.documentElement.lang)
+
+  check('初期表示は日本語（検証は ja を固定して流す）', (await langButton().innerText()).includes('日本語'))
+  check('日本語のとき html lang が ja', (await htmlLang()) === 'ja', await htmlLang())
+
+  // 言語を切り替えても、編集中の文書は変わらない。ここが崩れると書いたものが消える。
+  const typed = '\n\nlanguage switch test $E = mc^2$\n'
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await editor().pressSequentially(typed, { delay: 8 })
+  await saveSettled()
+  const before = await editor().inputValue()
+
+  await langButton().click()
+  check('押すと English になる', (await langButton().innerText()).includes('English'))
+  check('英語のとき html lang が en', (await htmlLang()) === 'en', await htmlLang())
+  check('言語を切り替えても編集中の文書が変わらない', (await editor().inputValue()) === before)
+
+  // ツールバー・ペインの見出し・パレットのタブが英語になる。
+  const texts = async () => ({
+    copy: await page.getByRole('button', { name: 'Copy Markdown' }).count(),
+    reset: await page.getByRole('button', { name: 'Reset to sample' }).count(),
+    theme: await page.getByRole('button', { name: /Theme/ }).count(),
+    headers: await page.locator('.pane__header').allInnerTexts(),
+    tabs: await page.locator('.palette__tabs').first().locator('.palette__tab').allInnerTexts(),
+  })
+  const en = await texts()
+  check('ツールバーのボタンが英語になる', en.copy === 1 && en.reset === 1 && en.theme === 1,
+    `copy=${en.copy} reset=${en.reset} theme=${en.theme}`)
+  check(
+    'ペインの見出しが Source / Preview になる',
+    en.headers[0].startsWith('Source') && en.headers[1].startsWith('Preview'),
+    en.headers.join(' / '),
+  )
+  check(
+    'パレットのタブが英語になる（Basic / Formulas）',
+    en.tabs[0] === 'Basic' && en.tabs.at(-1) === 'Formulas',
+    en.tabs.join(' / '),
+  )
+  check(
+    '記号のtooltipが英語の語順になる',
+    (await page.locator('.palette__item').first().getAttribute('title')) ===
+      'Fraction (wraps selection)',
+    await page.locator('.palette__item').first().getAttribute('title'),
+  )
+
+  // 公式の分類と公式名も英語になる。
+  await page.getByRole('tab', { name: 'Formulas' }).click()
+  const subTabs = await page.locator('.palette__tabs--sub .palette__tab').allInnerTexts()
+  check(
+    '公式の12分類が英語になる',
+    subTabs.length === 12 && subTabs.includes('Equations') && subTabs.includes('Vectors'),
+    subTabs.join(' / '),
+  )
+  await page.locator('.palette__tabs--sub').getByRole('tab', { name: 'Equations', exact: true }).click()
+  const firstFormula = page.locator('.palette__item--formula').first()
+  check(
+    '公式名が英語になる',
+    (await firstFormula.locator('.palette__formula-name').innerText()) === 'Quadratic formula',
+    await firstFormula.locator('.palette__formula-name').innerText(),
+  )
+
+  await page.screenshot({ path: `${OUT}/i18n-en.png` })
+
+  // 選んだ言語はリロードしても保たれる。
+  await page.reload({ waitUntil: 'networkidle' })
+  await appReady()
+  check('選んだ英語がリロード後も保たれる', (await langButton().innerText()).includes('English'))
+  check('リロード後も html lang が en', (await htmlLang()) === 'en', await htmlLang())
+  check('リロード後も編集中の文書が残る', (await editor().inputValue()) === before)
+
+  // もう一度押すと日本語に戻る（2状態の往復）。
+  await langButton().click()
+  check('もう一度押すと日本語に戻る', (await langButton().innerText()).includes('日本語'))
+  check('日本語に戻すと html lang も ja に戻る', (await htmlLang()) === 'ja', await htmlLang())
+  check(
+    'ペインの見出しが日本語に戻る',
+    (await page.locator('.pane__header').first().innerText()).startsWith('ソース'),
+    await page.locator('.pane__header').first().innerText(),
+  )
+
+  // 保存がない初回訪問では、ブラウザの言語に従ってサンプル文書が選ばれる。
+  await saveSettled()
+  await page.evaluate(() => window.localStorage.clear())
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  check(
+    '保存がないときは日本語のサンプル文書が出る（ja を固定しているため）',
+    (await editor().inputValue()).startsWith('# 二次方程式の解の公式'),
+    (await editor().inputValue()).slice(0, 20),
+  )
+
+  await page.screenshot({ path: `${OUT}/i18n-ja.png` })
+  console.log(`スクリーンショット: ${OUT}/i18n-en.png, ${OUT}/i18n-ja.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
@@ -707,6 +808,22 @@ context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   permissions: ['clipboard-read', 'clipboard-write'],
 })
+// 既存のチェックは日本語の文言で要素を探す。ヘッドレスChromiumの
+// navigator.language は英語なので、放っておくと英語で表示されて全部落ちる。
+// 保存がないときだけ日本語を置く（i18n区分が英語を保存したら、そちらを優先する）。
+await context.addInitScript(
+  ([key]) => {
+    try {
+      if (window.localStorage.getItem(key) === null) {
+        window.localStorage.setItem(key, JSON.stringify({ version: 1, lang: 'ja' }))
+      }
+    } catch {
+      // localStorageが読めない環境では何もしない。
+    }
+  },
+  [LANG_KEY],
+)
+
 page = await context.newPage()
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))

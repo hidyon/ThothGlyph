@@ -5,6 +5,10 @@
  * 文書が消える自動保存（documentStorage）とは代償の大きさが違う。
  */
 
+import type { Lang } from './i18n'
+import { pick } from './i18n'
+import { messages } from './messages'
+
 /**
  * キーは `matheditor:<名前>:v<版>`（documentStorage と揃える）。
  *
@@ -62,14 +66,14 @@ export function nextTheme(theme: Theme): Theme {
   return THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
 }
 
-/** 画面に出す名前。 */
-export function themeLabel(theme: Theme): string {
+/** 画面に出す名前。表示中の言語で返す。 */
+export function themeLabel(theme: Theme, lang: Lang): string {
   switch (theme) {
     case 'light':
-      return 'ライト'
+      return pick(messages.themeLight, lang)
     case 'dark':
-      return 'ダーク'
+      return pick(messages.themeDark, lang)
     case 'system':
-      return '自動'
+      return pick(messages.themeSystem, lang)
   }
 }
