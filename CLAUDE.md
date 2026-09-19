@@ -114,6 +114,9 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
   **必ず同じコミットでREADMEを更新する**。
 - 状態は `open` / `in-progress` / `closed` の3つだけ。
 - テンプレートは `docs/issues/TEMPLATE.md`。
+- **背景に現状を書くときは、推測で書かず実際にファイルや画面を見てから書く。**
+  背景はそのissueの出発点なので、ここが事実と違うと、上に積んだ仕様も
+  受け入れ基準も的を外す。
 
 思いつきや「あとで直す」は、その場で直さずissueにする。issueになっていない作業は
 存在しない作業として扱う。
