@@ -5,6 +5,10 @@ import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
 import { loadDocument, saveDocument } from './lib/documentStorage'
+import type { Lang } from './lib/i18n'
+import { pick } from './lib/i18n'
+import { loadLang, nextLang, saveLang } from './lib/langStorage'
+import { messages } from './lib/messages'
 import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import { insertSnippet } from './lib/insertSnippet'
@@ -17,8 +21,11 @@ const SAVE_DELAY_MS = 600
 export default function App() {
   // 遅延初期化でマウント時の1回だけ読む。再レンダリングで読み直さない。
   const [restored] = useState(loadDocument)
+  const [lang, setLang] = useState<Lang>(loadLang)
 
-  const [source, setSource] = useState(restored?.source ?? sampleDocument)
+  // 初回訪問のサンプルは、そのとき決まった言語のものを1度だけ選ぶ。以降は
+  // 言語を切り替えても差し替えない（利用者が書いたものを消さないため）。
+  const [source, setSource] = useState(restored?.source ?? sampleDocument(lang))
   const [saveState, setSaveState] = useState<SaveState>(
     restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
   )
@@ -43,6 +50,19 @@ export default function App() {
     if (theme === 'system') root.removeAttribute('data-theme')
     else root.dataset.theme = theme
   }, [theme])
+
+  // 表示中の言語を <html lang> に反映する。index.html のインラインスクリプトが
+  // 先に当てているので、ここで変わるのは切り替えたときだけ。
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
+
+  const handleToggleLang = () => {
+    const next = nextLang(lang)
+    setLang(next)
+    // 保存に失敗しても切り替え自体は効く。次回開いたときに戻るだけ。
+    saveLang(next)
+  }
 
   const handleToggleTheme = () => {
     const next = nextTheme(theme)
@@ -104,8 +124,8 @@ export default function App() {
   }
 
   const handleReset = () => {
-    if (!window.confirm('編集中の内容を破棄してサンプル文書に戻します。よろしいですか？')) return
-    setSource(sampleDocument)
+    if (!window.confirm(pick(messages.resetConfirm, lang))) return
+    setSource(sampleDocument(lang))
     textareaRef.current?.focus()
   }
 
@@ -117,11 +137,13 @@ export default function App() {
         onReset={handleReset}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        lang={lang}
+        onToggleLang={handleToggleLang}
       />
-      <SymbolPalette onInsert={handleInsert} />
+      <SymbolPalette onInsert={handleInsert} lang={lang} />
       <main className="panes">
-        <Editor value={source} onChange={setSource} textareaRef={textareaRef} />
-        <Preview html={html} stale={isPreviewStale} />
+        <Editor value={source} onChange={setSource} textareaRef={textareaRef} lang={lang} />
+        <Preview html={html} stale={isPreviewStale} lang={lang} />
       </main>
     </div>
   )

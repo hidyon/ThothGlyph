@@ -385,7 +385,7 @@ body {
 
 @media (max-width: 720px) {
   .toolbar {
-    padding: 8px 12px;
+    padding: 8px 10px;
   }
 
   .toolbar__title {
@@ -409,9 +409,14 @@ body {
     display: none;
   }
 
+  .toolbar__actions {
+    /* ボタンが4つ（言語・テーマ・サンプル・コピー）並ぶので、狭い画面では間隔を詰める。 */
+    gap: 8px;
+  }
+
   .toolbar__save {
     /* 狭い画面では長い文言がボタンを押し出す。1行に収めて省略する。 */
-    max-width: 96px;
+    max-width: 56px;
     overflow: hidden;
     font-size: 11px;
     white-space: nowrap;

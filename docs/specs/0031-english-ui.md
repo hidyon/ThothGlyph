@@ -1,7 +1,7 @@
 # 0031: 英語に対応する
 
 - 対応issue: [0031](../issues/0031-english-ui.md)
-- 状態: approved
+- 状態: 完了
 - 作成日: 2026-09-19
 
 ## 目的
@@ -135,35 +135,49 @@ wraps: (name: string) => t(`${name}（選択範囲を囲む）`, `${name} (wraps
 | `scripts/verify-ui.mjs` | `resetState` で `ja` を固定。`i18n` 区分を足す |
 | `docs/` の4文書 | 更新 |
 
-## 未確認の前提
+## 未確認の前提（実装後の結果）
 
-- **`navigator.language` をPlaywrightで変えられるか。** `newContext({ locale })` で
-  変わるはずだが確かめていない。変えられなければ `detectLang()` の検証は
-  単体テスト（jsdomで `navigator.language` を差し替える）だけにする。
+- **`navigator.language` をPlaywrightで変えられるか。** → 使わずに済んだ。
+  `addInitScript` で `localStorage` に言語を置くほうが、既存チェックの日本語固定と
+  同じ仕組みで済む。`detectLang()` 自体は単体テスト（`navigator` をスタブ）で確かめた。
 - `describeInsertion` を関数に変えると `palette.test.ts` の既存テストが壊れる。
-  直す前提だが、どこまで波及するかは見ていない。
+  → 壊れたのは3件で、引数に `lang` を足すだけで済んだ。英語の語順を確かめる
+  テストを1件足した。
 - **翻訳の質は保証しない。** 数学用語の英訳（`余弦定理` → `Law of cosines` など）は
   一般的な呼び方を使うが、専門家の校閲は受けない。受け入れ基準にも入れない。
 
+## 実装中に仕様から外れたこと
+
+- **ツールバーのCSSを触った。** 言語ボタンが1つ増えた結果、幅600px・日本語・
+  保存状態ありの組み合わせでツールバーが45px溢れ、既存チェック
+  「幅600pxでも横スクロールが出ない」が落ちた。狭い画面での要素の間隔（12→8px）、
+  保存表示の最大幅（96→56px）、ツールバーの左右余白（12→10px）を詰めて解消した
+  （余白19px）。仕様の対象ファイルに `src/index.css` は挙げていなかったが、
+  自分の変更が起こした回帰なので、受け入れ基準「既存59件が通ったまま」の範囲として直した。
+- **`themeStorage.themeLabel` に `lang` を足した。** 対象ファイルに挙げていなかったが、
+  `自動` / `ライト` / `ダーク` はツールバーに出る文言なので翻訳が要る。
+- **パレットのタブの選択状態を名前から添字に変えた。** 名前が `Text` になり、
+  言語を切り替えると一致しなくなるため。
+
 ## 受け入れ基準
 
-- [ ] [unit] `langStorage` が保存・復元でき、壊れた値・版違い・知らない値・未保存で
+- [x] [unit] `langStorage` が保存・復元でき、壊れた値・版違い・知らない値・未保存で
       `detectLang()` の結果に落ちる（`themeStorage.test.ts` と同じ網羅）
-- [ ] [unit] `detectLang()` が `navigator.language` = `ja-JP` で `'ja'`、
+- [x] [unit] `detectLang()` が `navigator.language` = `ja-JP` で `'ja'`、
       `en-US` で `'en'`、`fr-FR` で `'en'` を返す
-- [ ] [unit] `palette.ts` と `formulas.ts` の全件が `ja` と `en` の両方を持ち、
+- [x] [unit] `palette.ts` と `formulas.ts` の全件が `ja` と `en` の両方を持ち、
       どちらも空文字でない
-- [ ] [unit] `describeInsertion` が日本語で `平方根（選択範囲を囲む）`、
+- [x] [unit] `describeInsertion` が日本語で `平方根（選択範囲を囲む）`、
       英語で `Square root (wraps selection)` を返す
-- [ ] [UI] 言語ボタンを押すと `日本語 ⇄ English` と切り替わる
-- [ ] [UI] 英語にすると、ツールバー・ペインの見出し・パレットのタブが英語になる
+- [x] [UI] 言語ボタンを押すと `日本語 ⇄ English` と切り替わる
+- [x] [UI] 英語にすると、ツールバー・ペインの見出し・パレットのタブが英語になる
       （`Source` / `Preview` / `Copy Markdown` / `Basic` を確認する）
-- [ ] [UI] 英語にしてから公式タブを開くと、分類と公式名が英語になっている
-- [ ] [UI] 選んだ言語がリロード後も保たれる
-- [ ] [UI] 言語を切り替えても、**編集中の文書が変わらない**
-- [ ] [UI] 英語のとき `document.documentElement.lang` が `en`、日本語のとき `ja`
-- [ ] [UI] 既存59件の検証チェックが通ったままである
-- [ ] `npm run build` と `npm run lint` が通る
+- [x] [UI] 英語にしてから公式タブを開くと、分類と公式名が英語になっている
+- [x] [UI] 選んだ言語がリロード後も保たれる
+- [x] [UI] 言語を切り替えても、**編集中の文書が変わらない**
+- [x] [UI] 英語のとき `document.documentElement.lang` が `en`、日本語のとき `ja`
+- [x] [UI] 既存59件の検証チェックが通ったままである（`i18n` の18件を足して77/77件）
+- [x] `npm run build` と `npm run lint` が通る
 
 ## 検討したが採らなかった案
 

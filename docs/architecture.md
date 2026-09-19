@@ -46,6 +46,7 @@
 | `src/App.tsx` | 状態の集約。保存・挿入・復元の配線 |
 | `src/components/` | 描画と配線だけ。ロジックを持たない |
 | `src/lib/` | 純粋関数。テストはこの隣に置く |
+| `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
 | `docs/` | 要求・アーキテクチャ・機能・テストの4文書と、issue／issue仕様／振り返り |
 
@@ -114,7 +115,9 @@ KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの�
 
 ### 画面の状態
 
-`App.tsx` が持つのは `source` と保存状態（`saveState`）の2つ。
+`App.tsx` が持つのは `source`・保存状態（`saveState`）・テーマ（`theme`）・
+表示言語（`lang`）。テーマと言語は木の下まで props で配る（コンテキストを置くほどの
+深さでも件数でもない）。
 プレビューへ渡す値は `useDeferredValue(source)` を通す。入力（textareaの更新）を
 優先し、重い再描画をReactに後回しにさせるため。固定のデバウンス時間を置かないので、
 端末の速さに応じて待ち時間が決まる。
@@ -153,6 +156,34 @@ CSSの `prefers-color-scheme` に任せる。
 一瞬見えるため（本番ビルドで実測20ms）。テーマの扱いがReactの外にも出る
 唯一の箇所で、保存キーと値の形が `lib/themeStorage.ts` と重複している。
 片方を変えるときは両方直す。
+
+### 表示言語（`lib/i18n.ts` / `lib/langStorage.ts`）
+
+言語は `ja` / `en` の2状態。テーマの `system` にあたる「自動」を持たないのは、
+追従する相手（使用中に変わる設定）がないため。保存がないときの既定を
+`navigator.language` から決めるだけにしてある（`detectLang()`）。
+
+保存はlocalStorageに1件。キーは `matheditor:lang:v1`、値は
+`{ "version": 1, "lang": "ja" | "en" }`。読めない・知らない値なら `detectLang()` に落とす。
+
+**翻訳は元の文字列の隣に書く。** 辞書ファイルを別に持たない。
+
+```ts
+type Text = { ja: string; en: string }
+{ label: '\\sqrt{x}', snippet: …, title: t('平方根', 'Square root') }
+```
+
+記号や公式を1件足すときに触るファイルを1つに保つため（パレットはデータ駆動、
+という約束）。画面の枠の文言だけは `lib/messages.ts` にまとめてある。
+
+**語順が言語で変わる文は関数にする。** `平方根（選択範囲を囲む）` と
+`Square root (wraps selection)` は、名前と説明を連結しては作れない。
+`messages.wrapsSelection(name)` のように、文ごと2言語で書く。
+
+`<html lang>` は表示中の言語に合わせる。テーマと同じく `index.html` の
+インラインスクリプトで先に当て（Reactのマウントを待つと読み上げや翻訳判定が
+一瞬ずれる）、Reactからも更新する。ここも保存キーと既定の決め方が
+`lib/langStorage.ts` と重複している。片方を変えるときは両方直す。
 
 ### 保存のタイミング
 

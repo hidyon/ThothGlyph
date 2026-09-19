@@ -1,6 +1,7 @@
 // KaTeXでの描画を確かめるので、jsdomではなくnodeで足りる（katexは文字列を返す）。
 import katex from 'katex'
 import { describe, expect, it } from 'vitest'
+import { t } from './i18n'
 import {
   CURSOR_TOKEN,
   describeInsertion,
@@ -8,8 +9,9 @@ import {
   wrapsSelection,
 } from './palette'
 
+/** グループは日本語名で引く（テストの読みやすさを優先。英語名でも一意）。 */
 const groupNamed = (name: string) =>
-  paletteGroups.find((group) => group.name === name)
+  paletteGroups.find((group) => group.name.ja === name)
 
 describe('wrapsSelection', () => {
   it('CURSOR_TOKENを持つスニペットはtrue', () => {
@@ -22,20 +24,25 @@ describe('wrapsSelection', () => {
 })
 
 describe('describeInsertion', () => {
+  const pi = { label: '\\pi', snippet: '\\pi', title: t('円周率', 'Pi') }
+  const sqrt = {
+    label: '\\sqrt{x}',
+    snippet: `\\sqrt{${CURSOR_TOKEN}}`,
+    title: t('平方根', 'Square root'),
+  }
+
   it('単体記号には「選択範囲の後ろに挿入」を付ける', () => {
-    expect(describeInsertion({ label: '\\pi', snippet: '\\pi', title: '円周率' })).toBe(
-      '円周率（選択範囲の後ろに挿入）',
-    )
+    expect(describeInsertion(pi, 'ja')).toBe('円周率（選択範囲の後ろに挿入）')
   })
 
   it('囲める記号には「選択範囲を囲む」を付ける', () => {
-    expect(
-      describeInsertion({
-        label: '\\sqrt{x}',
-        snippet: `\\sqrt{${CURSOR_TOKEN}}`,
-        title: '平方根',
-      }),
-    ).toBe('平方根（選択範囲を囲む）')
+    expect(describeInsertion(sqrt, 'ja')).toBe('平方根（選択範囲を囲む）')
+  })
+
+  // 英語は語順も括弧も変わる。文字列の連結では作れないことを固定しておく。
+  it('英語では名前のあとに半角括弧で説明を置く', () => {
+    expect(describeInsertion(sqrt, 'en')).toBe('Square root (wraps selection)')
+    expect(describeInsertion(pi, 'en')).toBe('Pi (inserts after selection)')
   })
 
   it('パレットの全項目がどちらかの文言を持つ', () => {
@@ -43,7 +50,8 @@ describe('describeInsertion', () => {
 
     expect(items.length).toBeGreaterThan(0)
     for (const item of items) {
-      expect(describeInsertion(item)).toMatch(/（選択範囲(を囲む|の後ろに挿入)）$/)
+      expect(describeInsertion(item, 'ja')).toMatch(/（選択範囲(を囲む|の後ろに挿入)）$/)
+      expect(describeInsertion(item, 'en')).toMatch(/ \((wraps|inserts after) selection\)$/)
     }
   })
 })
@@ -76,18 +84,18 @@ describe('パレット全件のLaTeX', () => {
   // labelだけは全件がLaTeX（ボタンに描画するため）。
   const items = paletteGroups.flatMap((group) => group.items)
   const mathItems = paletteGroups
-    .filter((group) => group.name !== 'Markdown')
+    .filter((group) => group.name.ja !== 'Markdown')
     .flatMap((group) => group.items)
   // 目で見ても正しさが分からないので、全件をKaTeXに通して確かめる。
   const renders = (latex: string) => {
     katex.renderToString(latex, { throwOnError: true })
   }
 
-  it.each(items)('$title の label が描画できる', ({ label }) => {
+  it.each(items)('$title.ja の label が描画できる', ({ label }) => {
     expect(() => renders(label)).not.toThrow()
   })
 
-  it.each(mathItems)('$title の snippet が描画できる', ({ snippet }) => {
+  it.each(mathItems)('$title.ja の snippet が描画できる', ({ snippet }) => {
     expect(() => renders(snippet.replaceAll(CURSOR_TOKEN, ''))).not.toThrow()
   })
 })

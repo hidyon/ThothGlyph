@@ -1,14 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html>
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>matheditor</title>
     <!--
-      本体の読み込み前にテーマを適用する。Reactのマウントを待つと、
+      本体の読み込み前にテーマと表示言語を適用する。Reactのマウントを待つと、
       OSがライトで手動ダークを選んでいる場合に白が一瞬見える（実測20ms）。
-      キー名と値の形は src/lib/themeStorage.ts と合わせること。
+      <html lang> も同じ理由でここで当てる。Reactのマウントを待つと、読み上げや
+      翻訳判定が一瞬だけ違う言語になる。<html> に lang を書き置かないのは、
+      中身と食い違う宣言（英語と書いて中身は日本語）を残さないため。
+
+      キー名と値の形は src/lib/themeStorage.ts / src/lib/langStorage.ts と
+      合わせること。
     -->
     <script>
       try {
@@ -18,6 +23,20 @@
         }
       } catch {
         // プライベートウィンドウなどでlocalStorageが読めない。OSの設定に任せる。
+      }
+
+      try {
+        const saved = JSON.parse(localStorage.getItem('matheditor:lang:v1') || 'null')
+        const lang =
+          saved?.lang === 'ja' || saved?.lang === 'en'
+            ? saved.lang
+            : // 保存がないときの既定。langStorage.detectLang() と同じ判定。
+              (navigator.language || '').toLowerCase().startsWith('ja')
+              ? 'ja'
+              : 'en'
+        document.documentElement.lang = lang
+      } catch {
+        document.documentElement.lang = 'en'
       }
     </script>
   </head>

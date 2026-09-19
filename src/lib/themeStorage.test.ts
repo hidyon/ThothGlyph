@@ -69,8 +69,14 @@ describe('nextTheme', () => {
 
 describe('themeLabel', () => {
   it('画面に出す名前を返す', () => {
-    expect(themeLabel('system')).toBe('自動')
-    expect(themeLabel('light')).toBe('ライト')
-    expect(themeLabel('dark')).toBe('ダーク')
+    expect(themeLabel('system', 'ja')).toBe('自動')
+    expect(themeLabel('light', 'ja')).toBe('ライト')
+    expect(themeLabel('dark', 'ja')).toBe('ダーク')
+  })
+
+  it('英語でも返す', () => {
+    expect(themeLabel('system', 'en')).toBe('Auto')
+    expect(themeLabel('light', 'en')).toBe('Light')
+    expect(themeLabel('dark', 'en')).toBe('Dark')
   })
 })
