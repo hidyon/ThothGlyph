@@ -5,16 +5,21 @@
  *   node scripts/verify-ui.mjs               # 全区分
  *   node scripts/verify-ui.mjs theme         # テーマだけ
  *   node scripts/verify-ui.mjs theme perf    # 複数指定
+ *   node scripts/verify-ui.mjs --repeat 5 perf   # 5回流して揺れを見る
+ *
+ * 落ちたチェックは末尾にまとめて再掲し、結果を tmp/verify-result.json にも書く
+ * （出力を切ってしまっても後から読める）。
  *
  * executablePath を指定していないのは、PLAYWRIGHT_BROWSERS_PATH から
  * playwright-core が自力でChromiumを見つけるため。ホスト固有のパスを
  * スクリプトに書かないことが devcontainer 化の目的のひとつ。
  */
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
 
 const URL = process.env.VERIFY_URL ?? 'http://localhost:5173'
 const OUT = process.env.VERIFY_OUT ?? 'tmp/screenshots'
+const JSON_OUT = process.env.VERIFY_JSON ?? 'tmp/verify-result.json'
 const STORAGE_KEY = 'matheditor:document:v1'
 const THEME_KEY = 'matheditor:theme:v1'
 
@@ -28,7 +33,21 @@ const section = (name, title, run) => sections.push({ name, title, run })
 
 // ---- 実行対象の決定（ブラウザを起動する前に済ませる） ----
 
-const requested = process.argv.slice(2)
+const argv = process.argv.slice(2)
+let repeat = 1
+const requested = []
+for (let i = 0; i < argv.length; i += 1) {
+  if (argv[i] === '--repeat') {
+    repeat = Number(argv[i + 1])
+    i += 1
+    continue
+  }
+  requested.push(argv[i])
+}
+if (!Number.isInteger(repeat) || repeat < 1) {
+  console.error('--repeat には1以上の整数を渡すこと')
+  process.exit(1)
+}
 
 // ---- 状態 ----
 
@@ -36,12 +55,30 @@ let page
 let browser
 let context
 const errors = []
-const results = []
+let results = []
 let currentSection = null
+let lastCheckAt = Date.now()
 
-const check = (label, ok, detail = '') => {
-  results.push({ section: currentSection, label, ok, detail })
-  console.log(`${ok ? 'OK  ' : 'NG  '} ${label}${detail ? ` — ${detail}` : ''}`)
+/**
+ * 1項目1チェック。
+ *
+ * timing を付けるのは、負荷や待ち時間に結果が左右されうるチェック。
+ * 「落ちてもよい」という意味ではなく、**落ちたときに疑う順番**を示す印。
+ * 判定そのもの（閾値も待ち方も）は印の有無で変わらない。
+ */
+const check = (label, ok, detail = '', { timing = false } = {}) => {
+  const now = Date.now()
+  results.push({
+    section: currentSection,
+    label,
+    ok,
+    detail,
+    timing,
+    // 直前のチェックからの経過。どこで時間を使っているかの手がかりにする。
+    durationMs: now - lastCheckAt,
+  })
+  lastCheckAt = now
+  console.log(`${ok ? 'OK  ' : 'NG  '} ${timing ? '⏱ ' : ''}${label}${detail ? ` — ${detail}` : ''}`)
 }
 
 // ---- 共通のヘルパ ----
@@ -135,7 +172,9 @@ section('autosave', '自動保存（0001）', async () => {
   await editor().click()
   await page.keyboard.press('Control+End')
   await editor().pressSequentially(typed, { delay: 8 })
-  check('入力直後は保存中と出る', (await saveStatus()) === '保存中…', await saveStatus())
+  check('入力直後は保存中と出る', (await saveStatus()) === '保存中…', await saveStatus(), {
+    timing: true,
+  })
 
   await page.waitForFunction(
     () => document.querySelector('.toolbar__save')?.textContent?.startsWith('保存しました'),
@@ -167,7 +206,9 @@ section('autosave', '自動保存（0001）', async () => {
   await page.keyboard.press('Control+End')
   await editor().pressSequentially('\n即リロードの行\n', { delay: 0 })
   const beforeQuickReload = await editor().inputValue()
-  check('即リロード前は未保存（保存中）', (await saveStatus()) === '保存中…', await saveStatus())
+  check('即リロード前は未保存（保存中）', (await saveStatus()) === '保存中…', await saveStatus(), {
+    timing: true,
+  })
   await page.reload({ waitUntil: 'networkidle' })
   await ready()
   check(
@@ -287,7 +328,9 @@ section('perf', '性能（0007）', async () => {
   const typeStart = Date.now()
   await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
   const perKey = (Date.now() - typeStart) / TYPED
-  check(`長文での入力反映が1文字あたり50ms以内`, perKey <= 50, `${perKey.toFixed(1)}ms/文字`)
+  check(`長文での入力反映が1文字あたり50ms以内`, perKey <= 50, `${perKey.toFixed(1)}ms/文字`, {
+    timing: true,
+  })
 
   check('追いついていない間は更新中と出る', (await page.locator('.pane__note').count()) === 1)
 
@@ -296,7 +339,9 @@ section('perf', '性能（0007）', async () => {
     timeout: 10000,
   })
   const catchUp = Date.now() - catchUpStart
-  check('入力を止めてから1.5秒以内にプレビューが追いつく', catchUp <= 1500, `${catchUp}ms`)
+  check('入力を止めてから1.5秒以内にプレビューが追いつく', catchUp <= 1500, `${catchUp}ms`, {
+    timing: true,
+  })
   check(
     '長文の数式が最後まで描画されている',
     (await page.locator('.preview .katex').count()) === 400,
@@ -306,7 +351,9 @@ section('perf', '性能（0007）', async () => {
   // 短い文書では更新中が目に見えて残らない。
   await editor().fill('短い文書 $x^2$')
   await page.waitForTimeout(300)
-  check('短い文書では更新中が残らない', (await page.locator('.pane__note').count()) === 0)
+  check('短い文書では更新中が残らない', (await page.locator('.pane__note').count()) === 0, '', {
+    timing: true,
+  })
 })
 
 // ---- 0002: ダークモード ----
@@ -390,6 +437,7 @@ section('theme', 'テーマ（0002）', async () => {
     '初期表示でライトの背景が現れない（ちらつきなし）',
     !flash.includes('rgb(255, 255, 255)'),
     [...new Set(flash)].join(' / '),
+    { timing: true },
   )
 
   // OSがライトで手動ダークを選んでいる場合は、メディアクエリでは救えない。
@@ -508,22 +556,87 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 
 const startedAt = Date.now()
-for (const s of selected) {
-  currentSection = s.name
-  console.log(`\n== ${s.title} ==`)
-  // 区分をどれから流しても同じ結果になるよう、毎回ここで初期状態に戻す。
-  await resetState()
-  await s.run()
+const runs = []
+for (let round = 0; round < repeat; round += 1) {
+  if (repeat > 1) console.log(`\n######## ${round + 1}回目 / ${repeat} ########`)
+  results = []
+  lastCheckAt = Date.now()
+  for (const s of selected) {
+    currentSection = s.name
+    console.log(`\n== ${s.title} ==`)
+    // 区分をどれから流しても同じ結果になるよう、毎回ここで初期状態に戻す。
+    await resetState()
+    await s.run()
+  }
+  currentSection = null
+  runs.push(results)
 }
-currentSection = null
 
 // ---- まとめ ----
 
+const last = runs[runs.length - 1]
+const failed = last.filter((r) => !r.ok)
+
 console.log('\nコンソールエラー:', errors.length ? errors : 'なし')
 
-const failed = results.filter((r) => !r.ok)
-console.log(`受け入れ基準: ${results.length - failed.length}/${results.length} 件 OK`)
+// 落ちたチェックは末尾に再掲する。スクロールで流れても、ここだけ見れば分かる。
+if (failed.length > 0) {
+  console.log(`\n-- 落ちたチェック（${failed.length}件） --`)
+  for (const r of failed) {
+    console.log(`NG  [${r.section}] ${r.timing ? '⏱ ' : ''}${r.label}${r.detail ? ` — ${r.detail}` : ''}`)
+  }
+}
+
+// 繰り返したときは、回ごとに結果が割れたチェックだけを目立たせる。
+const flaky = []
+if (repeat > 1) {
+  for (const [i, r] of last.entries()) {
+    const oks = runs.filter((run) => run[i]?.ok).length
+    if (oks !== repeat) {
+      const ngDetails = runs
+        .map((run) => run[i])
+        .filter((c) => c && !c.ok)
+        .map((c) => c.detail)
+        .filter(Boolean)
+      flaky.push({ section: r.section, label: r.label, timing: r.timing, oks, ngDetails })
+    }
+  }
+  console.log(`\n-- 揺れたチェック（--repeat ${repeat}） --`)
+  if (flaky.length === 0) {
+    console.log(`なし。${last.length}件とも${repeat}回同じ結果`)
+  } else {
+    for (const f of flaky) {
+      const why = f.ngDetails.length ? `（${[...new Set(f.ngDetails)].join(', ')} でNG）` : ''
+      console.log(`[${f.section}] ${f.timing ? '⏱ ' : ''}${f.label} — ${repeat}回中${f.oks}回OK${why}`)
+    }
+    console.log(`ほか${last.length - flaky.length}件は${repeat}回とも同じ結果`)
+  }
+}
+
+console.log(`\n受け入れ基準: ${last.length - failed.length}/${last.length} 件 OK`)
 console.log(`所要時間: ${((Date.now() - startedAt) / 1000).toFixed(1)}秒`)
 
+// 出力を切ってしまっても後から読めるよう、結果をファイルにも残す。
+const anyFailure = runs.some((run) => run.some((r) => !r.ok))
+await writeFile(
+  JSON_OUT,
+  `${JSON.stringify(
+    {
+      startedAt: new Date(startedAt).toISOString(),
+      durationMs: Date.now() - startedAt,
+      sections: selected.map((s) => s.name),
+      repeat,
+      total: last.length,
+      passed: last.length - failed.length,
+      consoleErrors: errors,
+      flaky,
+      checks: last,
+    },
+    null,
+    2,
+  )}\n`,
+)
+console.log(`結果: ${JSON_OUT}`)
+
 await browser.close()
-if (errors.length > 0 || failed.length > 0) process.exit(1)
+if (errors.length > 0 || anyFailure) process.exit(1)
