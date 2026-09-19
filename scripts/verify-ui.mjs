@@ -532,6 +532,63 @@ section('selection', '選択範囲の挿入（0009）', async () => {
   await page.screenshot({ path: `${OUT}/wrap-selection.png` })
 })
 
+// ---- 0018: 公式の挿入 ----
+
+section('formula', '公式の挿入（0018）', async () => {
+  const beforeMath = await page.locator('.preview .katex-display').count()
+
+  await page.getByRole('tab', { name: '公式' }).click()
+  const subTabs = await page.locator('.palette__tabs--sub .palette__tab').allInnerTexts()
+  check(
+    '公式タブを押すと6分類の2段目タブが出る',
+    subTabs.length === 6 && subTabs.includes('方程式'),
+    subTabs.join(' / '),
+  )
+
+  await page.locator('.palette__tabs--sub .palette__tab', { hasText: '方程式' }).click()
+  const buttons = page.locator('.palette__item--formula')
+  check('方程式の分類に5件のボタンが出る', (await buttons.count()) === 5, `${await buttons.count()}件`)
+
+  const first = buttons.first()
+  check(
+    '公式のボタンが名前と描画された式の両方を持つ',
+    (await first.locator('.palette__formula-name').innerText()) === '解の公式' &&
+      (await first.locator('.palette__formula-preview .katex').count()) > 0,
+    await first.locator('.palette__formula-name').innerText(),
+  )
+  check(
+    '公式のtooltipが挿入の挙動を伝える',
+    (await first.getAttribute('title')) === '解の公式（選択範囲を囲む）',
+    await first.getAttribute('title'),
+  )
+
+  // 文末にカーソルを置いてから挿入する。
+  await editor().evaluate((el) => {
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  })
+  await first.click()
+  await page.waitForTimeout(400)
+
+  check(
+    '公式を押すと $$ で囲まれた式が入る',
+    (await editor().inputValue()).includes('$$\nx = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n$$'),
+    JSON.stringify((await editor().inputValue()).slice(-60)),
+  )
+  check(
+    'プレビューのブロック数式が1つ増える',
+    (await page.locator('.preview .katex-display').count()) === beforeMath + 1,
+    `${beforeMath} → ${await page.locator('.preview .katex-display').count()}`,
+  )
+  check(
+    '挿入した公式にKaTeXのエラーが出ない',
+    (await page.locator('.preview .katex-error').count()) === 0,
+  )
+
+  await page.screenshot({ path: `${OUT}/formula.png` })
+  console.log(`スクリーンショット: ${OUT}/formula.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
