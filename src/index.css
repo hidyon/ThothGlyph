@@ -103,6 +103,18 @@ body {
   letter-spacing: 0.01em;
 }
 
+.toolbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toolbar__mark {
+  display: block;
+  flex-shrink: 0;
+}
+
 .toolbar__actions {
   display: flex;
   align-items: center;
@@ -389,7 +401,17 @@ body {
   }
 
   .toolbar__title {
-    font-size: 15px;
+    /*
+      狭い画面ではアイコンが名前の代わりになる。幅600pxの余白は19pxしかなく
+      （0031で言語ボタンを足したときの実測）、記号を足すと文字までは入らない。
+      display:none ではなく視覚的にだけ隠し、読み上げには残す。
+    */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .toolbar__status {

@@ -927,8 +927,41 @@ section('icon', 'アイコン（0019）', async () => {
     `alpha ${corners.join(',')}`,
   )
 
+  // ツールバーにも同じ記号を出している（開いている本人から見える場所）。
+  const mark = page.locator('.toolbar__mark')
+  check('ツールバーにアイコンが出る', (await mark.count()) === 1)
+  check(
+    'ツールバーのアイコンが favicon.svg を参照している（パスを書き写していない）',
+    (await mark.getAttribute('src')) === '/favicon.svg',
+    await mark.getAttribute('src'),
+  )
+  const markBox = await mark.boundingBox()
+  check(
+    'ツールバーのアイコンが20pxで描かれている',
+    Math.round(markBox.width) === 20 && Math.round(markBox.height) === 20,
+    `${Math.round(markBox.width)}x${Math.round(markBox.height)}`,
+  )
+
+  // 幅600pxでは文字を隠して記号だけにする。0031で足した言語ボタンで
+  // 余白が19pxまで減っており、記号を足すと文字までは入らない。
+  await page.setViewportSize({ width: 600, height: 900 })
+  await page.waitForTimeout(200)
+  const narrowTitle = await page.locator('.toolbar__title').boundingBox()
+  check(
+    '幅600pxでは名前の文字が隠れ、記号だけが残る',
+    (await mark.isVisible()) && narrowTitle.width <= 1,
+    `記号 ${(await mark.boundingBox()).width}px / 文字 ${narrowTitle.width}px`,
+  )
+  check(
+    '幅600pxでツールバーが横スクロールを出さない',
+    !(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)),
+    await page.evaluate(() => `${document.documentElement.scrollWidth} / ${window.innerWidth}`),
+  )
+  await page.screenshot({ path: `${OUT}/icon-narrow.png` })
+  await page.setViewportSize({ width: 1440, height: 900 })
+
   await page.screenshot({ path: `${OUT}/icon.png` })
-  console.log(`スクリーンショット: ${OUT}/icon.png`)
+  console.log(`スクリーンショット: ${OUT}/icon.png, ${OUT}/icon-narrow.png`)
 })
 
 // ---- 実行 ----
