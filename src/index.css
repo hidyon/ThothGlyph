@@ -65,6 +65,17 @@ body,
   color: var(--text-muted);
 }
 
+.toolbar__save {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar__save--failed {
+  color: #b42318;
+  font-weight: 600;
+}
+
 .button {
   padding: 7px 14px;
   font: inherit;
@@ -78,6 +89,18 @@ body,
 
 .button:hover {
   filter: brightness(1.08);
+}
+
+/* 主操作（コピー）から視線を奪わないよう、破壊的な操作は控えめに見せる。 */
+.button--quiet {
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.button--quiet:hover {
+  filter: none;
+  background: var(--bg-muted);
 }
 
 /* ---- 記号パレット ---- */
@@ -291,6 +314,15 @@ body,
 
   .toolbar__status:empty {
     display: none;
+  }
+
+  .toolbar__save {
+    /* 狭い画面では長い文言がボタンを押し出す。1行に収めて省略する。 */
+    max-width: 96px;
+    overflow: hidden;
+    font-size: 11px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .button {
