@@ -24,7 +24,7 @@
 | [0014](0014-unit-tests.md) | 単体テストの土台を入れる | closed | [仕様](../specs/0014-unit-tests.md) |
 | [0015](0015-error-list.md) | 数式エラーの一覧 | open | — |
 | [0016](0016-product-docs.md) | プロダクト全体の仕様文書を書く | closed | [仕様](../specs/0016-product-docs.md) |
-| [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | open | — |
+| [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | closed | [仕様](../specs/0017-verify-script-structure.md) |
 | [0018](0018-formula-library.md) | 有名な公式を選んで挿入する | open | — |
 | [0019](0019-app-icon.md) | アプリのアイコン | open | — |
 | [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | open | — |
@@ -35,6 +35,7 @@
 | [0025](0025-ci.md) | CIがない | open | — |
 | [0026](0026-typescript-strict.md) | TypeScriptがstrictでない | closed | [仕様](../specs/0026-typescript-strict.md) |
 | [0027](0027-verify-flaky.md) | 検証スクリプトの結果が再現しないことがある | open | — |
+| [0028](0028-initial-section-checks.md) | 初期表示の区分にチェックが1件もない | open | — |
 
 ## 着手順の目安
 
