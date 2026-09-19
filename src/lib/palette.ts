@@ -146,3 +146,25 @@ export const paletteGroups: PaletteGroup[] = [
     ],
   },
 ]
+
+/**
+ * このスニペットが選択範囲を囲むか。
+ *
+ * CURSOR_TOKEN の有無がそのまま「囲めるかどうか」なので、62件のitemに
+ * 手で印を付けずに導出する（記号の追加を1行で済ませる約束を崩さないため）。
+ */
+export function wrapsSelection(snippet: string): boolean {
+  return snippet.includes(CURSOR_TOKEN)
+}
+
+/**
+ * ボタンのtooltipに出す文言。選択範囲があるときに何が起きるかを、
+ * 押す前に読めるようにする。
+ */
+export function describeInsertion(item: PaletteItem): string {
+  const behavior = wrapsSelection(item.snippet)
+    ? '選択範囲を囲む'
+    : '選択範囲の後ろに挿入'
+
+  return `${item.title}（${behavior}）`
+}
