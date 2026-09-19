@@ -37,8 +37,9 @@
 | [0027](0027-verify-flaky.md) | 検証スクリプトの結果が再現しないことがある | closed | [仕様](../specs/0027-verify-flaky.md) |
 | [0028](0028-initial-section-checks.md) | 初期表示の区分にチェックが1件もない | open | — |
 | [0029](0029-greek-complete.md) | ギリシャ文字をすべてパレットから入力できるようにする | closed | [仕様](../specs/0029-greek-complete.md) |
-| [0030](0030-formula-library-more.md) | 公式をさらに30件追加する | open | — |
+| [0030](0030-formula-library-more.md) | 公式をさらに30件追加する | closed | [仕様](../specs/0030-formula-library-more.md) |
 | [0031](0031-english-ui.md) | 英語に対応する | open | — |
+| [0032](0032-palette-height-narrow.md) | 狭い画面でパレットが画面の3割を占める | open | — |
 
 ## 着手順の目安
 

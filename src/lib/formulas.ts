@@ -103,6 +103,66 @@ export const formulaGroups: FormulaGroup[] = [
       formula('定積分と面積', 'S = \\int_a^b f(x) \\, dx'),
     ],
   },
+  {
+    name: 'ベクトル',
+    formulas: [
+      formula('内積', '\\vec{a} \\cdot \\vec{b} = |\\vec{a}||\\vec{b}| \\cos\\theta'),
+      formula('なす角', '\\cos\\theta = \\frac{\\vec{a} \\cdot \\vec{b}}{|\\vec{a}||\\vec{b}|}'),
+      formula('大きさ（成分）', '|\\vec{a}| = \\sqrt{a_1^2 + a_2^2}'),
+      formula('平行条件', '\\vec{b} = k\\vec{a} \\quad (k \\neq 0)'),
+      formula('内分点', '\\vec{p} = \\frac{n\\vec{a} + m\\vec{b}}{m + n}'),
+    ],
+  },
+  {
+    name: '図形と方程式',
+    formulas: [
+      formula('2点間の距離', 'd = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}'),
+      formula('点と直線の距離', 'd = \\frac{|ax_0 + by_0 + c|}{\\sqrt{a^2 + b^2}}'),
+      formula('円の方程式', '(x - a)^2 + (y - b)^2 = r^2'),
+      formula('直線の方程式', 'y - y_1 = m(x - x_1)'),
+      formula('円の接線', 'x_1 x + y_1 y = r^2'),
+    ],
+  },
+  {
+    name: '確率・統計',
+    formulas: [
+      formula('順列', '{}_n P_r = \\frac{n!}{(n - r)!}'),
+      formula('組合せ', '{}_n C_r = \\frac{n!}{r!(n - r)!}'),
+      formula('余事象', 'P(\\overline{A}) = 1 - P(A)'),
+      formula('条件付き確率', 'P_A(B) = \\frac{P(A \\cap B)}{P(A)}'),
+      formula('期待値', 'E(X) = \\sum_{k=1}^{n} x_k p_k'),
+    ],
+  },
+  {
+    name: '複素数',
+    formulas: [
+      formula('絶対値', '|z| = \\sqrt{a^2 + b^2}'),
+      formula('共役との積', 'z\\bar{z} = |z|^2'),
+      formula('極形式', 'z = r(\\cos\\theta + i\\sin\\theta)'),
+      formula('ド・モアブルの定理', '(\\cos\\theta + i\\sin\\theta)^n = \\cos n\\theta + i\\sin n\\theta'),
+      formula('和の共役', '\\overline{z + w} = \\bar{z} + \\bar{w}'),
+    ],
+  },
+  {
+    name: '微分・積分（応用）',
+    formulas: [
+      formula('商の微分', "\\left(\\frac{f}{g}\\right)' = \\frac{f'g - fg'}{g^2}"),
+      formula('合成関数の微分', '\\frac{dy}{dx} = \\frac{dy}{du} \\cdot \\frac{du}{dx}'),
+      formula('部分積分', "\\int f g' \\, dx = fg - \\int f' g \\, dx"),
+      formula('置換積分', "\\int f(g(x)) g'(x) \\, dx = \\int f(u) \\, du"),
+      formula('回転体の体積', 'V = \\pi \\int_a^b \\{f(x)\\}^2 \\, dx'),
+    ],
+  },
+  {
+    name: '極限・不等式',
+    formulas: [
+      formula('sin x / x の極限', '\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1'),
+      formula('e の定義', 'e = \\lim_{n \\to \\infty} \\left(1 + \\frac{1}{n}\\right)^n'),
+      formula('二項定理', '(a + b)^n = \\sum_{k=0}^{n} {}_n C_k a^{n-k} b^k'),
+      formula('相加相乗平均', '\\frac{a + b}{2} \\geq \\sqrt{ab}'),
+      formula('三角不等式', '|a + b| \\leq |a| + |b|'),
+    ],
+  },
 ]
 
 /** 全グループを平らにした一覧。テストと検索で使う。 */

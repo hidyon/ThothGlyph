@@ -595,12 +595,15 @@ section('formula', '公式の挿入（0018）', async () => {
   await page.getByRole('tab', { name: '公式' }).click()
   const subTabs = await page.locator('.palette__tabs--sub .palette__tab').allInnerTexts()
   check(
-    '公式タブを押すと6分類の2段目タブが出る',
-    subTabs.length === 6 && subTabs.includes('方程式'),
+    '公式タブを押すと12分類の2段目タブが出る',
+    subTabs.length === 12 && subTabs.includes('方程式') && subTabs.includes('ベクトル'),
     subTabs.join(' / '),
   )
 
-  await page.locator('.palette__tabs--sub .palette__tab', { hasText: '方程式' }).click()
+  // hasText は部分一致で「図形と方程式」にも当たるので、完全一致で選ぶ。
+  const subTab = (name) =>
+    page.locator('.palette__tabs--sub').getByRole('tab', { name, exact: true })
+  await subTab('方程式').click()
   const buttons = page.locator('.palette__item--formula')
   check('方程式の分類に5件のボタンが出る', (await buttons.count()) === 5, `${await buttons.count()}件`)
 
@@ -639,6 +642,47 @@ section('formula', '公式の挿入（0018）', async () => {
     '挿入した公式にKaTeXのエラーが出ない',
     (await page.locator('.preview .katex-error').count()) === 0,
   )
+
+  // 0030で足した分類も同じように使えるか。
+  await subTab('ベクトル').click()
+  const vectors = page.locator('.palette__item--formula')
+  check('ベクトルの分類に5件のボタンが出る', (await vectors.count()) === 5, `${await vectors.count()}件`)
+
+  const beforeVector = await page.locator('.preview .katex-display').count()
+  await editor().evaluate((el) => {
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  })
+  await vectors.first().click()
+  await page.waitForTimeout(400)
+  check(
+    '内積を押すと $$ で囲まれた式が入る',
+    (await editor().inputValue()).includes('\\vec{a} \\cdot \\vec{b}'),
+    JSON.stringify((await editor().inputValue()).slice(-60)),
+  )
+  check(
+    '足した分類の公式もブロック数式として描画される',
+    (await page.locator('.preview .katex-display').count()) === beforeVector + 1 &&
+      (await page.locator('.preview .katex-error').count()) === 0,
+    `${beforeVector} → ${await page.locator('.preview .katex-display').count()}`,
+  )
+
+  // 幅600pxで2段目のタブが何行になるか。12分類に増えた影響を測る。
+  await page.setViewportSize({ width: 600, height: 900 })
+  await page.waitForTimeout(200)
+  const subTabRows = await page
+    .locator('.palette__tabs--sub .palette__tab')
+    .evaluateAll((els) => [...new Set(els.map((e) => Math.round(e.getBoundingClientRect().top)))].length)
+  const paletteHeight = await page
+    .locator('.palette')
+    .evaluate((el) => Math.round(el.getBoundingClientRect().height))
+  console.log(`幅600px: 2段目タブ ${subTabRows}行 / パレットの高さ ${paletteHeight}px`)
+  check(
+    '幅600pxでも横スクロールが出ない',
+    !(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)),
+  )
+  await page.screenshot({ path: `${OUT}/formula-narrow.png` })
+  await page.setViewportSize({ width: 1440, height: 900 })
 
   await page.screenshot({ path: `${OUT}/formula.png` })
   console.log(`スクリーンショット: ${OUT}/formula.png`)
