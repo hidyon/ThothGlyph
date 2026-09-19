@@ -133,6 +133,21 @@ localStorageに1件だけ持つ。
   読み書きはすべて `try/catch` で囲み、**例外を呼び出し側に出さない**。
   `saveDocument` は成否を `boolean` で返す。
 
+### テーマの保存
+
+同じくlocalStorageに1件。キーは `matheditor:theme:v1`、値は
+`{ "version": 1, "theme": "system" | "light" | "dark" }`。
+読めない・知らない値なら `system`（OS追従）に落とす。
+
+テーマは `<html>` の `data-theme` 属性で当てる。`system` のときは属性を外し、
+CSSの `prefers-color-scheme` に任せる。
+
+**`index.html` にインラインスクリプトが1つある。** 本体の読み込み前に
+`data-theme` を当てないと、OSがライトで手動ダークを選んでいる場合に白が
+一瞬見えるため（本番ビルドで実測20ms）。テーマの扱いがReactの外にも出る
+唯一の箇所で、保存キーと値の形が `lib/themeStorage.ts` と重複している。
+片方を変えるときは両方直す。
+
 ### 保存のタイミング
 
 - `source` が変わってから600ms入力が止まったら保存する（localStorageは同期APIなので

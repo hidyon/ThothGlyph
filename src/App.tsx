@@ -5,6 +5,8 @@ import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
 import { loadDocument, saveDocument } from './lib/documentStorage'
+import type { Theme } from './lib/themeStorage'
+import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import { insertSnippet } from './lib/insertSnippet'
 import { renderMarkdown } from './lib/renderMarkdown'
 import { sampleDocument } from './sampleDocument'
@@ -20,6 +22,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>(
     restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
   )
+  const [theme, setTheme] = useState<Theme>(loadTheme)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // まだ保存していない内容。beforeunloadからも読むのでstateではなくrefに置く。
@@ -34,6 +37,20 @@ export default function App() {
   // Reactが後回しにする。固定のデバウンス時間を置かないので、端末の速さに
   // 合わせて待ち時間が決まる。
   const deferredSource = useDeferredValue(source)
+  // 'system' のときは属性を外し、prefers-color-scheme に任せる。
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'system') root.removeAttribute('data-theme')
+    else root.dataset.theme = theme
+  }, [theme])
+
+  const handleToggleTheme = () => {
+    const next = nextTheme(theme)
+    setTheme(next)
+    // 保存に失敗しても切り替え自体は効く。次回開いたときに戻るだけ。
+    saveTheme(next)
+  }
+
   const html = useMemo(() => renderMarkdown(deferredSource), [deferredSource])
   const isPreviewStale = deferredSource !== source
 
@@ -94,7 +111,13 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar source={source} saveState={saveState} onReset={handleReset} />
+      <Toolbar
+        source={source}
+        saveState={saveState}
+        onReset={handleReset}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+      />
       <SymbolPalette onInsert={handleInsert} />
       <main className="panes">
         <Editor value={source} onChange={setSource} textareaRef={textareaRef} />

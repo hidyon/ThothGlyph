@@ -7,6 +7,12 @@
   --border: #dfe3e8;
   --accent: #2563eb;
   --accent-soft: #e8f0ff;
+  --danger: #b42318;
+  --math-error: #dc2626;
+  --on-accent: #ffffff;
+
+  /* スクロールバーやtextareaのフォームUIもブラウザ側で合わせる。 */
+  color-scheme: light;
 
   --sans: system-ui, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   --mono: ui-monospace, 'SFMono-Regular', Consolas, 'Noto Sans Mono', monospace;
@@ -15,6 +21,42 @@
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+}
+
+/* ダークの値。data-theme の指定がないときだけOSの設定に従う。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #15181c;
+    --bg-muted: #1e2228;
+    --bg-editor: #181b20;
+    --text: #e6e9ee;
+    --text-muted: #9aa6b4;
+    --border: #2c323a;
+    --accent: #5b8cff;
+    --accent-soft: #22304d;
+    --danger: #ff8a80;
+    --math-error: #ff9a9a;
+    --on-accent: #0f1115;
+
+    color-scheme: dark;
+  }
+}
+
+/* 手動でダークを選んだとき。OSの設定より優先する。 */
+:root[data-theme='dark'] {
+  --bg: #15181c;
+  --bg-muted: #1e2228;
+  --bg-editor: #181b20;
+  --text: #e6e9ee;
+  --text-muted: #9aa6b4;
+  --border: #2c323a;
+  --accent: #5b8cff;
+  --accent-soft: #22304d;
+  --danger: #ff8a80;
+  --math-error: #ff9a9a;
+  --on-accent: #0f1115;
+
+  color-scheme: dark;
 }
 
 * {
@@ -26,6 +68,13 @@ body,
 #root {
   height: 100%;
   margin: 0;
+}
+
+/* :root の変数を body にも実体として乗せる。テーマの色が
+   スクリーンショットや検証で body から読めるようにするため。 */
+body {
+  color: var(--text);
+  background: var(--bg);
 }
 
 .app {
@@ -78,7 +127,7 @@ body,
 }
 
 .toolbar__save--failed {
-  color: #b42318;
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -86,7 +135,7 @@ body,
   padding: 7px 14px;
   font: inherit;
   font-size: 14px;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
   border: none;
   border-radius: 6px;
@@ -289,6 +338,11 @@ body,
   border: 1px solid var(--border);
 }
 
+/* 壊れた数式の赤。KaTeXが style 属性で色を付けるので !important で上書きする。 */
+.preview .katex-error {
+  color: var(--math-error) !important;
+}
+
 /* 長い数式がはみ出してもページ全体を横スクロールさせない。 */
 .preview .katex-display {
   margin: 1.2em 0;
@@ -313,8 +367,9 @@ body,
     right: 12px;
     padding: 4px 10px;
     font-size: 12px;
-    color: #fff;
-    background: rgba(28, 32, 36, 0.88);
+    /* 背景と文字を入れ替えて浮かせる。ダークでも黒地に黒字にならない。 */
+    color: var(--bg);
+    background: var(--text);
     border-radius: 6px;
   }
 
@@ -335,6 +390,10 @@ body,
     padding: 7px 12px;
     font-size: 13px;
     white-space: nowrap;
+  }
+
+  .button__label {
+    display: none;
   }
 
   .panes {
