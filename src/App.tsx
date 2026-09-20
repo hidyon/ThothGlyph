@@ -13,6 +13,7 @@ import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import { insertSnippet } from './lib/insertSnippet'
 import { checkFile, normalizeText } from './lib/loadMarkdownFile'
+import { contentFor, fileNameFor, isEmptySource } from './lib/downloadName'
 import type { Engine } from './lib/previewEngine'
 import { loadEngine } from './lib/previewEngine'
 import { sampleDocument } from './sampleDocument'
@@ -186,6 +187,28 @@ export default function App() {
     textareaRef.current?.focus()
   }
 
+  const handleSaveFile = () => {
+    if (isEmptySource(source)) {
+      showNotice(pick(messages.saveNothing, lang))
+      return
+    }
+
+    const name = fileNameFor(source)
+    // `<a download>` を通すのは、File System Access API が Safari・Firefox に
+    // 無いため（0034）。リンクはDOMに入れずに押す。
+    const url = URL.createObjectURL(
+      new Blob([contentFor(source)], { type: 'text/markdown;charset=utf-8' }),
+    )
+    const link = document.createElement('a')
+    link.href = url
+    link.download = name
+    link.click()
+    // 解放が早すぎるとダウンロードが始まらないブラウザがあるので次のタスクで捨てる。
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+
+    showNotice(pick(messages.savedFile(name), lang))
+  }
+
   const handleReset = () => {
     if (!window.confirm(pick(messages.resetConfirm, lang))) return
     setSource(sampleDocument(lang))
@@ -217,6 +240,7 @@ export default function App() {
           textareaRef={textareaRef}
           lang={lang}
           onOpenFiles={handleOpenFiles}
+          onSaveFile={handleSaveFile}
         />
         <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
       </main>

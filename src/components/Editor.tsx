@@ -11,9 +11,11 @@ type Props = {
   lang: Lang
   /** 読み込むファイルを受け取る。判定も確認もAppに任せ、ここは入口だけを持つ（0012）。 */
   onOpenFiles: (files: FileList | null) => void
+  /** 編集中の内容を .md として書き出す（0034）。 */
+  onSaveFile: () => void
 }
 
-export function Editor({ value, onChange, textareaRef, lang, onOpenFiles }: Props) {
+export function Editor({ value, onChange, textareaRef, lang, onOpenFiles, onSaveFile }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -41,6 +43,20 @@ export function Editor({ value, onChange, textareaRef, lang, onOpenFiles }: Prop
     >
       <header className="pane__header">
         {pick(messages.editorHeader, lang)}
+        {/*
+          ボタンは1つのまとまりとして右端に置く。見出しと並べて
+          space-between に任せると、ボタン同士が離れて散らばる（0034）。
+          保存が先、読み込みが後。書くほうが主で、読み込みは入口。
+        */}
+        <span className="pane__actions">
+        <button
+          type="button"
+          className="button button--quiet button--small"
+          onClick={onSaveFile}
+          title={pick(messages.saveFileTitle, lang)}
+        >
+          {pick(messages.saveFile, lang)}
+        </button>
         <button
           type="button"
           className="button button--quiet button--small"
@@ -67,7 +83,8 @@ export function Editor({ value, onChange, textareaRef, lang, onOpenFiles }: Prop
             // 同じファイルを続けて選べるように値を戻す（変化がないと change が出ない）。
             event.target.value = ''
           }}
-        />
+          />
+        </span>
       </header>
       <textarea
         ref={textareaRef}

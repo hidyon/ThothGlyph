@@ -43,6 +43,15 @@ export const messages = {
   openTooLarge: t('ファイルが大きすぎます（上限1MB）', 'The file is too large (1 MB limit)'),
   openFailed: t('ファイルを読み込めませんでした', 'Could not read the file'),
 
+  // ファイルの書き出し（0034）
+  saveFile: t('ファイルに保存', 'Save to file'),
+  saveFileTitle: t(
+    '編集中の内容を .md ファイルとして保存する',
+    'Save what you have written as a .md file',
+  ),
+  savedFile: (name: string) => t(`${name} を保存しました`, `Saved ${name}`),
+  saveNothing: t('書き出す内容がありません', 'There is nothing to save'),
+
   themePrefix: t('テーマ: ', 'Theme: '),
   themeTitle: t(
     'テーマを切り替える（自動 → ライト → ダーク）',
