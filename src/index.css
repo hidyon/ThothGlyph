@@ -177,11 +177,62 @@ body {
   background: var(--bg-muted);
 }
 
+/* タブと検索欄を1行に並べる。検索欄に専用の行を与えないのは、
+   狭い画面でパレットが更に高くなるため（0032）。 */
+.palette__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px 0;
+}
+
+/* タブを bar の直接の子として並べる。role="tablist" の入れ物は
+   残したいので、消さずに display: contents にする。 */
+.palette__bar > .palette__tabs {
+  display: contents;
+}
+
 .palette__tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
   padding: 6px 12px 0;
+}
+
+.palette__search {
+  /* 右端に寄せる。折り返した場合もその行の右端に付く。 */
+  margin-left: auto;
+  flex: 0 1 180px;
+  height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.palette__search:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* 検索結果は件数が読めない（40件出ることもある）ので、ここだけ高さに蓋をする。
+   蓋がないと幅600pxでパレットが画面の65%を占め、ソースが2行しか残らなかった。 */
+.palette__items--results {
+  max-height: min(168px, 21vh);
+  overflow-y: auto;
+  align-content: flex-start;
+}
+
+/* 一致なしと「他N件」。ボタンと同じ行の中に置くので余白は揃える。 */
+.palette__empty {
+  margin: 0;
+  align-self: center;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .palette__tab {

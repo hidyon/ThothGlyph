@@ -56,6 +56,17 @@ export const messages = {
   // パレット
   paletteLabel: t('記号パレット', 'Symbol palette'),
   formulaTab: t('公式', 'Formulas'),
+
+  // パレットの検索
+  searchLabel: t('記号を検索', 'Search symbols'),
+  searchPlaceholder: t('検索（\\int, 積分）', 'Search (\\int, integral)'),
+  searchResults: t('検索結果', 'Search results'),
+  searchEmpty: t('一致する記号がありません', 'No matching symbols'),
+  /** 上限を超えた分。数だけ知らせる（絞り込めば出てくる）。 */
+  searchOmitted: (count: string | number) => t(`他${count}件`, `${count} more`),
+  /** 検索結果は横断なので、どのグループの記号かをtooltipに添える。 */
+  inGroup: (description: string, group = '') =>
+    t(`${description}［${group}］`, `${description} [${group}]`),
   /** 記号の説明。日本語は全角括弧、英語は半角括弧で語順も変わる。 */
   wrapsSelection: (name: string) => t(`${name}（選択範囲を囲む）`, `${name} (wraps selection)`),
   insertsAfter: (name: string) =>
