@@ -15,6 +15,13 @@ $$
 - $D = 0$ のとき、重解
 - $D < 0$ のとき、共役な2つの虚数解
 
+判別式の符号は、グラフが $x$ 軸と何回交わるかに対応する。$D > 0$ の例を描いてみる。
+
+\`\`\`graph
+y = x^2 - 2x
+x: -2..4
+\`\`\`
+
 ## 導出
 
 $$
@@ -42,6 +49,13 @@ The sign of the discriminant $D = b^2 - 4ac$ tells you what kind of roots you ge
 - $D > 0$: two distinct real roots
 - $D = 0$: one repeated root
 - $D < 0$: two complex conjugate roots
+
+The sign of $D$ tells you how often the graph meets the $x$-axis. Here is a case with $D > 0$.
+
+\`\`\`graph
+y = x^2 - 2x
+x: -2..4
+\`\`\`
 
 ## Derivation
 
