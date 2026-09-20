@@ -50,7 +50,7 @@
 | [0040](0040-sample-graph.md) | サンプル文書にグラフが入っていない | closed | [仕様](../specs/0040-sample-graph.md) |
 | [0041](0041-theorem-blocks.md) | 定理・定義・証明の囲みがない | open | — |
 | [0042](0042-outline.md) | 長いノートで見出しに飛べない | open | — |
-| [0043](0043-find-replace.md) | 文書の中を検索・置換できない | open | — |
+| [0043](0043-find-replace.md) | 文書の中を検索・置換できない | in-progress | [下書き](../specs/0043-find-replace.md)（未承認） |
 | [0044](0044-equation-numbers.md) | 式に番号を振って参照できない | open | — |
 | [0045](0045-paste-image.md) | 手元の画像を貼り付けられない | open | — |
 | [0046](0046-math-macros.md) | 自分用の数式マクロを定義できない | open | — |
