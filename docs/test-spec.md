@@ -154,6 +154,13 @@ node scripts/verify-ui.mjs --repeat 5 perf
 **出力を `tail` などで切り詰めない。** 件数だけが残っても、フレークと本物の
 回帰を区別できない（実際に1度、42/43で落ちた実行の中身を取り逃がしている）。
 
+### READMEのスクリーンショット（[0035](specs/0035-readme-for-users.md)）
+
+`node scripts/make-screenshots.mjs` で `docs/screenshots/` の3枚
+（1440×900のライトとダーク、360×667のスマートフォン）を撮り直す。
+条件（localStorageを消した初期表示、サンプル文書、数式とパレットの描画待ち）を
+スクリプトが揃えるので、手で撮らない。**画面の見た目を変えたissueでは撮り直す。**
+
 ### 色の測り方
 
 配色は目で見て決めない。`getComputedStyle` から文字色と背景色を取り、

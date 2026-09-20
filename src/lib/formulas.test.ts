@@ -83,3 +83,11 @@ describe('公式のLaTeX', () => {
     expect(inserted(snippet)).toMatch(/^\n\$\$\n[\s\S]+\n\$\$\n$/)
   })
 })
+
+// READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
+describe('READMEに書いた件数', () => {
+  it('公式は12分類60件', () => {
+    expect(formulaGroups).toHaveLength(12)
+    expect(allFormulas).toHaveLength(60)
+  })
+})
