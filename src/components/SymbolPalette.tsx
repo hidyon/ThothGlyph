@@ -6,7 +6,7 @@ import type { Lang, Text } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
 import type { PaletteItem } from '../lib/palette'
-import { describeInsertion, paletteGroups } from '../lib/palette'
+import { FORMULA_TAB_ICON, describeInsertion, paletteGroups } from '../lib/palette'
 import { hitKey, hitSnippet, searchPalette } from '../lib/search'
 
 type Props = {
@@ -58,7 +58,11 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
   const group = paletteGroups[activeTab] ?? paletteGroups[0]
   const formulaGroup = formulaGroups[activeFormulaTab] ?? formulaGroups[0]
 
-  const tabs = [...paletteGroups.map((candidate) => candidate.name), messages.formulaTab]
+  // タブは「名前とアイコン」の組で扱う。公式タブだけ paletteGroups の外にある。
+  const tabs = [
+    ...paletteGroups.map((candidate) => ({ name: candidate.name, icon: candidate.icon })),
+    { name: messages.formulaTab, icon: FORMULA_TAB_ICON },
+  ]
 
   /** 結果のボタン。矢印キーは折り返しを見ず、並び順の前後として扱う。 */
   const resultButtons = () =>
@@ -177,7 +181,7 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
           この行の直接の子として並びつつ、role="tablist" の入れ物は残す。 */}
       <div className="palette__bar">
         <div className="palette__tabs" role="tablist">
-          {tabs.map((name, index) => (
+          {tabs.map(({ name, icon }, index) => (
             <button
               key={name.en}
               type="button"
@@ -194,6 +198,10 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
                 setActiveTab(index)
               }}
             >
+              {/* アイコンはラベルの飾りなので読み上げから外す（0053）。 */}
+              <span className="palette__tab-icon" aria-hidden="true">
+                {icon}
+              </span>
               {pick(name, lang)}
             </button>
           ))}

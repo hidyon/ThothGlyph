@@ -25,12 +25,24 @@ export type PaletteItem = {
 
 export type PaletteGroup = {
   name: Text
+  /**
+   * タブの先頭に出す記号1文字（0053）。読まずにタブを見分けるためのもので、
+   * 翻訳は持たない（記号は言語で変わらない）。8つのタブで重複させないこと。
+   */
+  icon: string
   items: PaletteItem[]
 }
+
+/**
+ * 公式タブのアイコン。公式は `formulas.ts` 側にあって `paletteGroups` に
+ * 属さないので、8つ目のアイコンだけここに置く。
+ */
+export const FORMULA_TAB_ICON = 'ƒ'
 
 export const paletteGroups: PaletteGroup[] = [
   {
     name: t('基本', 'Basic'),
+    icon: '√',
     items: [
       { label: '\\frac{a}{b}', snippet: `\\frac{${CURSOR_TOKEN}}{}`, title: t('分数', 'Fraction') },
       { label: '\\sqrt{x}', snippet: `\\sqrt{${CURSOR_TOKEN}}`, title: t('平方根', 'Square root') },
@@ -44,6 +56,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('ギリシャ小文字', 'Greek (lowercase)'),
+    icon: 'α',
     items: [
       { label: '\\alpha', snippet: '\\alpha ', title: t('alpha', 'alpha') },
       { label: '\\beta', snippet: '\\beta ', title: t('beta', 'beta') },
@@ -80,6 +93,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('ギリシャ大文字', 'Greek (uppercase)'),
+    icon: 'Ω',
     items: [
       { label: '\\Gamma', snippet: '\\Gamma ', title: t('Gamma（大文字）', 'Gamma (uppercase)') },
       { label: '\\Delta', snippet: '\\Delta ', title: t('Delta（大文字）', 'Delta (uppercase)') },
@@ -96,6 +110,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('演算子', 'Operators'),
+    icon: 'Σ',
     items: [
       { label: '\\sum_{i=1}^{n}', snippet: `\\sum_{${CURSOR_TOKEN}}^{}`, title: t('総和', 'Summation') },
       { label: '\\prod_{i=1}^{n}', snippet: `\\prod_{${CURSOR_TOKEN}}^{}`, title: t('総乗', 'Product') },
@@ -113,6 +128,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('関係子', 'Relations'),
+    icon: '≠',
     items: [
       { label: '\\leq', snippet: '\\leq ', title: t('以下', 'Less than or equal') },
       { label: '\\geq', snippet: '\\geq ', title: t('以上', 'Greater than or equal') },
@@ -132,6 +148,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('括弧・構造', 'Brackets & structures'),
+    icon: '{}',
     items: [
       {
         label: '\\left( x \\right)',
@@ -167,6 +184,7 @@ export const paletteGroups: PaletteGroup[] = [
   },
   {
     name: t('Markdown', 'Markdown'),
+    icon: '#',
     items: [
       { label: '\\text{\\$x\\$}', snippet: `$${CURSOR_TOKEN}$`, title: t('インライン数式', 'Inline math') },
       {

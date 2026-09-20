@@ -262,7 +262,9 @@ body {
 }
 
 .palette__tab {
-  padding: 6px 12px;
+  /* 10px は 0053 の実測。12px のままだとアイコンのぶんタブ行が116px伸び、
+     検索欄が2行目へ落ち始める幅が日本語で868px→984pxまで上がる。 */
+  padding: 6px 10px;
   font: inherit;
   font-size: 13px;
   color: var(--text-muted);
@@ -270,6 +272,16 @@ body {
   border: none;
   border-radius: 6px 6px 0 0;
   cursor: pointer;
+}
+
+/* タブのアイコン（0053）。ラベルより少し大きくして記号として見せる。
+   line-height と vertical-align で、タブの高さ（30px）を変えないこと。 */
+.palette__tab-icon {
+  display: inline-block;
+  margin-right: 3px;
+  font-size: 14px;
+  line-height: 1;
+  vertical-align: -1px;
 }
 
 .palette__tab:hover {

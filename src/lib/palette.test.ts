@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { t } from './i18n'
 import {
   CURSOR_TOKEN,
+  FORMULA_TAB_ICON,
   describeInsertion,
   paletteGroups,
   wrapsSelection,
@@ -97,6 +98,28 @@ describe('パレット全件のLaTeX', () => {
 
   it.each(mathItems)('$title.ja の snippet が描画できる', ({ snippet }) => {
     expect(() => renders(snippet.replaceAll(CURSOR_TOKEN, ''))).not.toThrow()
+  })
+})
+
+// タブのアイコン（0053）。読まずにタブを見分けるためのものなので、
+// 「全タブが持つ」ことと「重複がない」ことの2つが要る。
+describe('タブのアイコン', () => {
+  const icons = [...paletteGroups.map((group) => group.icon), FORMULA_TAB_ICON]
+
+  it('7グループすべてがアイコンを持つ', () => {
+    for (const group of paletteGroups) {
+      expect(group.icon.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('公式タブを含む8つのアイコンがすべて異なる', () => {
+    expect(new Set(icons).size).toBe(8)
+  })
+
+  it('アイコンは翻訳を持たない（言語で変わらない文字列）', () => {
+    for (const icon of icons) {
+      expect(typeof icon).toBe('string')
+    }
   })
 })
 
