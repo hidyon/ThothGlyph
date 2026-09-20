@@ -7,8 +7,10 @@
  * 初期チャンク→遅延チャンクの直列待ちになり、プレビューが出るまでが
  * かえって遅くなる。
  */
+import type { Lang } from './i18n'
+
 export type Engine = {
-  renderMarkdown: (source: string) => string
+  renderMarkdown: (source: string, lang: Lang) => string
   renderLatex: (latex: string) => string
 }
 

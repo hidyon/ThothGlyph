@@ -114,9 +114,10 @@ export default function App() {
     }
   }, [])
 
+  // グラフのaria-labelとエラー文言が言語で変わるので、langも渡す（0037）。
   const html = useMemo(
-    () => (engine === null ? '' : engine.renderMarkdown(deferredSource)),
-    [engine, deferredSource],
+    () => (engine === null ? '' : engine.renderMarkdown(deferredSource, lang)),
+    [engine, deferredSource, lang],
   )
   const isPreviewStale = deferredSource !== source
 
