@@ -1084,7 +1084,8 @@ section('i18n', '英語対応（0031）', async () => {
     copy: await page.getByRole('button', { name: 'Copy Markdown' }).count(),
     reset: await page.getByRole('button', { name: 'Reset to sample' }).count(),
     theme: await page.getByRole('button', { name: /Theme/ }).count(),
-    headers: await page.locator('.pane__header').allInnerTexts(),
+    // パレットにも見出しが付いた（0056）ので、ペインの2つに絞る。
+    headers: await page.locator('.pane--editor .pane__header, .pane--preview .pane__header').allInnerTexts(),
     tabs: await tabLabels('.palette__bar > .palette__tabs > .palette__tab'),
   })
   const en = await texts()
@@ -1138,8 +1139,8 @@ section('i18n', '英語対応（0031）', async () => {
   check('日本語に戻すと html lang も ja に戻る', (await htmlLang()) === 'ja', await htmlLang())
   check(
     'ペインの見出しが日本語に戻る',
-    (await page.locator('.pane__header').first().innerText()).startsWith('ソース'),
-    await page.locator('.pane__header').first().innerText(),
+    (await page.locator('.pane--editor .pane__header, .pane--preview .pane__header').first().innerText()).startsWith('ソース'),
+    await page.locator('.pane--editor .pane__header, .pane--preview .pane__header').first().innerText(),
   )
 
   // 保存がない初回訪問では、ブラウザの言語に従ってサンプル文書が選ばれる。
@@ -1680,6 +1681,26 @@ section('placement', 'パレットの置き場所（0054）', async () => {
     wide.graph ? `${wide.graph.w}×${wide.graph.h}` : 'グラフがない',
   )
   check('幅1440pxでタブ8つが縦に並ぶ', wide.tabRows === 8 && wide.tabCount === 8, `${wide.tabCount}個 / ${wide.tabRows}行`)
+
+  // パレットの見出し（0056）。縦帯でだけ出て、高さは他の2つと同じ30px。
+  const header = await page.evaluate(() => {
+    const el = document.querySelector('.pane__header--palette')
+    if (el === null) return null
+    const box = el.getBoundingClientRect()
+    const others = [...document.querySelectorAll('.pane--editor .pane__header, .pane--preview .pane__header')]
+    return {
+      text: el.textContent.trim(),
+      h: Math.round(box.height),
+      visible: box.height > 0,
+      others: others.map((o) => Math.round(o.getBoundingClientRect().height)),
+    }
+  })
+  check('幅1440pxでパレットに「パレット」の見出しが出る（0056）', header?.visible === true && header.text === 'パレット', JSON.stringify(header))
+  check(
+    '見出しの高さがソース・プレビューと同じ30px',
+    header?.h === 30 && header.others.every((h) => h === 30),
+    `パレット${header?.h}px / ほか ${header?.others.join(',')}px`,
+  )
   check('幅1440pxでもタブのアイコンが8つ出ている（0053の回帰）', wide.icons === 8, `${wide.icons}個`)
   check('幅1440pxでページに横スクロールが出ない', wide.scrollW <= wide.innerW, `${wide.scrollW} / ${wide.innerW}`)
   await page.screenshot({ path: `${OUT}/placement-wide.png` })
@@ -1782,6 +1803,11 @@ section('placement', 'パレットの置き場所（0054）', async () => {
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
   const narrowSide = await layout()
+  const headerAt1199 = await page.evaluate(() => {
+    const el = document.querySelector('.pane__header--palette')
+    return el === null ? 'なし' : Math.round(el.getBoundingClientRect().height)
+  })
+  check('幅1199pxではパレットの見出しが出ない（0056）', headerAt1199 === 0 || headerAt1199 === 'なし', String(headerAt1199))
   check(
     '幅1199pxでは横帯に戻る（パレットが全幅・高さ94px）',
     narrowSide.palette.w === 1199 && Math.abs(narrowSide.palette.h - 94) <= 2,
@@ -1799,6 +1825,11 @@ section('placement', 'パレットの置き場所（0054）', async () => {
   await ready()
   const phone = await layout()
   check('幅360pxでパレットが139px（0032の蓋のまま）', Math.abs(phone.palette.h - 139) <= 2, `${phone.palette.h}px`)
+  const headerAt360 = await page.evaluate(() => {
+    const el = document.querySelector('.pane__header--palette')
+    return el === null ? 'なし' : Math.round(el.getBoundingClientRect().height)
+  })
+  check('幅360pxでもパレットの見出しが出ない（0056）', headerAt360 === 0 || headerAt360 === 'なし', String(headerAt360))
   check('幅360pxで横スクロールが出ない', phone.scrollW <= phone.innerW, `${phone.scrollW} / ${phone.innerW}`)
 
   // ---- 英語表示でも縦帯 ----
@@ -1809,6 +1840,8 @@ section('placement', 'パレットの置き場所（0054）', async () => {
   await page.getByRole('button', { name: /言語/ }).click()
   await page.waitForTimeout(200)
   const en = await layout()
+  const enHeader = await page.evaluate(() => document.querySelector('.pane__header--palette')?.textContent.trim())
+  check('英語表示では見出しが Palette になる（0056）', enHeader === 'Palette', String(enHeader))
   check(
     '英語表示でも縦帯でタブ8つが縦に並ぶ',
     en.palette.w === 180 && en.tabRows === 8,
@@ -2146,7 +2179,7 @@ section('file-load', 'ファイルの読み込み（0012）', async () => {
   for (const width of [1440, 600, 375, 360]) {
     await page.setViewportSize({ width, height: 667 })
     const size = await page.evaluate(() => ({
-      heads: [...document.querySelectorAll('.pane__header')].map((h) =>
+      heads: [...document.querySelectorAll('.pane--editor .pane__header, .pane--preview .pane__header')].map((h) =>
         Math.round(h.getBoundingClientRect().height),
       ),
       editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
@@ -2361,7 +2394,7 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
   for (const width of [1440, 600, 375, 360]) {
     await page.setViewportSize({ width, height: 667 })
     const size = await page.evaluate(() => ({
-      heads: [...document.querySelectorAll('.pane__header')].map((h) =>
+      heads: [...document.querySelectorAll('.pane--editor .pane__header, .pane--preview .pane__header')].map((h) =>
         Math.round(h.getBoundingClientRect().height),
       ),
       editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
