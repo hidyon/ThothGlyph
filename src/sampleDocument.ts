@@ -32,7 +32,7 @@ x^2 + \\frac{b}{a}x &= -\\frac{c}{a} \\\\
 \\end{aligned}
 $$
 
-上のパレットのボタンを押すと、カーソル位置に数式コマンドが入ります。
+パレットのボタンを押すと、カーソル位置に数式コマンドが入ります。
 `
 
 /** 英語版。訳ではなく、同じ狙い（数式・箇条書き・複数行の式）を英語で満たす文書。 */
@@ -67,7 +67,7 @@ x^2 + \\frac{b}{a}x &= -\\frac{c}{a} \\\\
 \\end{aligned}
 $$
 
-Press a button in the palette above to insert a math command at the cursor.
+Press a button in the palette to insert a math command at the cursor.
 `
 
 /**

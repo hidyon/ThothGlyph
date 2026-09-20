@@ -1285,13 +1285,14 @@ section('search', '記号の検索（0011）', async () => {
     page.locator('.palette').evaluate((el) => Math.round(el.getBoundingClientRect().height))
 
   // 画面に足した要素は、占める大きさを測って仕様の数値と突き合わせる。
-  // 検索欄はタブ行に同居させたので、広い画面では高さが増えないはず。
-  await page.setViewportSize({ width: 1280, height: 800 })
+  // 検索欄はタブ行に同居させたので、横帯では高さが増えないはず。
+  // 幅1200px以上はパレットが縦帯になったので（0054）、横帯の上限で測る。
+  await page.setViewportSize({ width: 1199, height: 800 })
   await page.waitForTimeout(200)
   const inTabRow = await search().evaluate((el) => el.parentElement.className)
   check('検索欄がタブと同じ行にある', inTabRow === 'palette__bar', inTabRow)
   const wide = await paletteHeight()
-  check('幅1280pxでパレットの高さが94pxのまま（検索欄で増えない）', wide === 94, `${wide}px`)
+  check('幅1199pxでパレットの高さが94pxのまま（検索欄で増えない）', wide === 94, `${wide}px`)
 
   // 折り返しが起きるのは720px前後。仕様では126px以下に収まると見込んだ。
   await page.setViewportSize({ width: 720, height: 800 })
@@ -1550,6 +1551,204 @@ section('loading', '読み込みの分割（0024）', async () => {
 
 // ---- 0032: 狭い画面でのパレットの高さ ----
 
+section('placement', 'パレットの置き場所（0054）', async () => {
+  /** 画面の主な寸法をまとめて読む。 */
+  const layout = () =>
+    page.evaluate(() => {
+      const box = (sel) => {
+        const el = document.querySelector(sel)
+        if (el === null) return null
+        const b = el.getBoundingClientRect()
+        return {
+          w: Math.round(b.width),
+          h: Math.round(b.height),
+          left: Math.round(b.left),
+          top: Math.round(b.top),
+        }
+      }
+      const graph = document.querySelector('svg.graph')
+      const tabs = [...document.querySelectorAll('.palette__bar > .palette__tabs > .palette__tab')]
+      return {
+        palette: box('.palette'),
+        panes: box('.panes'),
+        editor: box('textarea'),
+        preview: box('.pane--preview'),
+        graph: graph ? { w: Math.round(graph.getBoundingClientRect().width), h: Math.round(graph.getBoundingClientRect().height) } : null,
+        tabRows: new Set(tabs.map((t) => Math.round(t.getBoundingClientRect().top))).size,
+        tabCount: tabs.length,
+        icons: document.querySelectorAll('.palette__tab-icon').length,
+        scrollW: document.documentElement.scrollWidth,
+        innerW: window.innerWidth,
+      }
+    })
+
+  // ---- 幅1440px: 縦帯になる ----
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const wide = await layout()
+
+  check(
+    '幅1440pxでパレットが左にあり、幅180px',
+    wide.palette.w === 180 && wide.palette.left === 0,
+    `${wide.palette.w}px / left ${wide.palette.left}`,
+  )
+  check(
+    '幅1440pxでパレットの高さがペインと同じ（横帯の94pxではない）',
+    Math.abs(wide.palette.h - wide.panes.h) <= 5,
+    `パレット${wide.palette.h}px / ペイン${wide.panes.h}px`,
+  )
+  check('幅1440pxでtextareaが810px以上', wide.editor.h >= 810, `${wide.editor.h}px（横帯のときは721px）`)
+  check('幅1440pxでプレビューの幅が625px以上', wide.preview.w >= 625, `${wide.preview.w}px（横帯のときは720px）`)
+  check(
+    '幅1440pxでサンプルのグラフが480×320pxのまま（0037の回帰）',
+    wide.graph !== null && wide.graph.w === 480 && wide.graph.h === 320,
+    wide.graph ? `${wide.graph.w}×${wide.graph.h}` : 'グラフがない',
+  )
+  check('幅1440pxでタブ8つが縦に並ぶ', wide.tabRows === 8 && wide.tabCount === 8, `${wide.tabCount}個 / ${wide.tabRows}行`)
+  check('幅1440pxでもタブのアイコンが8つ出ている（0053の回帰）', wide.icons === 8, `${wide.icons}個`)
+  check('幅1440pxでページに横スクロールが出ない', wide.scrollW <= wide.innerW, `${wide.scrollW} / ${wide.innerW}`)
+  await page.screenshot({ path: `${OUT}/placement-wide.png` })
+
+  // 公式タブ（いちばん中身が高い）。帯の中を縦スクロールして最後まで届く。
+  await page.getByRole('tab', { name: '公式', exact: true }).first().click()
+  const scrolled = await page.evaluate(() => {
+    const strip = document.querySelector('.palette')
+    strip.scrollTop = strip.scrollHeight
+    return { sh: strip.scrollHeight, ch: strip.clientHeight, top: Math.round(strip.scrollTop) }
+  })
+  check(
+    '公式タブで帯が縦スクロールする',
+    scrolled.sh > scrolled.ch,
+    `中身${scrolled.sh}px / 帯${scrolled.ch}px`,
+  )
+  // KaTeXのラベルはボタンの外へ上に23.7〜38.7pxはみ出す。縦帯では3行並ぶので、
+  // 中身がクリック判定を奪うと上の行が押せなくなる（実際に selection 区分が落ちた）。
+  const upperRowClickable = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('.palette__item')]
+    return items.every((item) => {
+      const b = item.getBoundingClientRect()
+      const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)
+      return item.contains(hit)
+    })
+  })
+  check('縦帯で、どのボタンも中心をクリックすると自分に当たる（上の行が隠れない）', upperRowClickable)
+
+  // 帯が180pxなので、公式の式は2行に折り返す。折り返してもボタンの外に出ないこと。
+  const formulaFit = await page.evaluate(() =>
+    [...document.querySelectorAll('.palette__item--formula')].every((item) => {
+      const katex = item.querySelector('.katex')
+      if (katex === null) return true
+      return katex.getBoundingClientRect().right <= item.getBoundingClientRect().right + 0.5
+    }),
+  )
+  check('縦帯の公式タブで、式がボタンの外にはみ出さない（折り返して収まる）', formulaFit)
+
+  const lastFormula = page.locator('.palette__item--formula').last()
+  await lastFormula.click()
+  check(
+    'スクロールした先の公式を押すと挿入される',
+    (await editor().inputValue()).includes('$$'),
+    `末尾: ${JSON.stringify((await editor().inputValue()).slice(-40))}`,
+  )
+
+  // 検索（0011の回帰）。縦帯でも検索して挿入できる。
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await page.locator('.palette__search').fill('積分')
+  await page.waitForTimeout(150)
+  const hits = await page.locator('.palette__items--results .palette__item').count()
+  check('縦帯でも検索の結果が出る（積分）', hits > 0, `${hits}件`)
+  await page.locator('.palette__items--results .palette__item').first().click()
+  check(
+    '検索結果から挿入できる',
+    (await editor().inputValue()).includes('\\int'),
+    `末尾: ${JSON.stringify((await editor().inputValue()).slice(-30))}`,
+  )
+
+  // ダークで帯の仕切りが見える。
+  await page.evaluate(
+    (key) => window.localStorage.setItem(key, JSON.stringify({ version: 1, theme: 'dark' })),
+    THEME_KEY,
+  )
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  const borderVisible = await page.evaluate(() => {
+    const strip = document.querySelector('.palette')
+    const style = getComputedStyle(strip)
+    return {
+      right: style.borderRightWidth,
+      color: style.borderRightColor,
+      background: style.backgroundColor,
+    }
+  })
+  check(
+    'ダークで帯の右に境界線があり、背景と色が違う',
+    borderVisible.right === '1px' && borderVisible.color !== borderVisible.background,
+    `${borderVisible.right} ${borderVisible.color} / 背景 ${borderVisible.background}`,
+  )
+  await page.screenshot({ path: `${OUT}/placement-dark.png` })
+
+  // ---- 幅1200px: まだ縦帯。グラフが縮みすぎない ----
+  await resetState()
+  await page.setViewportSize({ width: 1200, height: 800 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const mid = await layout()
+  check('幅1200pxでも縦帯（パレットの幅180px）', mid.palette.w === 180, `${mid.palette.w}px`)
+  check('幅1200pxでtextareaが710px以上', mid.editor.h >= 710, `${mid.editor.h}px（横帯のときは621px）`)
+  check(
+    '幅1200pxでグラフの幅が450px以上',
+    mid.graph !== null && mid.graph.w >= 450,
+    mid.graph ? `${mid.graph.w}×${mid.graph.h}` : 'グラフがない',
+  )
+
+  // ---- 幅1199px: 横帯に戻る ----
+  await page.setViewportSize({ width: 1199, height: 800 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const narrowSide = await layout()
+  check(
+    '幅1199pxでは横帯に戻る（パレットが全幅・高さ94px）',
+    narrowSide.palette.w === 1199 && Math.abs(narrowSide.palette.h - 94) <= 2,
+    `${narrowSide.palette.w}×${narrowSide.palette.h}px`,
+  )
+  check(
+    '幅1199pxのtextareaが横帯のときの高さ（621px±5px）',
+    Math.abs(narrowSide.editor.h - 621) <= 5,
+    `${narrowSide.editor.h}px`,
+  )
+
+  // ---- 狭い画面は0032のまま ----
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const phone = await layout()
+  check('幅360pxでパレットが139px（0032の蓋のまま）', Math.abs(phone.palette.h - 139) <= 2, `${phone.palette.h}px`)
+  check('幅360pxで横スクロールが出ない', phone.scrollW <= phone.innerW, `${phone.scrollW} / ${phone.innerW}`)
+
+  // ---- 英語表示でも縦帯 ----
+  await resetState()
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(200)
+  const en = await layout()
+  check(
+    '英語表示でも縦帯でタブ8つが縦に並ぶ',
+    en.palette.w === 180 && en.tabRows === 8,
+    `${en.palette.w}px / ${en.tabRows}行`,
+  )
+
+  // ---- サンプル文書から位置の言葉が消えている ----
+  await resetState()
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const ja = await editor().inputValue()
+  check('日本語のサンプル文書に「上のパレット」がない', !ja.includes('上のパレット'), ja.includes('パレットのボタン') ? 'パレットのボタン…に直っている' : '該当文なし')
+})
+
 section('tab-icon', 'タブのアイコン（0053）', async () => {
   const icons = () => page.locator('.palette__bar > .palette__tabs > .palette__tab .palette__tab-icon')
   const iconTexts = () => icons().allInnerTexts()
@@ -1562,12 +1761,14 @@ section('tab-icon', 'タブのアイコン（0053）', async () => {
       return { scrollW: wrap.scrollWidth, clientW: wrap.clientWidth }
     })
 
-  await page.setViewportSize({ width: 1440, height: 900 })
+  // 幅1200px以上はパレットが縦帯になった（0054）。アイコンが横帯の高さに
+  // 効かないことを見るのが目的なので、横帯の上限（1199px）で測る。
+  await page.setViewportSize({ width: 1199, height: 900 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
 
   // 1. 8つのタブすべてにアイコンが1つずつある。
-  check('幅1440px・日本語で、タブ8つそれぞれにアイコンがある', (await icons().count()) === 8, `${await icons().count()}個`)
+  check('幅1199px・日本語で、タブ8つそれぞれにアイコンがある', (await icons().count()) === 8, `${await icons().count()}個`)
 
   const ja = await iconTexts()
   check('8つのアイコンがすべて異なる', new Set(ja).size === 8, ja.join(' '))
@@ -1581,7 +1782,7 @@ section('tab-icon', 'タブのアイコン（0053）', async () => {
 
   // 3. パレットの高さは現状のまま（0032の蓋を壊していない）。
   const wide = await paletteHeight()
-  check('幅1440px・日本語でパレットが94px（±2px。アイコンで高くなっていない）', Math.abs(wide - 94) <= 2, `${wide}px`)
+  check('幅1199px・日本語でパレットが94px（±2px。アイコンで高くなっていない）', Math.abs(wide - 94) <= 2, `${wide}px`)
 
   // 4. 英語表示でも同じ8つ。記号は言語で変わらない。
   await page.getByRole('button', { name: /言語/ }).click()
@@ -1775,19 +1976,19 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
   )
   await page.locator('.palette__search').fill('')
 
-  // 広い画面は変えない。
-  await page.setViewportSize({ width: 1280, height: 800 })
+  // 横帯の画面は変えない（幅1200px以上は縦帯になった。0054）。
+  await page.setViewportSize({ width: 1199, height: 800 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
-  check('幅1280pxでパレットの高さが94pxのまま', (await paletteHeight()) === 94, `${await paletteHeight()}px`)
+  check('幅1199pxでパレットの高さが94pxのまま', (await paletteHeight()) === 94, `${await paletteHeight()}px`)
 
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.setViewportSize({ width: 1199, height: 900 })
   await page.getByRole('tab', { name: '公式', exact: true }).first().click()
   const wideFormula = await paletteHeight()
   const wideScrolls = await page
     .locator('.palette__panel > .palette__items')
     .evaluate((el) => el.scrollHeight > el.clientHeight)
-  check('幅1440pxの公式タブが157px以下のまま', wideFormula <= 157, `${wideFormula}px`)
+  check('幅1199pxの公式タブが157px以下のまま', wideFormula <= 157, `${wideFormula}px`)
   check('幅1440pxでは一覧に縦スクロールが出ない', !wideScrolls)
   await page.screenshot({ path: `${OUT}/palette-wide.png` })
 
