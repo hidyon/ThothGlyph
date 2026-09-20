@@ -100,6 +100,29 @@ export const messages = {
   /** 検索結果は横断なので、どのグループの記号かをtooltipに添える。 */
   inGroup: (description: string, group = '') =>
     t(`${description}［${group}］`, `${description} [${group}]`),
+  // 文書内の検索・置換（0043）
+  find: t('検索', 'Find'),
+  findTitle: t('文書の中を検索して置き換える（Ctrl+F）', 'Find and replace in the document (Ctrl+F)'),
+  findPlaceholder: t('文書内を検索', 'Find in document'),
+  replacePlaceholder: t('置換後の文字列', 'Replace with'),
+  /** 何件目か。日本語だけ「件」が付くので関数にする。 */
+  findCount: (current: number, total: number) => t(`${current}/${total}件`, `${current}/${total}`),
+  findNone: t('0件', 'No matches'),
+  findPrev: t('前へ', 'Prev'),
+  findNext: t('次へ', 'Next'),
+  /** 幅480px以下で出す短いほう。長いほうは aria-label に残る（0033と同じ）。 */
+  findPrevShort: t('‹', '‹'),
+  findNextShort: t('›', '›'),
+  replaceToggle: t('置換', 'Replace'),
+  replaceOne: t('置換', 'Replace'),
+  replaceOneShort: t('置換', 'Repl.'),
+  replaceAll: t('すべて置換', 'Replace all'),
+  replaceAllShort: t('全て', 'All'),
+  findClose: t('閉じる', 'Close'),
+  findCloseShort: t('×', '×'),
+  /** 置換した件数。数字の位置が言語で変わるので関数にする。 */
+  replacedCount: (count: number) => t(`${count}件を置換しました`, `Replaced ${count}`),
+
   // グラフ（0037）
   graphLabel: t('グラフ', 'Graph'),
   /** SVGの aria-label。式の位置が言語で変わるので関数にする。 */
