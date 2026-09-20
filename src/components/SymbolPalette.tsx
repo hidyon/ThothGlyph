@@ -1,5 +1,4 @@
-import katex from 'katex'
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import { Fragment, useMemo, useRef, useState } from 'react'
 import type { Formula } from '../lib/formulas'
 import { allFormulas, formulaGroups } from '../lib/formulas'
@@ -15,6 +14,8 @@ type Props = {
   /** 検索欄からエディタへ戻る（Escape）ための経路。 */
   onFocusEditor: () => void
   lang: Lang
+  /** 数式の描画エンジン（0024）。別チャンクなので、届くまでは undefined。 */
+  renderLatex?: (latex: string) => string
 }
 
 /**
@@ -23,11 +24,13 @@ type Props = {
  */
 const FORMULA_TAB_INDEX = paletteGroups.length
 
-/** ラベルは静的なLaTeXなので、一度だけ描画してキャッシュする。言語には依らない。 */
-function useRenderedLatex() {
+/**
+ * ラベルは静的なLaTeXなので、一度だけ描画してキャッシュする。言語には依らない。
+ * エンジンが届く前は空のMapを返し、ラベルはLaTeXのソースのまま出す（0024）。
+ */
+function useRenderedLatex(render: ((latex: string) => string) | undefined) {
   return useMemo(() => {
-    const render = (latex: string) =>
-      katex.renderToString(latex, { throwOnError: false, displayMode: false })
+    if (render === undefined) return new Map<string, string>()
 
     return new Map([
       ...paletteGroups.flatMap((group) =>
@@ -35,16 +38,16 @@ function useRenderedLatex() {
       ),
       ...allFormulas.map((formula) => [formula.preview, render(formula.preview)] as const),
     ])
-  }, [])
+  }, [render])
 }
 
-export function SymbolPalette({ onInsert, onFocusEditor, lang }: Props) {
+export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Props) {
   // 選択中のタブは名前ではなく添字で持つ。言語を切り替えても選択が外れない。
   const [activeTab, setActiveTab] = useState(0)
   const [activeFormulaTab, setActiveFormulaTab] = useState(0)
   // 検索中もタブの選択はそのまま残す。クエリを消せば見ていたタブに戻る。
   const [query, setQuery] = useState('')
-  const rendered = useRenderedLatex()
+  const rendered = useRenderedLatex(renderLatex)
   const searchInput = useRef<HTMLInputElement>(null)
   const resultsPanel = useRef<HTMLDivElement>(null)
 
@@ -109,6 +112,23 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang }: Props) {
   const withGroup = (description: string, from?: Text) =>
     from === undefined ? description : pick(messages.inGroup(description, pick(from, lang)), lang)
 
+  /**
+   * ラベルの中身。エンジンが届くまではLaTeXのソースをそのまま出す。
+   * 空にするとボタンの見分けがつかなくなるし、押せば挿入は効くため。
+   */
+  const labelOf = (
+    latex: string,
+  ): {
+    children?: ReactNode
+    dangerouslySetInnerHTML?: { __html: string }
+  } => {
+    const html = rendered.get(latex)
+    // ソースは span に包む。ボタン自身（inline-flex）では省略記号が効かない。
+    return html === undefined
+      ? { children: <span className="palette__source">{latex}</span> }
+      : { dangerouslySetInnerHTML: { __html: html } }
+  }
+
   const symbolButton = (item: PaletteItem, from?: Text) => {
     const description = withGroup(describeInsertion(item, lang), from)
     return (
@@ -121,7 +141,7 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang }: Props) {
         // フォーカスがtextareaから外れると選択範囲を失うので、押下前に既定動作を止める。
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => onInsert(item.snippet)}
-        dangerouslySetInnerHTML={{ __html: rendered.get(item.label) ?? '' }}
+        {...labelOf(item.label)}
       />
     )
   }
@@ -145,10 +165,7 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang }: Props) {
         onClick={() => onInsert(formula.snippet)}
       >
         <span className="palette__formula-name">{pick(formula.name, lang)}</span>
-        <span
-          className="palette__formula-preview"
-          dangerouslySetInnerHTML={{ __html: rendered.get(formula.preview) ?? '' }}
-        />
+        <span className="palette__formula-preview" {...labelOf(formula.preview)} />
       </button>
     )
   }

@@ -1156,6 +1156,88 @@ section('search', '記号の検索（0011）', async () => {
   console.log(`スクリーンショット: ${OUT}/search.png, ${OUT}/search-narrow.png`)
 })
 
+// ---- 0024: 読み込みの分割 ----
+
+section('loading', '読み込みの分割（0024）', async () => {
+  // 遅延チャンク（engine）が届かない間の見え方を確かめる。開発サーバでは
+  // /src/lib/engine.ts、本番では /assets/engine-*.js になるので、どちらにも当たる形で止める。
+  //
+  // abort ではなく「解決しないモジュール」を返すのは、abort だとコンソールエラーが
+  // 出て、この区分だけ常に終了コード1になるため。届かない状態としては同じ。
+  await page.route('**/engine*', (route) =>
+    route.fulfill({ contentType: 'text/javascript', body: 'await new Promise(() => {})\n' }),
+  )
+  await page.setViewportSize({ width: 600, height: 900 })
+  await page.goto(URL, { waitUntil: 'domcontentloaded' })
+  await appReady()
+
+  check('エンジンが届かなくてもエディタが出る', await editor().isVisible())
+
+  const note = await page.locator('.pane--preview .pane__note').innerText()
+  check('プレビューのヘッダに準備中…が出る', note === '準備中…', note)
+  check('プレビューの本文が空', (await page.locator('.preview').innerText()) === '')
+
+  // 届かない間もエディタは完全に使える（書いたものを失わせない）。
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await editor().pressSequentially('\n準備中でも打てる\n', { delay: 8 })
+  check('エンジンが届かなくても入力できる', (await editor().inputValue()).includes('準備中でも打てる'))
+  await page.waitForFunction(
+    () => document.querySelector('.toolbar__save')?.textContent?.startsWith('保存しました'),
+    null,
+    { timeout: 3000 },
+  )
+  check('エンジンが届かなくても自動保存が動く', (await saveStatus()).startsWith('保存しました'))
+
+  // ラベルはKaTeXではなくLaTeXのソースで出る。押せば挿入は効く。
+  const firstLabel = await page.locator('.palette__item').first().innerText()
+  check('パレットのラベルがLaTeXのソースで出る', firstLabel.startsWith('\\'), firstLabel)
+  check('届かない間はパレットにKaTeXの描画がない', (await page.locator('.palette .katex').count()) === 0)
+
+  const beforeInsert = await editor().inputValue()
+  await page.locator('.palette__item').first().click()
+  check('届かない間もパレットのボタンで挿入できる', (await editor().inputValue()) !== beforeInsert)
+
+  const rawHeight = (await page.locator('.palette').boundingBox()).height
+  await page.screenshot({ path: `${OUT}/loading-blocked.png` })
+
+  // 英語表示でも同じ文言が出る。
+  // 幅600pxでは `言語: ` の前置きが隠れてボタンの文字が言語名だけになるので、
+  // 名前ではなくtooltipで引く。
+  const langButton = () => page.getByTitle(/表示言語|Switch language/)
+  await langButton().click()
+  const noteEn = await page.locator('.pane--preview .pane__note').innerText()
+  check('英語表示では Preparing… が出る', noteEn === 'Preparing…', noteEn)
+  await langButton().click()
+
+  // 止めるのをやめると、追いついて描画される。
+  await saveSettled()
+  await page.unroute('**/engine*')
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  const errorsBefore = errors.length
+
+  check('エンジンが届くと準備中…が消える', (await page.locator('.pane--preview .pane__note').count()) === 0)
+  check('エンジンが届くとプレビューに数式が出る', (await page.locator('.preview .katex').count()) > 0)
+  check('エンジンが届くとパレットのラベルがKaTeXで描画される', (await page.locator('.palette .katex').count()) > 0)
+
+  const renderedHeight = (await page.locator('.palette').boundingBox()).height
+  check(
+    '幅600pxで、ラベルがソース表示のときとKaTeX描画のときのパレットの高さの差が40px以内',
+    Math.abs(renderedHeight - rawHeight) <= 40,
+    `ソース ${rawHeight}px / KaTeX ${renderedHeight}px`,
+  )
+  await page.screenshot({ path: `${OUT}/loading-ready.png` })
+
+  check(
+    'この区分でコンソールエラーが出ない',
+    errors.length === errorsBefore,
+    `${errors.length - errorsBefore}件`,
+  )
+  await page.setViewportSize({ width: 1440, height: 900 })
+  console.log(`スクリーンショット: ${OUT}/loading-blocked.png, ${OUT}/loading-ready.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

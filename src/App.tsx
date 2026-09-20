@@ -12,7 +12,8 @@ import { messages } from './lib/messages'
 import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import { insertSnippet } from './lib/insertSnippet'
-import { renderMarkdown } from './lib/renderMarkdown'
+import type { Engine } from './lib/previewEngine'
+import { loadEngine } from './lib/previewEngine'
 import { sampleDocument } from './sampleDocument'
 
 /** 入力が止まってから保存するまでの待ち時間。localStorageは同期APIなので1文字ごとには書かない。 */
@@ -71,7 +72,27 @@ export default function App() {
     saveTheme(next)
   }
 
-  const html = useMemo(() => renderMarkdown(deferredSource), [deferredSource])
+  // 数式の描画エンジンは別チャンクなので、届くまでは null（0024）。
+  // 届かなくてもエディタは使えたままにする（書いたものを失わせない）ので、
+  // 失敗は握りつぶし、プレビューは「準備中…」で留まる。
+  const [engine, setEngine] = useState<Engine | null>(null)
+  useEffect(() => {
+    let alive = true
+    loadEngine().then(
+      (loaded) => {
+        if (alive) setEngine(loaded)
+      },
+      () => {},
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const html = useMemo(
+    () => (engine === null ? '' : engine.renderMarkdown(deferredSource)),
+    [engine, deferredSource],
+  )
   const isPreviewStale = deferredSource !== source
 
   const flush = useCallback(() => {
@@ -144,10 +165,11 @@ export default function App() {
         onInsert={handleInsert}
         onFocusEditor={() => textareaRef.current?.focus()}
         lang={lang}
+        renderLatex={engine?.renderLatex}
       />
       <main className="panes">
         <Editor value={source} onChange={setSource} textareaRef={textareaRef} lang={lang} />
-        <Preview html={html} stale={isPreviewStale} lang={lang} />
+        <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
       </main>
     </div>
   )
