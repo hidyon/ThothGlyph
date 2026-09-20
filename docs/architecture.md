@@ -11,7 +11,7 @@
 [ textarea ]  --source-->  [ App の state ]  --deferred-->  [ renderMarkdown ]  --html-->  [ プレビュー ]
       ^                          |
       |                          +--600msのデバウンス--> [ localStorage ]
-      +--挿入-- [ 記号パレット ]
+      +--挿入-- [ 記号パレット ]（幅1200px以上では左の縦帯。0054）
 
 [ 数式の描画エンジン（KaTeX・marked・DOMPurify） ] は別チャンク。起動と同時に
 取りに行き、届くまではプレビューが「準備中…」、パレットのラベルはLaTeXのソース。

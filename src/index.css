@@ -332,6 +332,14 @@ body {
   font-size: 12px;
 }
 
+/* KaTeXのラベルはボタンの外へ縦にはみ出す（実測で上へ23.7〜38.7px）。
+   ボタンが2行以上並ぶと、下の行のラベルが上の行のボタンの中心を覆い、
+   上の行が押せなくなる（0054の縦帯で顕在化。横帯でも2行以上なら同じ）。
+   中身をクリック判定から外し、当たりはボタンの箱だけにする。 */
+.palette__item * {
+  pointer-events: none;
+}
+
 .palette__item:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -700,6 +708,64 @@ body {
   color: var(--math-error);
   font-family: var(--mono);
   font-size: 0.9em;
+}
+
+/* ---- 広い画面ではパレットを左の縦帯にする（0054） ----
+   横帯は横が大きく余り（幅1440pxでボタンは左から400pxまで）、縦だけを94px
+   奪っていた。縦帯にすると高さの奪いがゼロになり、textareaが721px→815pxになる。
+   代わりにプレビューが720px→630pxに狭まる交換なので、**グラフが縮み始める
+   幅1199px以下では横帯のまま**にする（幅1024pxでは図が464px→374pxになった）。 */
+@media (min-width: 1200px) {
+  .app {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .toolbar {
+    grid-column: 1 / -1;
+  }
+
+  .palette {
+    grid-column: 1;
+    grid-row: 2;
+    /* 下ではなく右で仕切る。 */
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    /* 公式タブは中身が959pxあり、帯（845px）に収まらない。 */
+    overflow-y: auto;
+  }
+
+  .panes {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  /* タブと検索欄を縦に積む。display: contents のままだと横に並ぶ。 */
+  .palette__bar {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    padding-bottom: 6px;
+  }
+
+  .palette__tab {
+    /* 縦に積むと中央寄せは読みにくい。下に一覧が続かないので4隅とも丸める。 */
+    text-align: left;
+    border-radius: 6px;
+  }
+
+  .palette__search {
+    /* margin-left: auto は横帯で右端に寄せるための指定（0011）。縦では外す。 */
+    margin-left: 0;
+    flex: 0 0 28px;
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  .palette__items {
+    border-top: 1px solid var(--border);
+  }
 }
 
 @media (max-width: 720px) {
