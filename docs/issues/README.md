@@ -17,7 +17,7 @@
 | [0007](0007-preview-performance.md) | 長い文書でプレビューが重い | closed | [仕様](../specs/0007-preview-performance.md) |
 | [0008](0008-keyboard-shortcuts.md) | キーボードショートカット | open | — |
 | [0009](0009-wrap-selection.md) | 選択範囲があるときの挿入の扱いを揃える | closed | [仕様](../specs/0009-wrap-selection.md) |
-| [0010](0010-scroll-sync.md) | スクロール同期と編集位置の復元 | open | — |
+| [0010](0010-scroll-sync.md) | スクロール同期と編集位置の復元 | open | [下書き](../specs/0010-scroll-sync.md)（未承認） |
 | [0011](0011-palette-search.md) | 記号パレットの検索 | closed | [仕様](../specs/0011-palette-search.md) |
 | [0012](0012-file-io.md) | .mdファイルの書き出しと読み込み | open | — |
 | [0013](0013-print-style.md) | 印刷とPDF出力のスタイル | open | — |
@@ -63,6 +63,10 @@
 以後に画面の文言を足すときは `lib/messages.ts` に2言語で書く。
 0019（アイコン）と0011（記号の検索）は完了した。次は0024（バンドルサイズ）を
 想定している。
+
+0010は**仕様の下書きだけがある**（[docs/specs/0010-scroll-sync.md](../specs/0010-scroll-sync.md)）。
+着手を決めたセッションで0011へ乗り換えたため、書いたところで止まっている。
+**未承認なので、着手するときは読み直して承認を取り直すこと。**
 
 0011で `lib/search.ts` に横断検索ができたので、**0020（プレビューからの編集）は
 この上に乗る**。また検索欄の `Esc` でエディタへ戻る経路を作ったので、
