@@ -1475,6 +1475,255 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
   console.log(`スクリーンショット: ${OUT}/palette-phone.png, ${OUT}/palette-wide.png`)
 })
 
+// ---- 0012: .mdファイルの読み込み ----
+
+section('file-load', 'ファイルの読み込み（0012）', async () => {
+  // 検証用のファイルは毎回作る（リポジトリに置くと本物のソースと紛らわしい）。
+  const dir = 'tmp/fixtures'
+  await mkdir(dir, { recursive: true })
+  const fixture = async (name, text) => {
+    const path = `${dir}/${name}`
+    await writeFile(path, text)
+    return path
+  }
+  const plain = await fixture('opened.md', '# 開いた文書\n\n式 $x^2$ である。\n')
+  const crlf = await fixture('crlf.md', '# CRLF\r\n\r\n本文\r\n')
+  const bom = await fixture('bom.md', '\uFEFF# BOM付き\n')
+  const png = await fixture('image.png', 'これは画像のつもり')
+  const huge = await fixture('huge.md', 'あ'.repeat(400000)) // UTF-8で1.2MB
+  const long = await fixture(
+    'long.md',
+    Array.from(
+      { length: 400 },
+      (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
+    ).join('\n'),
+  )
+
+  const fileInput = () => page.locator('.pane--editor input[type="file"]')
+  const openButton = () => page.getByRole('button', { name: 'ファイルを開く' })
+  const statusText = () => page.locator('.toolbar__status').innerText()
+  /** 結果表示は3秒で消える。出るのを待ってから読む。 */
+  const waitNotice = () =>
+    page
+      .waitForFunction(
+        () => document.querySelector('.toolbar__status')?.innerText.trim() || null,
+        null,
+        { timeout: 3000 },
+      )
+      .then((handle) => handle.jsonValue())
+      .catch(() => '')
+  /** ファイルをドロップする。DataTransferを組み立てて drop を発火させる。 */
+  const dropFiles = async (files) => {
+    const handle = await page.evaluateHandle((entries) => {
+      const data = new DataTransfer()
+      for (const [name, type, text] of entries) {
+        data.items.add(new File([text], name, { type }))
+      }
+      return data
+    }, files)
+    await page.locator('.pane--editor').dispatchEvent('dragover', { dataTransfer: handle })
+    await page.locator('.pane--editor').dispatchEvent('drop', { dataTransfer: handle })
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await appReady()
+
+  check('ソースの見出し行に「ファイルを開く」ボタンがある', (await openButton().count()) === 1)
+  const placed = await page.evaluate(() => {
+    const head = document.querySelector('.pane--editor .pane__header')
+    const button = head.querySelector('button')
+    return {
+      inHeader: button !== null,
+      headRight: Math.round(head.getBoundingClientRect().right),
+      buttonRight: Math.round(button.getBoundingClientRect().right),
+      titleLeft: Math.round(head.getBoundingClientRect().left),
+      buttonLeft: Math.round(button.getBoundingClientRect().left),
+    }
+  })
+  check(
+    'ボタンは見出し行の右端側にある（見出しの文字より右）',
+    placed.inHeader && placed.buttonLeft > placed.titleLeft,
+    `見出し行 ${placed.titleLeft}〜${placed.headRight} / ボタン左端 ${placed.buttonLeft}`,
+  )
+
+  // 幅ごとの高さ。ボタンを足しても見出し行が30pxのまま、textareaが減らないこと。
+  for (const width of [1440, 600, 375, 360]) {
+    await page.setViewportSize({ width, height: 667 })
+    const size = await page.evaluate(() => ({
+      heads: [...document.querySelectorAll('.pane__header')].map((h) =>
+        Math.round(h.getBoundingClientRect().height),
+      ),
+      editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
+      scrollW: document.documentElement.scrollWidth,
+      innerW: window.innerWidth,
+    }))
+    check(
+      `幅${width}pxで見出し行が30pxのまま、横スクロールも出ない（0012）`,
+      size.heads.every((h) => h === 30) && size.scrollW <= size.innerW,
+      `見出し行 ${size.heads.join('/')}px scrollWidth=${size.scrollW}`,
+    )
+    if (width === 375) {
+      check(
+        '幅375pxでtextareaが207px以上ある（0032・0033のぶんを減らさない）',
+        size.editor >= 207,
+        `${size.editor}px`,
+      )
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  // ボタンから読み込む。確認でキャンセルすると何も変わらない。
+  const before = await editor().inputValue()
+  page.once('dialog', (d) => d.dismiss())
+  await fileInput().setInputFiles(plain)
+  await page.waitForTimeout(300)
+  check('確認をキャンセルするとエディタの中身が変わらない', (await editor().inputValue()) === before)
+
+  // OKすると置き換わる。
+  let confirmMessage = ''
+  page.once('dialog', (d) => {
+    confirmMessage = d.message()
+    d.accept()
+  })
+  await fileInput().setInputFiles(plain)
+  await page.waitForFunction(() => document.querySelector('.editor').value.startsWith('# 開いた文書'), null, { timeout: 5000 })
+  check(
+    '確認にファイル名が出る',
+    confirmMessage.includes('opened.md'),
+    confirmMessage,
+  )
+  check('ボタンから選んだ .md がエディタに入る', (await editor().inputValue()).includes('# 開いた文書'))
+  check('読み込んだ結果が表示される', (await waitNotice()).includes('opened.md を読み込みました'), await statusText())
+  await ready()
+  check(
+    '読み込んだ文書の数式がプレビューに描画される',
+    (await page.locator('.preview .katex').count()) === 1,
+  )
+  check(
+    '読み込んだ見出しがプレビューに出る',
+    (await page.locator('.preview h1').innerText()) === '開いた文書',
+  )
+  await page.screenshot({ path: `${OUT}/file-load.png` })
+
+  // 自動保存に乗る（リロードで復元される）。
+  await page.waitForTimeout(900)
+  await page.reload({ waitUntil: 'networkidle' })
+  await appReady()
+  check(
+    '読み込んだ内容がリロード後も復元される',
+    (await editor().inputValue()).includes('# 開いた文書'),
+  )
+
+  // ドラッグ＆ドロップ。重ねている間は枠が変わり、大きさは変わらない。
+  const paneBefore = await page
+    .locator('.pane--editor')
+    .evaluate((el) => JSON.stringify([Math.round(el.getBoundingClientRect().width), Math.round(el.getBoundingClientRect().height)]))
+  const dragHandle = await page.evaluateHandle(() => {
+    const data = new DataTransfer()
+    data.items.add(new File(['# ドロップした文書\n'], 'dropped.md', { type: 'text/markdown' }))
+    return data
+  })
+  await page.locator('.pane--editor').dispatchEvent('dragover', { dataTransfer: dragHandle })
+  const dropping = await page.evaluate(() => {
+    const pane = document.querySelector('.pane--editor')
+    const style = getComputedStyle(pane)
+    return {
+      marked: pane.classList.contains('pane--dropping'),
+      outline: style.outlineStyle,
+      size: [Math.round(pane.getBoundingClientRect().width), Math.round(pane.getBoundingClientRect().height)],
+    }
+  })
+  check('ファイルを重ねている間はペインの枠が変わる', dropping.marked && dropping.outline === 'dashed', dropping.outline)
+  check(
+    '重ねている間もペインの大きさが変わらない',
+    JSON.stringify(dropping.size) === paneBefore,
+    `${paneBefore} → ${JSON.stringify(dropping.size)}`,
+  )
+
+  page.once('dialog', (d) => d.accept())
+  await page.locator('.pane--editor').dispatchEvent('drop', { dataTransfer: dragHandle })
+  await page.waitForFunction(() => document.querySelector('.editor').value.startsWith('# ドロップした文書'), null, { timeout: 5000 })
+  check('ドロップした .md が読み込まれる', (await editor().inputValue()).includes('# ドロップした文書'))
+  check(
+    'ドロップが終わるとペインの枠が戻る',
+    !(await page.locator('.pane--editor').evaluate((el) => el.classList.contains('pane--dropping'))),
+  )
+
+  // 断る3つ。いずれも中身が変わらない。
+  const kept = await editor().inputValue()
+  await dropFiles([['image.png', 'image/png', 'これは画像のつもり']])
+  check('.png をドロップしても読み込まれない', (await editor().inputValue()) === kept)
+  check('.png は「.md ファイルを選んでください」と出る', (await waitNotice()) === '.md ファイルを選んでください', await statusText())
+
+  await page.waitForTimeout(3100)
+  await dropFiles([
+    ['a.md', 'text/markdown', '# A'],
+    ['b.md', 'text/markdown', '# B'],
+  ])
+  check('2件同時のドロップは読み込まれない', (await editor().inputValue()) === kept)
+  check('2件同時は「一度に開けるのは1つだけです」と出る', (await waitNotice()) === '一度に開けるのは1つだけです', await statusText())
+
+  await page.waitForTimeout(3100)
+  await fileInput().setInputFiles(png)
+  check('ボタンから .png を選んでも読み込まれない', (await editor().inputValue()) === kept)
+
+  await page.waitForTimeout(3100)
+  await fileInput().setInputFiles(huge)
+  check('1MBを超える .md は読み込まれない', (await editor().inputValue()) === kept)
+  check(
+    '1MB超は「ファイルが大きすぎます（上限1MB）」と出る',
+    (await waitNotice()) === 'ファイルが大きすぎます（上限1MB）',
+    await statusText(),
+  )
+
+  // 正規化。
+  await page.waitForTimeout(3100)
+  page.once('dialog', (d) => d.accept())
+  await fileInput().setInputFiles(crlf)
+  await page.waitForFunction(() => document.querySelector('.editor').value.startsWith('# CRLF'), null, { timeout: 5000 })
+  check('CRLFの .md を読み込むと \\r が残らない', !(await editor().inputValue()).includes('\r'))
+
+  page.once('dialog', (d) => d.accept())
+  await fileInput().setInputFiles(bom)
+  await page.waitForFunction(() => document.querySelector('.editor').value.includes('BOM付き'), null, { timeout: 5000 })
+  const bomValue = await editor().inputValue()
+  check('BOM付きの .md を読み込むと先頭にBOMが残らない', !bomValue.startsWith('\uFEFF'))
+  await ready().catch(() => {})
+  check(
+    'BOM付きの見出しがプレビューで見出しとして描かれる',
+    (await page.locator('.preview h1').innerText()) === 'BOM付き',
+  )
+
+  // 0007と同じ規模（26.9 kB）が開ける。
+  page.once('dialog', (d) => d.accept())
+  await fileInput().setInputFiles(long)
+  await page.waitForFunction(() => document.querySelectorAll('.preview .katex').length === 400, null, {
+    timeout: 30000,
+  })
+  check('400節・400数式（26.9 kB）の .md を読み込むと数式が400個描画される', true, '400件')
+
+  // 英語表示。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await appReady()
+  check('英語表示ではボタンが Open file になる', (await page.getByRole('button', { name: 'Open file' }).count()) === 1)
+  let englishConfirm = ''
+  page.once('dialog', (d) => {
+    englishConfirm = d.message()
+    d.accept()
+  })
+  await fileInput().setInputFiles(plain)
+  await page.waitForFunction(() => document.querySelector('.editor').value.startsWith('# 開いた文書'), null, { timeout: 5000 })
+  check('英語表示では確認ダイアログが英語になる', englishConfirm.startsWith('Discard what you have written and open'), englishConfirm)
+  check('英語表示では結果が Opened … になる', (await waitNotice()).includes('Opened opened.md'), await statusText())
+  await page.screenshot({ path: `${OUT}/file-load-en.png` })
+
+  // 次の区分のために日本語へ戻す。
+  await page.getByRole('button', { name: /Language/ }).click()
+  await appReady()
+  console.log(`スクリーンショット: ${OUT}/file-load.png, ${OUT}/file-load-en.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

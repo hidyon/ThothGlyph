@@ -352,13 +352,51 @@ body {
 }
 
 .pane__header {
-  padding: 6px 16px;
+  /*
+    「ファイルを開く」ボタン（0012）を右端に置く。縦のpaddingを0にして
+    min-heightで高さを決めるのは、ボタンを足しても見出し行が30pxのままに
+    なるようにするため（6pxのままだと36pxへ伸び、幅375pxのtextareaが
+    207px→201pxに減って0032・0033で確保したぶんを割る）。
+    min-heightが要るのは、ボタンのないプレビュー側だけが縮んでずれないように。
+  */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 16px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--text-muted);
   background: var(--bg-muted);
   border-bottom: 1px solid var(--border);
+}
+
+/* 見出し行に収まる小さいボタン。高さ29pxで、見出し行の30pxを超えない。
+   .button と2つ重ねるのは、幅720px以下の .button（padding 7px 12px）に
+   後ろから上書きされないようにするため（同じ詳細度だと後ろが勝つ）。 */
+.button.button--small {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ファイルを重ねている間の目印。枠の色だけを変える（大きさを変えると
+   下のプレビューまでずれる）。 */
+.pane--dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+/* 視覚的にだけ隠す。読み上げとテストからは辿れる（ファイル選択の input）。 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .editor {

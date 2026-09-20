@@ -12,6 +12,7 @@ import { messages } from './lib/messages'
 import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import { insertSnippet } from './lib/insertSnippet'
+import { checkFile, normalizeText } from './lib/loadMarkdownFile'
 import type { Engine } from './lib/previewEngine'
 import { loadEngine } from './lib/previewEngine'
 import { sampleDocument } from './sampleDocument'
@@ -144,6 +145,47 @@ export default function App() {
     })
   }
 
+  // 読み込みの結果（コピーの結果と同じ枠に出す）。数秒で消す。
+  const [notice, setNotice] = useState('')
+  const noticeTimer = useRef(0)
+  const showNotice = useCallback((text: string) => {
+    setNotice(text)
+    window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(''), 3000)
+  }, [])
+
+  const handleOpenFiles = async (files: FileList | null) => {
+    if (files === null || files.length === 0) return
+    if (files.length > 1) {
+      showNotice(pick(messages.openTooMany, lang))
+      return
+    }
+
+    const file = files[0]
+    const checked = checkFile(file.name, file.size)
+    if (!checked.ok) {
+      showNotice(
+        pick(checked.reason === 'extension' ? messages.openWrongType : messages.openTooLarge, lang),
+      )
+      return
+    }
+
+    // 確認は読む前に出す。断られたファイルを読む理由がない。
+    if (!window.confirm(pick(messages.openConfirm(file.name), lang))) return
+
+    let text: string
+    try {
+      text = await file.text()
+    } catch {
+      showNotice(pick(messages.openFailed, lang))
+      return
+    }
+
+    setSource(normalizeText(text))
+    showNotice(pick(messages.opened(file.name), lang))
+    textareaRef.current?.focus()
+  }
+
   const handleReset = () => {
     if (!window.confirm(pick(messages.resetConfirm, lang))) return
     setSource(sampleDocument(lang))
@@ -160,6 +202,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         lang={lang}
         onToggleLang={handleToggleLang}
+        notice={notice}
       />
       <SymbolPalette
         onInsert={handleInsert}
@@ -168,7 +211,13 @@ export default function App() {
         renderLatex={engine?.renderLatex}
       />
       <main className="panes">
-        <Editor value={source} onChange={setSource} textareaRef={textareaRef} lang={lang} />
+        <Editor
+          value={source}
+          onChange={setSource}
+          textareaRef={textareaRef}
+          lang={lang}
+          onOpenFiles={handleOpenFiles}
+        />
         <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
       </main>
     </div>
