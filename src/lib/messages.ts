@@ -11,12 +11,16 @@ import { t } from './i18n'
 export const messages = {
   // ツールバー
   copy: t('Markdownをコピー', 'Copy Markdown'),
+  /** 幅480px以下で出す短いほう。長いほうは aria-label に残る（0033）。 */
+  copyShort: t('コピー', 'Copy'),
   copied: t('コピーしました', 'Copied'),
   copyFailed: t(
     'コピーできませんでした（手動で選択してください）',
     'Could not copy (please select the text manually)',
   ),
   reset: t('サンプルに戻す', 'Reset to sample'),
+  /** 幅480px以下で出す短いほう。長いほうは aria-label に残る（0033）。 */
+  resetShort: t('戻す', 'Reset'),
   resetConfirm: t(
     '編集中の内容を破棄してサンプル文書に戻します。よろしいですか？',
     'Discard what you have written and restore the sample document?',

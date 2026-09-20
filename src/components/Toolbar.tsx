@@ -119,11 +119,23 @@ export function Toolbar({
           <span className="button__label">{pick(messages.themePrefix, lang)}</span>
           {themeLabel(theme, lang)}
         </button>
-        <button type="button" className="button button--quiet" onClick={onReset}>
-          {pick(messages.reset, lang)}
+        {/*
+          幅480px以下では長い文言が画面から溢れるので、短いほうへ差し替える（0033）。
+          どちらを出すかはCSSで決める。aria-labelに長いほうを常に置くのは、
+          読み上げとテストから見える名前を画面幅で変えないため。
+        */}
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={onReset}
+          aria-label={pick(messages.reset, lang)}
+        >
+          <span className="button__wide">{pick(messages.reset, lang)}</span>
+          <span className="button__narrow">{pick(messages.resetShort, lang)}</span>
         </button>
-        <button type="button" className="button" onClick={copy}>
-          {pick(messages.copy, lang)}
+        <button type="button" className="button" onClick={copy} aria-label={pick(messages.copy, lang)}>
+          <span className="button__wide">{pick(messages.copy, lang)}</span>
+          <span className="button__narrow">{pick(messages.copyShort, lang)}</span>
         </button>
       </div>
     </header>
