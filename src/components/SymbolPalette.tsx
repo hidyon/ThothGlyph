@@ -176,6 +176,12 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
 
   return (
     <section className="palette" aria-label={pick(messages.paletteLabel, lang)}>
+      {/* ソース・プレビューと同じ見出し（0056）。横帯のときはCSSで隠す
+          （縦帯では帯の余白に載るので高さが増えないが、横帯では30px増えて
+          textareaがそのぶん減る）。 */}
+      <header className="pane__header pane__header--palette">
+        {pick(messages.paletteHeader, lang)}
+      </header>
       {/* タブと検索欄を同じ行に並べる。検索欄に行を与えると、狭い画面で
           パレットが更に高くなる（0032）。display:contents でタブは
           この行の直接の子として並びつつ、role="tablist" の入れ物は残す。 */}
