@@ -2,6 +2,11 @@ import DOMPurify from 'dompurify'
 import katex from 'katex'
 import { marked } from 'marked'
 
+import { parseGraphBlock } from './graphBlock'
+import type { Lang } from './i18n'
+import { pick } from './i18n'
+import { renderGraph } from './renderGraph'
+
 /**
  * Markdown（$...$ / $$...$$ の数式込み）をレンダリング済みHTMLに変換する。
  *
@@ -17,6 +22,14 @@ const PLACEHOLDER_SUFFIX = '%%'
 
 const placeholderFor = (index: number) =>
   `${PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`
+
+const GRAPH_PLACEHOLDER_PREFIX = '%%MATHEDITOR_GRAPH_'
+
+const graphPlaceholderFor = (index: number) =>
+  `${GRAPH_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`
+
+// 情報文字列が graph ちょうどのフェンスだけをグラフにする（```graphql は対象外）。
+const GRAPH_FENCE = /^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/
 
 // $$...$$ を先に見る（$...$ に食われないように）。
 // インライン側は $ の直後・直前が空白でないものだけを数式とみなし、
@@ -102,18 +115,26 @@ function splitByInlineCode(text: string): Segment[] {
   return segments
 }
 
-/** 数式を抜き出し、プレースホルダ入りのMarkdownと数式リストを返す。 */
-function extractFormulas(source: string): {
+/**
+ * グラフのブロックと数式を抜き出し、プレースホルダ入りのMarkdownと
+ * それぞれのリストを返す。
+ *
+ * **グラフの退避は数式の退避より先**。ブロックの中の `$` を数式にしないため
+ * （コードの中の `$` を数式にしないのと同じ理由。0006）。
+ */
+function extractBlocks(source: string): {
   masked: string
   formulas: Formula[]
+  graphs: string[]
 } {
   const formulas: Formula[] = []
+  const graphs: string[] = []
 
   // 数式の番号は文書全体を通した連番。コード領域を跨いでも狂わない。
   const masked = splitByCode(source)
     .map((segment) =>
       segment.isCode
-        ? segment.text
+        ? maskGraph(segment.text, graphs)
         : segment.text.replace(MATH_PATTERN, (_match, block, inline) => {
             const isBlock = block !== undefined
             const latex = (isBlock ? block : inline).trim()
@@ -125,7 +146,24 @@ function extractFormulas(source: string): {
     )
     .join('')
 
-  return { masked, formulas }
+  return { masked, formulas, graphs }
+}
+
+/**
+ * コードのセグメントが ```graph なら、中身を退避してプレースホルダに替える。
+ * グラフでなければそのまま返す（コードの解釈はmarkedに任せる）。
+ */
+function maskGraph(text: string, graphs: string[]): string {
+  const lines = text.split('\n')
+  if (!GRAPH_FENCE.test(lines[0] ?? '')) return text
+
+  // 末尾の空文字はフェンス行の改行によるもの。閉じフェンスはその手前にある。
+  if (lines.at(-1) === '') lines.pop()
+  const closed = lines.length >= 2 && FENCE.test((lines.at(-1) as string).trim())
+  const body = lines.slice(1, closed ? -1 : undefined).join('\n')
+
+  const index = graphs.push(body) - 1
+  return `${graphPlaceholderFor(index)}\n`
 }
 
 /**
@@ -182,8 +220,8 @@ function restoreFormulas(html: string, formulas: Formula[]): string {
   )
 }
 
-export function renderMarkdown(source: string): string {
-  const { masked, formulas } = extractFormulas(source)
+export function renderMarkdown(source: string, lang: Lang = 'ja'): string {
+  const { masked, formulas, graphs } = extractBlocks(source)
 
   // marked.parse は async にも設定できるが、既定は同期。型のためだけに String() する。
   const rawHtml = marked.parse(masked, { async: false, breaks: true, gfm: true })
@@ -195,5 +233,78 @@ export function renderMarkdown(source: string): string {
   // 数式HTMLの差し戻しはサニタイズ後に行う。KaTeXの出力は信頼できる
   // （入力LaTeXはKaTeX側でエスケープされる）一方、DOMPurifyに通すと
   // MathMLのアノテーションなど描画に必要な要素が落ちることがあるため。
-  return restoreFormulas(safeHtml, formulas)
+  //
+  // グラフのSVGはKaTeXと違いDOMPurifyを通せる（実測済み）ので、差し戻す前に
+  // 1つずつ通す。抜け道を増やさないため。
+  return restoreFormulas(restoreGraphs(safeHtml, graphs, lang), formulas)
+}
+
+/**
+ * グラフごとの描画結果のキャッシュ。数式と同じ理由（1文字打つたびに文書全体を
+ * 描き直すが、ほとんどのブロックは前回と同一）。言語でaria-labelと
+ * エラー文言が変わるので、言語もキーに含める。
+ */
+const graphCache = new Map<string, string>()
+
+/** 上限。1件あたり数十KBのSVGになりうるので、数式より少なくする。 */
+const GRAPH_CACHE_LIMIT = 100
+
+/** テスト用。 */
+export function clearGraphCache(): void {
+  graphCache.clear()
+}
+
+function restoreGraphs(html: string, graphs: string[], lang: Lang): string {
+  return graphs.reduce(
+    (acc, body, index) =>
+      acc.replaceAll(graphPlaceholderFor(index), renderGraphBlock(body, lang)),
+    html,
+  )
+}
+
+function renderGraphBlock(body: string, lang: Lang): string {
+  const key = `${lang}:${body}`
+  const cached = graphCache.get(key)
+  if (cached !== undefined) return cached
+
+  const html = renderGraphBlockUncached(body, lang)
+
+  if (graphCache.size >= GRAPH_CACHE_LIMIT) {
+    const oldest = graphCache.keys().next().value
+    if (oldest !== undefined) graphCache.delete(oldest)
+  }
+  graphCache.set(key, html)
+
+  return html
+}
+
+function renderGraphBlockUncached(body: string, lang: Lang): string {
+  const parsed = parseGraphBlock(body)
+  if (!parsed.ok) return graphError(pick(parsed.error, lang))
+
+  const rendered = renderGraph(parsed.spec, lang)
+  if (!rendered.ok) return graphError(pick(rendered.error, lang))
+
+  // 生成したSVGもサニタイズを通す。KaTeXの出力と違って通せることを実測した
+  // （docs/specs/0037-graph.md）ので、迂回させる理由がない。
+  return DOMPurify.sanitize(rendered.svg, {
+    USE_PROFILES: { html: true, mathMl: true, svg: true },
+  })
+}
+
+/**
+ * 描けないときの表示。数式と同じで、プレビュー全体は消さずその場に赤字を出す。
+ * プレースホルダは段落の中にあるので、囲みは <span> にする（<p> は入れ子にできない）。
+ */
+function graphError(message: string): string {
+  return `<span class="graph-error">${escapeHtml(message)}</span>`
+}
+
+/** 利用者が書いた文字列をそのまま出す箇所（エラーメッセージ）。 */
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
 }

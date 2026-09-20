@@ -102,8 +102,8 @@ describe('パレット全件のLaTeX', () => {
 
 // READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
 describe('READMEに書いた件数', () => {
-  it('記号は7グループ88件', () => {
+  it('記号は7グループ89件', () => {
     expect(paletteGroups).toHaveLength(7)
-    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(88)
+    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(89)
   })
 })

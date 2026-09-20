@@ -52,6 +52,7 @@
 | `src/components/` | 描画と配線だけ。ロジックを持たない |
 | `src/lib/` | 純粋関数。テストはこの隣に置く |
 | `src/lib/previewEngine.ts` / `engine.ts` | 数式の描画エンジンの遅延読み込み（下の「7. 読み込みの分割」） |
+| `src/lib/expression.ts` / `graphBlock.ts` / `renderGraph.ts` | グラフ（式の評価・ブロックの解析・SVGの生成）（[0037](specs/0037-graph.md)） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
@@ -74,33 +75,65 @@ source
   │      フェンス（```/~~~）は行単位で走査、インラインコードは
   │      開き閉じのバッククォートの個数を合わせて判定
   │
-  ├─2─ コードの外側だけ数式を退避     extractFormulas()
+  ├─2─ graphフェンスを退避           maskGraph()
+  │      情報文字列が graph ちょうどのものだけ。退避先は
+  │      %%MATHEDITOR_GRAPH_n%%（```graphql は対象外）
+  │
+  ├─3─ コードの外側だけ数式を退避     extractBlocks()
   │      $$...$$ を $...$ より先に見る。退避先は
   │      %%MATHEDITOR_MATH_n%% というプレースホルダ
   │
-  ├─3─ Markdownを変換               marked.parse(gfm, breaks)
+  ├─4─ Markdownを変換               marked.parse(gfm, breaks)
   │
-  ├─4─ サニタイズ                   DOMPurify.sanitize()
+  ├─5─ サニタイズ                   DOMPurify.sanitize()
   │
-  └─5─ 数式を差し戻す                restoreFormulas() → KaTeX
+  ├─6─ グラフを差し戻す              restoreGraphs() → renderGraph
+  │      生成したSVGは1つずつDOMPurifyを通してから入れる
+  │
+  └─7─ 数式を差し戻す                restoreFormulas() → KaTeX
          プレースホルダをKaTeXの出力HTMLで置き換える
 ```
 
 順序に理由がある箇所:
 
-- **2が3より先**: markedは `_` `*` `\` をMarkdown記法として解釈する。
+- **3が4より先**: markedは `_` `*` `\` をMarkdown記法として解釈する。
   先に退避しないとLaTeXが壊れる。
+- **2が3より先**: グラフのブロックの中の `$` を数式にしないため
+  （コードの中の `$` を数式にしないのと同じ理由。[0037](specs/0037-graph.md)）。
 - **1が2より先**: コードの中の `$` を数式にしないため（[0006](specs/0006-math-in-code.md)）。
   コード自体はプレースホルダへ逃がさず、そのままmarkedへ渡す。
   コードの解釈はmarkedに任せるほうが安全。
-- **5が4より後**: KaTeXの出力にはMathMLの要素が含まれ、DOMPurifyを通すと
+- **7が5より後**: KaTeXの出力にはMathMLの要素が含まれ、DOMPurifyを通すと
   描画に必要な要素が落ちる。KaTeXの出力は信頼できる（入力LaTeXはKaTeX側で
   エスケープされる）ので、サニタイズの後に差し戻す。
+- **6のSVGはサニタイズを迂回しない**: グラフのSVGは `path` `line` `text` だけで、
+  DOMPurifyのsvgプロファイルを通しても何も落ちないことを実測した（0037）。
+  抜け道は5のKaTeXだけに保つ。
 
 ### KaTeXの呼び方
 
 `throwOnError: false` で呼ぶ。入力途中の壊れた数式でプレビューが消えると編集
 できないため、赤字（`#dc2626`）で見せる。`strict: false`。
+
+### グラフの描画（[0037](specs/0037-graph.md)）
+
+`lib/expression.ts`（式 → 関数）・`lib/graphBlock.ts`（ブロック → 関数と範囲）・
+`lib/renderGraph.ts`（→ SVG文字列）の3つに分ける。いずれも純粋関数で、
+`renderMarkdown.ts` からしか呼ばれないので**遅延チャンク側に入る**。
+
+- **式の評価に `eval` と `new Function` を使わない。** 外から読み込んだ `.md`
+  （[0012](specs/0012-file-load.md)）がそのままコードとして走る経路を作らない。
+  トークナイザ → 逆ポーランド → 評価の3段で書く。
+- **色と文字の大きさはSVGの属性に書かず、CSSで当てる**（`.graph__line--1` など）。
+  ダークモードとメディアクエリで切り替えるため。SVG内の文字は図と一緒に縮むので、
+  幅480px以下ではユーザー単位を上げて実寸を戻している。
+- **`clipPath` を使わない。** `id` が文書内で衝突する。範囲外の点を打たないことで
+  代用でき、その規則は漸近線（`1/x` `tan(x)`）の処理としても必要だった。
+- 描画結果はブロック本文と表示言語をキーにキャッシュする（上限100件）。
+
+**`renderMarkdown` は表示言語を受け取る**（`renderMarkdown(source, lang)`）。
+グラフのエラー文言と `aria-label` が言語で変わるため。数式だけだった頃は
+言語に依存しなかったので、`Engine` の型と `App` の `useMemo` の依存も変わっている。
 
 ### 数式の描画キャッシュ
 
@@ -113,10 +146,11 @@ LaTeX文字列と `displayMode` の組をキーに、KaTeXの出力をモジュ�
 ## 4. サニタイズの境界
 
 信頼できない入力は「利用者が書いたMarkdown」と「貼り付けたHTML」。
-これらは **4** のDOMPurifyを必ず通る。プロファイルは `html` / `mathMl` / `svg`。
+これらは **5** のDOMPurifyを必ず通る。プロファイルは `html` / `mathMl` / `svg`。
 
-**5** で差し戻すKaTeXの出力だけがサニタイズを迂回する。ここが唯一の抜け道なので、
+**7** で差し戻すKaTeXの出力だけがサニタイズを迂回する。ここが唯一の抜け道なので、
 KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの前提が崩れる）。
+**6** のグラフのSVGは迂回しない（差し戻す前に1つずつDOMPurifyを通す。0037）。
 
 `Preview` は `dangerouslySetInnerHTML` を使う。渡ってくるHTMLが上のパイプラインを
 通っていることが前提であり、他の経路からHTMLを渡さない。
@@ -280,7 +314,7 @@ JSを2つに分けている。
 
 ```
 初期チャンク : React + アプリ本体（Toolbar / Editor / SymbolPalette の骨組み）+ アプリのCSS
-遅延チャンク : KaTeX + marked + DOMPurify + renderMarkdown + KaTeXのCSS
+遅延チャンク : KaTeX + marked + DOMPurify + renderMarkdown + グラフの描画 + KaTeXのCSS
 ```
 
 `lib/engine.ts` が遅延チャンクの入口で、**ここから静的にたどれるものが遅延側に入る**。

@@ -11,6 +11,11 @@
   --math-error: #dc2626;
   --on-accent: #ffffff;
 
+  /* グラフの線（0037）。3本まで色で見分ける。 */
+  --graph-line-1: #2563eb;
+  --graph-line-2: #dc2626;
+  --graph-line-3: #16a34a;
+
   /* スクロールバーやtextareaのフォームUIもブラウザ側で合わせる。 */
   color-scheme: light;
 
@@ -38,6 +43,10 @@
     --math-error: #ff9a9a;
     --on-accent: #0f1115;
 
+    --graph-line-1: #60a5fa;
+    --graph-line-2: #f87171;
+    --graph-line-3: #4ade80;
+
     color-scheme: dark;
   }
 }
@@ -55,6 +64,10 @@
   --danger: #ff8a80;
   --math-error: #ff9a9a;
   --on-accent: #0f1115;
+
+  --graph-line-1: #60a5fa;
+  --graph-line-2: #f87171;
+  --graph-line-3: #4ade80;
 
   color-scheme: dark;
 }
@@ -505,9 +518,72 @@ body {
   padding: 2px 0;
 }
 
+/*
+  グラフ（0037）。
+
+  上限を付けないと広い画面で図が巨大になる（幅1440pxで672×448pxまで膨らむ）。
+  文字の大きさをSVGの属性ではなくここで当てるのは、図と一緒に縮む文字を
+  メディアクエリで戻すため（幅360pxでは13px指定が7.2pxまで落ちて読めない）。
+*/
+.graph {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  margin: 16px auto;
+}
+
+.graph__grid line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.graph__axis line {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+}
+
+.graph__tick {
+  font-family: var(--sans);
+  font-size: 13px; /* SVGのユーザー単位。実寸は表示幅で決まる */
+  fill: var(--text-muted);
+}
+
+.graph__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.graph__line--1 {
+  stroke: var(--graph-line-1);
+}
+
+.graph__line--2 {
+  stroke: var(--graph-line-2);
+}
+
+.graph__line--3 {
+  stroke: var(--graph-line-3);
+}
+
+/* 描けないときの表示。壊れた数式と同じ色にする。 */
+.graph-error {
+  color: var(--math-error);
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
 @media (max-width: 720px) {
   .toolbar {
     padding: 8px 10px;
+  }
+
+  /* 上下2分割では、図がプレビューのペインより高くなることがある
+     （幅540×高さ720で図320px vs ペイン288px）。 */
+  .graph {
+    max-height: 38vh;
   }
 
   .toolbar__title {
@@ -631,6 +707,11 @@ body {
 }
 
 @media (max-width: 480px) {
+  /* 図が縮むぶん文字も縮むので、ユーザー単位を上げて実寸11.7〜15pxに戻す。 */
+  .graph__tick {
+    font-size: 18px;
+  }
+
   .button__wide {
     display: none;
   }

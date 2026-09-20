@@ -178,6 +178,11 @@ export const paletteGroups: PaletteGroup[] = [
       { label: '\\textbf{太字}', snippet: `**${CURSOR_TOKEN}**`, title: t('太字', 'Bold') },
       { label: '\\textit{斜体}', snippet: `*${CURSOR_TOKEN}*`, title: t('斜体', 'Italic') },
       { label: '\\text{箇条書き}', snippet: `- ${CURSOR_TOKEN}`, title: t('箇条書き', 'Bullet list') },
+      {
+        label: '\\text{グラフ}',
+        snippet: `\n\`\`\`graph\ny = ${CURSOR_TOKEN}\nx: -5..5\n\`\`\`\n`,
+        title: t('関数のグラフ', 'Function graph'),
+      },
     ],
   },
 ]

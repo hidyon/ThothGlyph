@@ -2,7 +2,7 @@
 // （仕様ではnode環境で足りると見込んでいたが、sanitizeがwindowを要求する）
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { clearFormulaCache, renderMarkdown } from './renderMarkdown'
+import { clearFormulaCache, clearGraphCache, renderMarkdown } from './renderMarkdown'
 
 /** 数式として描画されたか。KaTeXの出力は .katex を持つ。 */
 const hasMath = (html: string) => html.includes('class="katex')
@@ -136,5 +136,94 @@ describe('renderMarkdown', () => {
     renderMarkdown(Array.from({ length: 600 }, (_, i) => `$y^{${i}}$`).join(' '))
 
     expect(hasMath(renderMarkdown('$y^{0}$'))).toBe(true)
+  })
+})
+
+/** ```graph ブロック（0037）。 */
+describe('renderMarkdown（グラフ）', () => {
+  const fence = (body: string) => '```graph\n' + body + '\n```\n'
+
+  it('graphフェンスをSVGにする', () => {
+    const html = renderMarkdown(fence('y = x^2\nx: -3..5'))
+
+    expect(html).toContain('<svg class="graph"')
+    expect(html).not.toContain('<code')
+  })
+
+  it('前後の本文と数式はそのまま描画する', () => {
+    const html = renderMarkdown('# 見出し\n\n' + fence('y = x') + '\n式は $x^2$ である。\n')
+
+    expect(html).toContain('<h1')
+    expect(html).toContain('<svg class="graph"')
+    expect(hasMath(html)).toBe(true)
+  })
+
+  it('graph以外のフェンスは今までどおりコードのまま', () => {
+    for (const info of ['', 'js', 'graphql', 'graph2']) {
+      const html = renderMarkdown('```' + info + '\ny = x^2\n```\n')
+
+      expect(html, info).toContain('<code')
+      expect(html, info).not.toContain('<svg class="graph"')
+    }
+  })
+
+  it('~~~graph も受ける', () => {
+    expect(renderMarkdown('~~~graph\ny = x\n~~~\n')).toContain('<svg class="graph"')
+  })
+
+  it('ブロックの中の $ を数式にしない', () => {
+    const html = renderMarkdown(fence('# $x$ のグラフ\ny = x'))
+
+    expect(hasMath(html)).toBe(false)
+    expect(html).toContain('<svg class="graph"')
+  })
+
+  it('ブロックの中の LaTeX 記法で Markdown が壊れない', () => {
+    const html = renderMarkdown(fence('y = x^2\n# a_b * c') + '\n**太字**\n')
+
+    expect(html).toContain('<strong>太字</strong>')
+  })
+
+  it('描けないブロックを赤字1行にし、他の本文は残す', () => {
+    const html = renderMarkdown('# 見出し\n\n' + fence('y = x^^2') + '\n本文。\n')
+
+    expect(html).toContain('<span class="graph-error">式を読めません: x^^2</span>')
+    expect(html).toContain('<h1')
+    expect(html).toContain('本文。')
+  })
+
+  it('エラーメッセージのHTMLをエスケープする', () => {
+    const html = renderMarkdown(fence('y = x\n<script>alert(1)</script>'))
+
+    expect(html).toContain('graph-error')
+    expect(html).not.toContain('<script>')
+    expect(html).toContain('&lt;script&gt;')
+  })
+
+  it('表示言語でメッセージとaria-labelが変わる', () => {
+    expect(renderMarkdown(fence('y = x'), 'en')).toContain('aria-label="Graph of y = x"')
+    expect(renderMarkdown(fence('y = x^^2'), 'en')).toContain('Cannot read expression: x^^2')
+  })
+
+  it('閉じないフェンスでも描ける', () => {
+    expect(renderMarkdown('```graph\ny = x\n')).toContain('<svg class="graph"')
+  })
+
+  it('1つの文書に複数のグラフを置ける', () => {
+    const html = renderMarkdown(fence('y = x') + '\n' + fence('y = 2x'))
+
+    expect(html.match(/<svg class="graph"/g)).toHaveLength(2)
+  })
+
+  it('キャッシュの有無で結果が変わらない', () => {
+    const source = fence('y = sin(x)\nx: -pi..pi')
+    clearGraphCache()
+    const first = renderMarkdown(source)
+    const second = renderMarkdown(source)
+
+    expect(second).toBe(first)
+
+    clearGraphCache()
+    expect(renderMarkdown(source)).toBe(first)
   })
 })

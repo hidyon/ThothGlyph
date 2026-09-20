@@ -100,6 +100,23 @@ export const messages = {
   /** 検索結果は横断なので、どのグループの記号かをtooltipに添える。 */
   inGroup: (description: string, group = '') =>
     t(`${description}［${group}］`, `${description} [${group}]`),
+  // グラフ（0037）
+  graphLabel: t('グラフ', 'Graph'),
+  /** SVGの aria-label。式の位置が言語で変わるので関数にする。 */
+  graphAlt: (functions: string) => t(`${functions} のグラフ`, `Graph of ${functions}`),
+  graphNoFunction: t('グラフの式がありません', 'No function to plot'),
+  graphTooManyFunctions: t('関数は3本までです', 'At most 3 functions'),
+  graphBadExpression: (source: string) =>
+    t(`式を読めません: ${source}`, `Cannot read expression: ${source}`),
+  graphBadRange: (line: string) => t(`範囲を読めません: ${line}`, `Cannot read range: ${line}`),
+  graphEmptyRange: (line: string) =>
+    t(`範囲の左が右以上です: ${line}`, `Range is empty: ${line}`),
+  graphUnknownLine: (line: string) => t(`読めない行です: ${line}`, `Unknown line: ${line}`),
+  graphNothingToPlot: t(
+    'この範囲に描ける点がありません',
+    'Nothing to plot in this range',
+  ),
+
   /** 記号の説明。日本語は全角括弧、英語は半角括弧で語順も変わる。 */
   wrapsSelection: (name: string) => t(`${name}（選択範囲を囲む）`, `${name} (wraps selection)`),
   insertsAfter: (name: string) =>

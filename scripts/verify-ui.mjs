@@ -2065,6 +2065,217 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
   await appReady()
   console.log(`スクリーンショット: ${OUT}/file-save.png, ${OUT}/file-save-en.png`)
 })
+// ---- グラフ（0037） ----
+
+section('graph', '関数のグラフ（0037）', async () => {
+  const graphDoc = (body) => `# グラフ\n\n\`\`\`graph\n${body}\n\`\`\`\n\n下に本文が続く。\n`
+  const graph = () => page.locator('.preview svg.graph')
+  /** 図の実際の大きさ。viewBoxの縦横比を保ったまま入るので、幅か高さの小さいほうで決まる。 */
+  const graphBox = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.preview svg.graph')
+      if (el === null) return null
+      const rect = el.getBoundingClientRect()
+      const scale = Math.min(rect.width / 480, rect.height / 320)
+      const tick = document.querySelector('.preview .graph__tick')
+      const pane = el.closest('.pane').getBoundingClientRect()
+      return {
+        width: Math.round(480 * scale),
+        height: Math.round(320 * scale),
+        tickPx: Math.round(parseFloat(getComputedStyle(tick).fontSize) * scale * 10) / 10,
+        paneHeight: Math.round(pane.height),
+        scrollW: document.documentElement.scrollWidth,
+        innerW: window.innerWidth,
+      }
+    })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await editor().fill(graphDoc('y = x^2 - 2x\nx: -3..5'))
+  await page.waitForTimeout(400)
+
+  check('graphブロックがSVGとして描かれる', (await graph().count()) === 1)
+  check(
+    'ブロックがコードとして残らない',
+    (await page.locator('.preview code').count()) === 0,
+  )
+  check(
+    '曲線と目盛りが描かれている',
+    (await page.locator('.preview .graph__line').count()) === 1 &&
+      (await page.locator('.preview .graph__tick').count()) === 10,
+  )
+
+  const wide = await graphBox()
+  check(
+    '幅1440pxで図が480×320pxに収まる（上限が効いている）',
+    wide.width === 480 && wide.height === 320,
+    `${wide.width}×${wide.height}px`,
+  )
+  await page.screenshot({ path: `${OUT}/graph-wide.png` })
+
+  // 狭い画面。0033で下げた基準（360px）で測る。
+  for (const [width, height] of [
+    [540, 720],
+    [375, 667],
+    [360, 640],
+  ]) {
+    await page.setViewportSize({ width, height })
+    await page.waitForTimeout(200)
+    const box = await graphBox()
+    check(
+      `幅${width}pxで図がプレビューのペインに収まり、横スクロールも出ない`,
+      box.height <= box.paneHeight && box.scrollW <= box.innerW,
+      `図 ${box.width}×${box.height}px / ペイン ${box.paneHeight}px / scrollWidth ${box.scrollW}`,
+    )
+    check(
+      `幅${width}pxで目盛りの文字が11px以上ある`,
+      box.tickPx >= 11,
+      `${box.tickPx}px`,
+    )
+    // 文字は図と一緒に拡大されるので、余白が足りないと左端で切れる。
+    const overflow = await page.evaluate(() => {
+      const texts = [...document.querySelectorAll('.preview .graph__tick')]
+      return Math.min(...texts.map((el) => el.getBBox().x))
+    })
+    check(
+      `幅${width}pxで目盛りの文字が図の左端からはみ出さない`,
+      overflow >= 0,
+      `左端 ${overflow.toFixed(1)}（ユーザー単位）`,
+    )
+  }
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.screenshot({ path: `${OUT}/graph-narrow.png` })
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  // 複数の関数と凡例。
+  await editor().fill(graphDoc('y = x^2\ny = 2x + 1\ny = sin(x)'))
+  await page.waitForTimeout(400)
+  check(
+    '3本の関数が色を変えて重なり、凡例が出る',
+    (await page.locator('.preview .graph__line--1').count()) >= 1 &&
+      (await page.locator('.preview .graph__line--3').count()) >= 1 &&
+      (await page.locator('.preview .graph__legend').count()) === 1,
+  )
+  const strokes = await page.evaluate(() =>
+    [...document.querySelectorAll('.preview path.graph__line')].map(
+      (el) => getComputedStyle(el).stroke,
+    ),
+  )
+  check('3本の線の色が互いに違う', new Set(strokes).size === 3, strokes.join(' / '))
+  await page.screenshot({ path: `${OUT}/graph-legend.png` })
+
+  // 壊れたブロック。プレビュー全体は消えない（R1と同じ扱い）。
+  await editor().fill(graphDoc('y = x^^2'))
+  await page.waitForTimeout(400)
+  check(
+    '壊れたブロックは赤字1行になり、前後の本文は残る',
+    (await page.locator('.preview .graph-error').count()) === 1 &&
+      (await page.locator('.preview h1').count()) === 1 &&
+      (await page.locator('.preview svg.graph').count()) === 0,
+    await page.locator('.preview .graph-error').innerText(),
+  )
+  // 背景は body で見る。.preview は背景が透明で、指定すると黒と比べてしまう。
+  const errorContrast = await contrastOf('.preview .graph-error')
+  check(
+    'エラーの文字が背景に対して4.5:1以上ある',
+    errorContrast >= 4.5,
+    `${errorContrast.toFixed(2)}:1`,
+  )
+
+  // ダークモードの線の色。図形なので基準は3:1。
+  await editor().fill(graphDoc('y = x^2 - 2x\nx: -3..5'))
+  await page.waitForTimeout(400)
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForTimeout(200)
+  const lineContrast = await page.evaluate(() => {
+    const parse = (value) => value.match(/[\d.]+/g).slice(0, 3).map(Number)
+    const channel = (v) => {
+      const c = v / 255
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.map(channel)
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const line = document.querySelector('.preview path.graph__line')
+    const fg = parse(getComputedStyle(line).stroke)
+    // 背景は body。.preview は背景が透明で、そのまま読むと黒になる。
+    const bg = parse(getComputedStyle(document.body).backgroundColor)
+    const [hi, lo] = [luminance(fg), luminance(bg)].sort((a, b) => b - a)
+    return (hi + 0.05) / (lo + 0.05)
+  })
+  check(
+    'ダークモードで線の色が背景に対して3:1以上ある',
+    lineContrast >= 3,
+    `${lineContrast.toFixed(2)}:1`,
+  )
+  await page.screenshot({ path: `${OUT}/graph-dark.png` })
+  await page.emulateMedia({ colorScheme: 'light' })
+
+  // パレットからの挿入とUndo（0021の経路に乗っているか）。
+  await editor().fill('挿入の検証。\n')
+  await page.waitForTimeout(200)
+  await page.locator('.palette__tab', { hasText: 'Markdown' }).click()
+  await page.getByRole('button', { name: /関数のグラフ/ }).click()
+  await page.waitForTimeout(300)
+  const afterInsert = await editor().inputValue()
+  check(
+    'パレットの「グラフ」で雛形が入る',
+    afterInsert.includes('```graph') && afterInsert.includes('x: -5..5'),
+  )
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(200)
+  check(
+    'Ctrl+Zで挿入前に戻る（0021の経路に乗っている）',
+    (await editor().inputValue()) === '挿入の検証。\n',
+    JSON.stringify(await editor().inputValue()),
+  )
+
+  // 長い文書にグラフを混ぜても入力が重くならない（perf区分と同じ測り方）。
+  const longWithGraphs = [
+    Array.from(
+      { length: 400 },
+      (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx$ である。\n`,
+    ).join('\n'),
+    '```graph\ny = x^2 - 2x\nx: -3..5\n```\n',
+    '```graph\ny = sin(x)\ny = cos(x)\nx: -pi..pi\n```\n',
+    '```graph\ny = 1/x\nx: -5..5\n```\n',
+  ].join('\n')
+  await editor().fill(longWithGraphs)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.preview svg.graph').length === 3,
+    null,
+    { timeout: 30000 },
+  )
+  const TYPED = 20
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  const typeStart = Date.now()
+  await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
+  const perKey = (Date.now() - typeStart) / TYPED
+  check(
+    '400節の文書にグラフ3つを混ぜても入力が1文字あたり50ms以内',
+    perKey <= 50,
+    `${perKey.toFixed(1)}ms/文字`,
+    { timing: true },
+  )
+
+  // 英語表示ではaria-labelとエラーも英語（0031）。
+  await editor().fill(graphDoc('y = x'))
+  await page.waitForTimeout(400)
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(400)
+  check(
+    '英語表示ではSVGのaria-labelが英語になる',
+    (await graph().getAttribute('aria-label')) === 'Graph of y = x',
+    await graph().getAttribute('aria-label'),
+  )
+  await page.getByRole('button', { name: /Language/ }).click()
+  await page.waitForTimeout(300)
+
+  await resetState()
+})
+
+
 
 // ---- 実行 ----
 
