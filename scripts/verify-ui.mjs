@@ -964,6 +964,198 @@ section('icon', 'アイコン（0019）', async () => {
   console.log(`スクリーンショット: ${OUT}/icon.png, ${OUT}/icon-narrow.png`)
 })
 
+// ---- 0011: 記号パレットの検索 ----
+
+section('search', '記号の検索（0011）', async () => {
+  const errorsBefore = errors.length
+  const search = () => page.locator('.palette__search')
+  const results = () => page.locator('.palette__items .palette__item')
+  const paletteHeight = () =>
+    page.locator('.palette').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+
+  // 画面に足した要素は、占める大きさを測って仕様の数値と突き合わせる。
+  // 検索欄はタブ行に同居させたので、広い画面では高さが増えないはず。
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.waitForTimeout(200)
+  const inTabRow = await search().evaluate((el) => el.parentElement.className)
+  check('検索欄がタブと同じ行にある', inTabRow === 'palette__bar', inTabRow)
+  const wide = await paletteHeight()
+  check('幅1280pxでパレットの高さが94pxのまま（検索欄で増えない）', wide === 94, `${wide}px`)
+
+  // 折り返しが起きるのは720px前後。仕様では126px以下に収まると見込んだ。
+  await page.setViewportSize({ width: 720, height: 800 })
+  await page.waitForTimeout(200)
+  const medium = await paletteHeight()
+  check('幅720pxでパレットの高さが126px以下', medium <= 126, `${medium}px`)
+
+  await page.setViewportSize({ width: 600, height: 800 })
+  await page.waitForTimeout(200)
+  const narrow = await paletteHeight()
+  check('幅600pxでパレットの高さが126px以下', narrow <= 126, `${narrow}px`)
+  check(
+    '幅600pxで横スクロールが出ない',
+    await page.evaluate(() => {
+      const panes = document.querySelector('.panes')
+      return panes.scrollWidth === panes.clientWidth
+    }),
+    await page.evaluate(() => {
+      const panes = document.querySelector('.panes')
+      return `${panes.scrollWidth} / ${panes.clientWidth}`
+    }),
+  )
+  // 結果は40件まで返るので、狭い画面では結果パネルに高さの蓋が要る。
+  // 蓋が無かったときはパレットが画面の65%を占め、ソースが2行しか残らなかった。
+  await search().fill('a')
+  await page.waitForTimeout(200)
+  const packed = await page.evaluate(() => {
+    const palette = document.querySelector('.palette').getBoundingClientRect().height
+    const panel = document.querySelector('.palette__items--results')
+    return {
+      ratio: Math.round((palette / window.innerHeight) * 100),
+      hits: document.querySelectorAll('.palette__items .palette__item').length,
+      scrolls: panel.scrollHeight > panel.clientHeight,
+      editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
+    }
+  })
+  check(
+    '幅600pxで40件当たってもパレットが画面の30%を超えない',
+    packed.ratio <= 30,
+    `${packed.ratio}%（${packed.hits}件）`,
+  )
+  check('結果が入りきらないときは結果パネル自身がスクロールする', packed.scrolls)
+  check('幅600pxで40件当たってもソースが200px以上残る', packed.editor >= 200, `${packed.editor}px`)
+  await page.screenshot({ path: `${OUT}/search-narrow.png` })
+  await search().fill('')
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.waitForTimeout(200)
+
+  // コマンド名で引ける。横断検索なので、どのタブも選択状態にしない。
+  await search().fill('\\int')
+  await page.waitForTimeout(100)
+  const intHits = await results().count()
+  check('\\int で結果が1件以上出る', intHits > 0, `${intHits}件`)
+  const selectedTabs = await page
+    .locator('.palette__bar .palette__tab[aria-selected="true"]')
+    .count()
+  check('検索中はどのタブも選択状態にならない', selectedTabs === 0, `${selectedTabs}件`)
+  await page.screenshot({ path: `${OUT}/search.png` })
+
+  // 日本語の名前でも引け、押すと数式の中に入る。
+  await editor().fill('検索の検証 $x$')
+  await editor().evaluate((el) => {
+    el.focus()
+    const at = el.value.indexOf('$') + 1
+    el.setSelectionRange(at, at)
+  })
+  await search().fill('積分')
+  await page.waitForTimeout(100)
+  await results().first().click()
+  await page.waitForTimeout(400)
+  const inserted = await editor().inputValue()
+  check(
+    '積分の検索結果を押すと \\int_{}^{} が入る',
+    inserted.includes('$\\int_{}^{}x$'),
+    JSON.stringify(inserted),
+  )
+  // 既存の $...$ の中に入れるので数式の数は増えない。描画された形で見る。
+  const renderedInt = await page.locator('.preview .katex').first().innerText()
+  check('挿入した積分記号がプレビューで∫として描画される', renderedInt.includes('∫'), renderedInt)
+  check(
+    '挿入した数式にKaTeXのエラーが出ない',
+    (await page.locator('.preview .katex-error').count()) === 0,
+  )
+
+  // 0009の回帰。検索欄にフォーカスが移っても textarea の選択範囲は残る。
+  await editor().fill('x+1')
+  await editor().evaluate((el) => {
+    el.focus()
+    el.setSelectionRange(0, 3)
+  })
+  await search().fill('sqrt')
+  await page.waitForTimeout(100)
+  await page.locator('.palette__items .palette__item[title^="平方根（"]').click()
+  await page.waitForTimeout(200)
+  const wrapped = await editor().inputValue()
+  check('検索結果からでも選択範囲を囲める', wrapped === '\\sqrt{x+1}', JSON.stringify(wrapped))
+
+  // キーボードだけで、絞り込み → 選択 → 挿入まで終わる。
+  await editor().fill('キーボードの検証 $x$')
+  await editor().evaluate((el) => {
+    el.focus()
+    const at = el.value.indexOf('$') + 1
+    el.setSelectionRange(at, at)
+  })
+  await search().fill('')
+  await search().click()
+  await search().pressSequentially('積分', { delay: 20 })
+  await page.waitForTimeout(150)
+  await page.keyboard.press('ArrowDown')
+  const focusedResult = await page.evaluate(() =>
+    document.activeElement.classList.contains('palette__item'),
+  )
+  check('検索欄で↓を押すと先頭の結果にフォーカスが移る', focusedResult)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  const typedValue = await editor().inputValue()
+  const focusedEditor = await page.evaluate(() =>
+    document.activeElement.classList.contains('editor'),
+  )
+  check(
+    'キーボードだけで挿入でき、フォーカスがエディタに戻る',
+    typedValue.includes('$\\int_{}^{}x$') && focusedEditor,
+    `${JSON.stringify(typedValue)} / editor=${focusedEditor}`,
+  )
+
+  // Escape で検索を終え、見ていたタブに戻る。
+  await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
+  await search().fill('積分')
+  await page.waitForTimeout(100)
+  await search().click()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+  const backCount = await results().count()
+  const backSelected = await page
+    .locator('.palette__bar .palette__tab[aria-selected="true"]')
+    .innerText()
+  check(
+    'Escapeで検索を抜けると見ていたタブに戻る',
+    backSelected === 'ギリシャ小文字' && backCount === 31,
+    `${backSelected} / ${backCount}件`,
+  )
+
+  // 当たらないときは、黙って空にせず理由を出す。
+  await search().fill('zzzz')
+  await page.waitForTimeout(100)
+  const emptyText = await page.locator('.palette__empty').innerText()
+  const emptyCount = await results().count()
+  check(
+    '当たらないときは一致なしの文言が出てボタンが0件になる',
+    emptyText === '一致する記号がありません' && emptyCount === 0,
+    `${emptyText} / ${emptyCount}件`,
+  )
+
+  // 英語表示でも文言が切り替わる（0031の約束）。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(100)
+  const placeholder = await search().getAttribute('placeholder')
+  const emptyEn = await page.locator('.palette__empty').innerText()
+  check(
+    '英語表示で検索欄と一致なしの文言が英語になる',
+    placeholder === 'Search (\\int, integral)' && emptyEn === 'No matching symbols',
+    `${placeholder} / ${emptyEn}`,
+  )
+  await page.getByRole('button', { name: /Language/ }).click()
+  await page.waitForTimeout(100)
+
+  check(
+    'この区分でコンソールエラーが出ない',
+    errors.length === errorsBefore,
+    `${errors.length - errorsBefore}件`,
+  )
+  await page.setViewportSize({ width: 1440, height: 900 })
+  console.log(`スクリーンショット: ${OUT}/search.png, ${OUT}/search-narrow.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
