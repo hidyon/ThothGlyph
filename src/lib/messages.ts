@@ -25,6 +25,24 @@ export const messages = {
     '編集中の内容を破棄してサンプル文書に戻します。よろしいですか？',
     'Discard what you have written and restore the sample document?',
   ),
+  // ファイルの読み込み（0012）
+  openFile: t('ファイルを開く', 'Open file'),
+  openFileTitle: t(
+    '手元の .md ファイルを開く（ソースの欄へドラッグしてもよい）',
+    'Open a .md file from your computer (or drag one onto the source pane)',
+  ),
+  /** 置き換える前の確認。ファイル名の位置が言語で変わるので関数にする。 */
+  openConfirm: (name: string) =>
+    t(
+      `編集中の内容を破棄して ${name} を読み込みます。よろしいですか？`,
+      `Discard what you have written and open ${name}?`,
+    ),
+  opened: (name: string) => t(`${name} を読み込みました`, `Opened ${name}`),
+  openTooMany: t('一度に開けるのは1つだけです', 'You can open only one file at a time'),
+  openWrongType: t('.md ファイルを選んでください', 'Please choose a .md file'),
+  openTooLarge: t('ファイルが大きすぎます（上限1MB）', 'The file is too large (1 MB limit)'),
+  openFailed: t('ファイルを読み込めませんでした', 'Could not read the file'),
+
   themePrefix: t('テーマ: ', 'Theme: '),
   themeTitle: t(
     'テーマを切り替える（自動 → ライト → ダーク）',

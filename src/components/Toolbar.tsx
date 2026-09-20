@@ -20,6 +20,8 @@ type Props = {
   onToggleTheme: () => void
   lang: Lang
   onToggleLang: () => void
+  /** ファイルの読み込みの結果（0012）。コピーの結果と同じ枠に出す。 */
+  notice: string
 }
 
 /**
@@ -56,6 +58,7 @@ export function Toolbar({
   onToggleTheme,
   lang,
   onToggleLang,
+  notice,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -89,6 +92,7 @@ export function Toolbar({
         <span className="toolbar__status" role="status">
           {copied && pick(messages.copied, lang)}
           {failed && pick(messages.copyFailed, lang)}
+          {!copied && !failed && notice}
         </span>
         {/* 保存状態はコピー結果とは別の要素。同時に出ても互いを消さない。 */}
         <span
