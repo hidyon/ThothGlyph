@@ -2357,9 +2357,36 @@ section('find', '検索・置換（0043）', async () => {
   check('一致の件数が出る（大文字小文字を区別して3件）', (await count()) === '1/3件', await count())
   check('1件目がtextarea上で選択される', (await selection()) === '\\alpha', await selection())
 
+  // 一致を塗る層（0043）。フォーカスが検索欄にある間、textareaの選択は
+  // Chromiumが描画しないので、裏の層で見せている。
+  const marks = () => page.locator('.editor-highlights mark')
+  check('一致の数だけ塗られる', (await marks().count()) === 3, `${await marks().count()}件`)
+  check(
+    'いま選ばれている1件だけ色が違う',
+    (await page.locator('.editor-highlights mark.is-current').count()) === 1,
+  )
+  check(
+    '塗った層が本文を覆い隠さない（textareaが手前にある）',
+    await page.evaluate(() => {
+      const rect = document.querySelector('.editor').getBoundingClientRect()
+      const el = document.elementFromPoint(rect.left + 30, rect.top + 30)
+      return el?.classList.contains('editor')
+    }),
+  )
+  const currentText = () => page.locator('.editor-highlights mark.is-current').innerText()
+  check('塗られているのは検索語そのもの', (await currentText()) === '\\alpha', await currentText())
+
   const first = await selectionStart()
   await page.getByRole('button', { name: '次へ' }).click()
   check('「次へ」で2件目へ進む', (await count()) === '2/3件' && (await selectionStart()) > first, await count())
+
+  check(
+    '「次へ」で色の濃い1件も移る',
+    await page.evaluate(() => {
+      const all = [...document.querySelectorAll('.editor-highlights mark')]
+      return all.findIndex((el) => el.classList.contains('is-current')) === 1
+    }),
+  )
 
   await page.getByRole('button', { name: '次へ' }).click()
   await page.getByRole('button', { name: '次へ' }).click()
@@ -2372,6 +2399,7 @@ section('find', '検索・置換（0043）', async () => {
   await queryField().fill('存在しない語')
   await page.waitForTimeout(200)
   check('一致しないときは0件と出る', (await count()) === '0件', await count())
+  check('0件のときは何も塗らない', (await marks().count()) === 0)
   check(
     '0件では前へ・次へが押せない',
     (await page.getByRole('button', { name: '次へ' }).isDisabled()) === true,
@@ -2411,11 +2439,29 @@ section('find', '検索・置換（0043）', async () => {
     `${(await editor().inputValue()).length}文字`,
   )
 
+  // 書式が層とtextareaでずれていないか。ずれると色が別の文字に付く。
+  // 折り返しが変われば全体の高さが変わるので、高さの一致で見る。
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 667 })
+    await page.waitForTimeout(200)
+    const heights = await page.evaluate(() => ({
+      editor: document.querySelector('.editor').scrollHeight,
+      layer: document.querySelector('.editor-highlights')?.scrollHeight ?? -1,
+    }))
+    check(
+      `幅${width}pxで塗る層とtextareaの折り返しが一致する`,
+      heights.editor === heights.layer,
+      `textarea ${heights.editor}px / 層 ${heights.layer}px`,
+    )
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+
   // Esc で閉じる。
   await findButton().click()
   await queryField().press('Escape')
   await page.waitForTimeout(200)
   check('Escでバーが閉じる', (await bar().count()) === 0)
+  check('閉じると塗りも消える', (await page.locator('.editor-highlights').count()) === 0)
   check(
     'Escのあとエディタにフォーカスが戻る',
     await page.evaluate(() => document.activeElement?.classList.contains('editor')),
@@ -2528,6 +2574,27 @@ section('find', '検索・置換（0043）', async () => {
   await queryField().fill('\\int')
   await page.waitForTimeout(300)
   check('400節の文書で一致件数が出る', (await count()) === '1/400件', await count())
+  check(
+    '400件すべてが塗られる',
+    (await marks().count()) === 400,
+    `${await marks().count()}件`,
+  )
+  // 長い文書ではスクロールしてもずれないことが効く。
+  await page.evaluate(() => {
+    const el = document.querySelector('.editor')
+    el.scrollTop = 2000
+    el.dispatchEvent(new Event('scroll'))
+  })
+  await page.waitForTimeout(200)
+  const scrolled = await page.evaluate(() => ({
+    editor: document.querySelector('.editor').scrollTop,
+    layer: document.querySelector('.editor-highlights').scrollTop,
+  }))
+  check(
+    'スクロールしても塗る層が追従する',
+    scrolled.editor === scrolled.layer && scrolled.editor > 0,
+    `textarea ${scrolled.editor} / 層 ${scrolled.layer}`,
+  )
   const TYPED = 20
   await editor().click()
   await page.keyboard.press('Control+End')

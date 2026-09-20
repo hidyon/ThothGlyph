@@ -11,6 +11,11 @@
   --math-error: #dc2626;
   --on-accent: #ffffff;
 
+  /* 検索の一致（0043）。current は他の一致より濃い。 */
+  --find-match: #fde68a;
+  --find-current: #fbbf24;
+  --find-current-edge: #b45309;
+
   /* グラフの線（0037）。3本まで色で見分ける。 */
   --graph-line-1: #2563eb;
   --graph-line-2: #dc2626;
@@ -43,6 +48,10 @@
     --math-error: #ff9a9a;
     --on-accent: #0f1115;
 
+    --find-match: #4a3a12;
+    --find-current: #8a6a12;
+    --find-current-edge: #fbbf24;
+
     --graph-line-1: #60a5fa;
     --graph-line-2: #f87171;
     --graph-line-3: #4ade80;
@@ -64,6 +73,10 @@
   --danger: #ff8a80;
   --math-error: #ff9a9a;
   --on-accent: #0f1115;
+
+  --find-match: #4a3a12;
+  --find-current: #8a6a12;
+  --find-current-edge: #fbbf24;
 
   --graph-line-1: #60a5fa;
   --graph-line-2: #f87171;
@@ -419,19 +432,73 @@ body {
   white-space: nowrap;
 }
 
-.editor {
+/*
+  検索の一致を塗る層（0043）。textareaは中の一部だけ色を付けられず、
+  フォーカスが外れていると選択範囲すら描画されない（Chromiumで実測）。
+  同じ書式の層を裏に敷き、textareaの地を透かして色を見せる。
+
+  **書式は .editor と1文字ぶんも違えてはならない**（padding・font・
+  line-height・折り返し）。違うと色が別の場所に付く。
+*/
+.editor-wrap {
+  position: relative;
+  display: flex;
   flex: 1;
-  width: 100%;
+  min-height: 0;
+}
+
+.editor,
+.editor-highlights {
   padding: 16px;
   font-family: var(--mono);
   font-size: 14px;
   line-height: 1.7;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.editor {
+  flex: 1;
+  width: 100%;
   color: var(--text);
   background: var(--bg-editor);
   border: none;
   resize: none;
   outline: none;
-  tab-size: 2;
+}
+
+/*
+  一致を塗っている間だけ地を透かし、裏の層の色を見せる。
+  重なり順を明示するのは、絶対配置の層が何もしないとtextareaの上に来て
+  本文を覆い隠すため（実測。文字が丸ごと消えた）。
+*/
+.editor--highlighting {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+.editor-highlights {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  background: var(--bg-editor);
+  pointer-events: none;
+  user-select: none;
+}
+
+.editor-highlights mark {
+  color: transparent;
+  background: var(--find-match);
+  border-radius: 2px;
+}
+
+/* いま選ばれている1件。他の一致と見分けが付く濃さにする。 */
+.editor-highlights mark.is-current {
+  background: var(--find-current);
+  outline: 1px solid var(--find-current-edge);
 }
 
 .preview {

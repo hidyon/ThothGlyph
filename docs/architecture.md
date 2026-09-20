@@ -54,6 +54,7 @@
 | `src/lib/previewEngine.ts` / `engine.ts` | 数式の描画エンジンの遅延読み込み（下の「7. 読み込みの分割」） |
 | `src/lib/expression.ts` / `graphBlock.ts` / `renderGraph.ts` | グラフ（式の評価・ブロックの解析・SVGの生成）（[0037](specs/0037-graph.md)） |
 | `src/lib/findMatches.ts` | 文書内の検索・置換（一致の列挙と置換後の全文）（[0043](specs/0043-find-replace.md)） |
+| `src/lib/highlightRanges.ts` | 検索の一致を塗る層に入れるHTML（[0043](specs/0043-find-replace.md)） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
@@ -153,8 +154,15 @@ LaTeX文字列と `displayMode` の組をキーに、KaTeXの出力をモジュ�
 KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの前提が崩れる）。
 **6** のグラフのSVGは迂回しない（差し戻す前に1つずつDOMPurifyを通す。0037）。
 
-`Preview` は `dangerouslySetInnerHTML` を使う。渡ってくるHTMLが上のパイプラインを
-通っていることが前提であり、他の経路からHTMLを渡さない。
+`dangerouslySetInnerHTML` を使う箇所は**2つだけ**で、どちらも入口が決まっている。
+
+1. `Preview` — 渡ってくるHTMLが上のパイプラインを通っていることが前提。
+   他の経路からHTMLを渡さない。
+2. `Editor` の検索の塗り層（[0043](specs/0043-find-replace.md)） —
+   `lib/highlightRanges.ts` の `highlightHtml` が作った文字列だけを渡す。
+   この関数は `mark` 以外の要素を作らず、`&` `<` `>` をエスケープする
+   （単体テストで固定）。要素を並べる形をやめたのは速さのため（400件で
+   1文字60ms → 38.9ms）。**他の文字列をこの層へ渡さない。**
 
 ## 5. 状態と永続化
 
@@ -196,6 +204,11 @@ KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの�
 - **一致を選ぶときフォーカスを奪わない。** 奪うと検索欄で打てなくなる。
   `setSelectionRange` はフォーカス無しでも効くので、スクロールだけ
   行の高さから計算して自分で寄せる。
+- **一致は裏の層に塗る。** フォーカスの無いtextareaの選択はChromiumが
+  描画しないため（実測）。層は `.editor` と**同じ書式でなければならない**
+  （padding・font・line-height・折り返し）。末尾に改行を1つ足し、
+  縦スクロールバーのぶん右を詰めて、折り返しを揃えている。
+  塗るのはバーを開いていて一致があるときだけで、閉じている間は層を作らない。
 - **すべて置換は全文を1回で差し替える**（`lib/findMatches.ts` の `replaceAll` が
   `start: 0, end: source.length` の形で返す）。1件ずつ置き換えると、
   Undoの回数が件数ぶんになる。
