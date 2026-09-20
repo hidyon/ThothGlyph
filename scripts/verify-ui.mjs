@@ -96,6 +96,24 @@ const ready = async () => {
 const appReady = async () => {
   await page.waitForSelector('.editor')
 }
+/**
+ * タブの名前（0053のアイコンを除く）。アイコンは aria-hidden なので、
+ * getByRole の名前には入らない。innerText で拾うとアイコンが混ざるため、
+ * ラベルだけを取り出す。
+ */
+const tabLabels = (selector) =>
+  page.evaluate(
+    (sel) =>
+      [...document.querySelectorAll(sel)].map((tab) =>
+        [...tab.childNodes]
+          .filter((node) => !(node.nodeType === 1 && node.classList.contains('palette__tab-icon')))
+          .map((node) => node.textContent)
+          .join('')
+          .trim(),
+      ),
+    selector,
+  )
+
 const bodyBackground = () =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor)
 
@@ -993,7 +1011,7 @@ section('i18n', '英語対応（0031）', async () => {
     reset: await page.getByRole('button', { name: 'Reset to sample' }).count(),
     theme: await page.getByRole('button', { name: /Theme/ }).count(),
     headers: await page.locator('.pane__header').allInnerTexts(),
-    tabs: await page.locator('.palette__tabs').first().locator('.palette__tab').allInnerTexts(),
+    tabs: await tabLabels('.palette__bar > .palette__tabs > .palette__tab'),
   })
   const en = await texts()
   check('ツールバーのボタンが英語になる', en.copy === 1 && en.reset === 1 && en.theme === 1,
@@ -1407,9 +1425,8 @@ section('search', '記号の検索（0011）', async () => {
   await page.keyboard.press('Escape')
   await page.waitForTimeout(100)
   const backCount = await results().count()
-  const backSelected = await page
-    .locator('.palette__bar .palette__tab[aria-selected="true"]')
-    .innerText()
+  // アイコン（0053）を除いたラベルで見る。innerText には記号が混ざる。
+  const [backSelected] = await tabLabels('.palette__bar .palette__tab[aria-selected="true"]')
   check(
     'Escapeで検索を抜けると見ていたタブに戻る',
     backSelected === 'ギリシャ小文字' && backCount === 31,
@@ -1533,11 +1550,101 @@ section('loading', '読み込みの分割（0024）', async () => {
 
 // ---- 0032: 狭い画面でのパレットの高さ ----
 
+section('tab-icon', 'タブのアイコン（0053）', async () => {
+  const icons = () => page.locator('.palette__bar > .palette__tabs > .palette__tab .palette__tab-icon')
+  const iconTexts = () => icons().allInnerTexts()
+  const paletteHeight = async () =>
+    Math.round((await page.locator('.palette').boundingBox()).height)
+  /** タブ行の横スクロールの中身と、見えている幅。 */
+  const tabsScroll = () =>
+    page.evaluate(() => {
+      const wrap = document.querySelector('.palette__bar > .palette__tabs')
+      return { scrollW: wrap.scrollWidth, clientW: wrap.clientWidth }
+    })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+
+  // 1. 8つのタブすべてにアイコンが1つずつある。
+  check('幅1440px・日本語で、タブ8つそれぞれにアイコンがある', (await icons().count()) === 8, `${await icons().count()}個`)
+
+  const ja = await iconTexts()
+  check('8つのアイコンがすべて異なる', new Set(ja).size === 8, ja.join(' '))
+  check('アイコンが空でない（豆腐や空文字でない）', ja.every((icon) => icon.trim().length > 0), ja.join(' '))
+
+  // 2. アイコンは読み上げに入らない（ラベルが本体）。
+  check(
+    'アイコンは aria-hidden で、タブの名前に混ざらない',
+    (await page.getByRole('tab', { name: '基本', exact: true }).count()) === 1,
+  )
+
+  // 3. パレットの高さは現状のまま（0032の蓋を壊していない）。
+  const wide = await paletteHeight()
+  check('幅1440px・日本語でパレットが94px（±2px。アイコンで高くなっていない）', Math.abs(wide - 94) <= 2, `${wide}px`)
+
+  // 4. 英語表示でも同じ8つ。記号は言語で変わらない。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(200)
+  const en = await iconTexts()
+  check('英語表示でも同じ8つのアイコンが出る', en.join(' ') === ja.join(' '), `${en.join(' ')}（日本語: ${ja.join(' ')}）`)
+  await page.getByRole('button', { name: /Language/ }).click()
+  await page.waitForTimeout(200)
+
+  // 5. ダークモードでアイコンの色がラベルと同じ（別色を持たない）。
+  // ボタンは自動→ライト→ダークの巡回なので、保存の値を直接ダークにして開き直す。
+  await page.evaluate(
+    (key) => window.localStorage.setItem(key, JSON.stringify({ version: 1, theme: 'dark' })),
+    THEME_KEY,
+  )
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  check('ダークで開けている（背景が暗い）', (await bodyBackground()) === 'rgb(21, 24, 28)', await bodyBackground())
+  const sameColor = await page.evaluate(() => {
+    const tab = document.querySelector('.palette__bar > .palette__tabs > .palette__tab')
+    const icon = tab.querySelector('.palette__tab-icon')
+    return getComputedStyle(icon).color === getComputedStyle(tab).color
+  })
+  check('ダークモードでアイコンの色がラベルと同じ', sameColor)
+  await page.screenshot({ path: `${OUT}/tab-icon-dark.png` })
+
+  // 6. 検索欄が2行目へ落ち始める幅。アイコンのぶん上がるが、945pxでは1行のまま。
+  await page.setViewportSize({ width: 945, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const bar945 = Math.round(
+    await page.evaluate(() => document.querySelector('.palette__bar').getBoundingClientRect().height),
+  )
+  check('幅945px・日本語でタブ行が1行のまま（帯の高さ36px）', Math.abs(bar945 - 36) <= 2, `${bar945}px`)
+
+  // 7. 狭い画面。高さの蓋（0032）と、横スクロールの長さ。
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const narrow = await paletteHeight()
+  check('幅360px・日本語でパレットが139px（±2px。0032の蓋のまま）', Math.abs(narrow - 139) <= 2, `${narrow}px`)
+
+  const scroll = await tabsScroll()
+  check(
+    '幅360pxでタブ行の横スクロールが751px以下',
+    scroll.scrollW <= 751,
+    `${scroll.scrollW}px / 見え${scroll.clientW}px（アイコンなしは674px）`,
+  )
+  await page.screenshot({ path: `${OUT}/tab-icon-narrow.png` })
+
+  // 8. アイコンを足してもタブは今までどおり切り替わる。
+  await page.getByRole('tab', { name: '演算子', exact: true }).first().click()
+  check(
+    'タブを押すとその記号一覧に切り替わる（総和が出る）',
+    (await page.locator('.palette__item').first().getAttribute('title')).startsWith('総和'),
+    await page.locator('.palette__item').first().getAttribute('title'),
+  )
+})
+
 section('palette-height', 'パレットの高さ（0032）', async () => {
   const paletteHeight = async () =>
     Math.round((await page.locator('.palette').boundingBox()).height)
-  const tabNames = () =>
-    page.locator('.palette__bar > .palette__tabs > .palette__tab').allInnerTexts()
+  const tabNames = () => tabLabels('.palette__bar > .palette__tabs > .palette__tab')
   const subTabNames = () => page.locator('.palette__tabs--sub > .palette__tab').allInnerTexts()
 
   /** 全タブ・全分類を順に開いて高さを集める。件数で伸びないことを見るため全部回る。 */
