@@ -42,7 +42,7 @@
 | [0032](0032-palette-height-narrow.md) | 狭い画面でパレットが画面の3割を占める | closed | [仕様](../specs/0032-palette-height-narrow.md) |
 | [0033](0033-toolbar-overflow-phone.md) | 幅414px以下でツールバーのボタンが画面から溢れる | closed | [仕様](../specs/0033-toolbar-overflow-phone.md) |
 | [0034](0034-file-save.md) | .mdファイルの書き出し | closed | [仕様](../specs/0034-file-save.md) |
-| [0035](0035-readme-for-users.md) | READMEが開発者向けで、使う人に何ができるか伝わらない | open | — |
+| [0035](0035-readme-for-users.md) | READMEが開発者向けで、使う人に何ができるか伝わらない | closed | [仕様](../specs/0035-readme-for-users.md) |
 
 ## 着手順の目安
 
@@ -102,9 +102,11 @@
 ツールバーには足せない（0033の実測で右の余白を使い切っている）。
 書き出し→読み込みの往復は検証の `file-save` 区分で閉じている。
 
-[0035](0035-readme-for-users.md)（READMEの書き直し）は、**コードに触らない**ので
-どのissueの前後にも置ける。ただし機能を足すたびに古くなる種類の文書なので、
-機能追加が一段落したいま（0012・0034でファイルの入出力が閉じた）が書き時ではある。
+0035（READMEの書き直し）は完了した。**READMEに書いた件数は単体テストで固定してある**
+（記号7グループ88件・公式12分類60件）ので、パレットに何かを足すissueでは
+`npm test` が落ちる。落ちたらREADMEの数字も直すこと。
+スクリーンショット3枚は `node scripts/make-screenshots.mjs` で撮り直せる。
+**画面の見た目を変えるissueでは撮り直す**（撮り直さないとREADMEだけ古くなる）。
 
 0024のスコープ外に置いた「起動時にラベル122件をKaTeXで一気に描くCPUコスト」は
 まだ残っている（バイト数ではなくCPUの話）。
