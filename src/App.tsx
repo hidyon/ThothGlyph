@@ -140,7 +140,11 @@ export default function App() {
         lang={lang}
         onToggleLang={handleToggleLang}
       />
-      <SymbolPalette onInsert={handleInsert} lang={lang} />
+      <SymbolPalette
+        onInsert={handleInsert}
+        onFocusEditor={() => textareaRef.current?.focus()}
+        lang={lang}
+      />
       <main className="panes">
         <Editor value={source} onChange={setSource} textareaRef={textareaRef} lang={lang} />
         <Preview html={html} stale={isPreviewStale} lang={lang} />
