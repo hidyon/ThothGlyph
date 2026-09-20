@@ -615,6 +615,188 @@ section('selection', '選択範囲の挿入（0009）', async () => {
   await page.screenshot({ path: `${OUT}/wrap-selection.png` })
 })
 
+// ---- 0021: パレット挿入のUndo ----
+
+section('undo', 'パレット挿入のUndo（0021）', async () => {
+  // 打鍵から始めたいので、既知の内容で開き直す（Undo履歴もそのたびに空になる）。
+  // 先に一度リロードするのは、デバウンス待ちの内容を beforeunload に書き切らせて
+  // から置き換えるため。順を逆にすると、置いた内容が古い内容で上書きされる。
+  const openWith = async (source) => {
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.evaluate(
+      ([key, src]) =>
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({ version: 1, source: src, savedAt: new Date().toISOString() }),
+        ),
+      [STORAGE_KEY, source],
+    )
+    await page.reload({ waitUntil: 'networkidle' })
+    await appReady()
+    await editor().click()
+  }
+  /** 自動保存が指定の内容で終わるまで待つ。保存状態の表示だけでは待てない（0036）。 */
+  const savedAs = (expected) =>
+    page.waitForFunction(
+      ([key, want]) => {
+        const raw = window.localStorage.getItem(key)
+        if (raw === null) return false
+        try {
+          return JSON.parse(raw).source === want
+        } catch {
+          return false
+        }
+      },
+      [STORAGE_KEY, expected],
+      { timeout: 5000 },
+    )
+  const value = () => editor().inputValue()
+  const selection = () =>
+    editor().evaluate((el) => ({ start: el.selectionStart, end: el.selectionEnd }))
+  const undo = async () => {
+    await page.keyboard.press('Control+z')
+    await page.waitForTimeout(100)
+    return value()
+  }
+  const insertSymbol = async (tab, title) => {
+    await page.getByRole('tab', { name: tab }).click()
+    await page.locator(`.palette__item[title^="${title}（"]`).click()
+    await page.waitForTimeout(100)
+  }
+
+  // --- 打つ → 挿入 → Ctrl+Z ---
+  await openWith('')
+  await page.keyboard.type('x+1', { delay: 30 })
+  await insertSymbol('ギリシャ小文字', 'alpha')
+  const inserted = await value()
+  check('記号を押すと挿入される', inserted.startsWith('x+1\\alpha'), JSON.stringify(inserted))
+
+  const undone = await undo()
+  check('挿入のあとCtrl+Zで挿入前に戻る', undone === 'x+1', JSON.stringify(undone))
+
+  await page.keyboard.press('Control+Shift+z')
+  await page.waitForTimeout(100)
+  const redone = await value()
+  check('Ctrl+Shift+Zで挿入後に戻る', redone === inserted, JSON.stringify(redone))
+
+  await undo()
+  await page.keyboard.press('Control+y')
+  await page.waitForTimeout(100)
+  const redoneY = await value()
+  check('Ctrl+Yでも挿入後に戻る', redoneY === inserted, JSON.stringify(redoneY))
+
+  // --- 打つ → 挿入 → 打つ を順に3段で戻す ---
+  // 挿入の前後で選択を置き直していないと、ここが1回でまとめて消える。
+  await openWith('')
+  await page.keyboard.type('aaa', { delay: 30 })
+  await insertSymbol('ギリシャ小文字', 'alpha')
+  const withSymbol = await value()
+  await page.keyboard.type('bbb', { delay: 30 })
+  const mixed = await value()
+  check(
+    '打つ→挿入→打つ が積み上がる',
+    mixed === `${withSymbol}bbb`,
+    JSON.stringify(mixed),
+  )
+  // 打った文字は1文字ずつ、挿入はまとめて1段になる（実測。仕様の「実装中に崩れた前提」）。
+  const steps = []
+  for (let i = 0; i < 7; i += 1) steps.push(await undo())
+  check(
+    '後から打った文字が1文字ずつ戻る',
+    steps.slice(0, 3).join('|') === `${withSymbol}bb|${withSymbol}b|${withSymbol}`,
+    JSON.stringify(steps.slice(0, 3)),
+  )
+  check('挿入は1回のCtrl+Zでまとめて消える', steps[3] === 'aaa', JSON.stringify(steps[3]))
+  check(
+    '先に打った文字まで順に戻って空になる',
+    steps.slice(4).join('|') === 'aa|a|',
+    JSON.stringify(steps.slice(4)),
+  )
+
+  // --- 選択範囲を囲む記号 ---
+  await openWith('')
+  await page.keyboard.type('x+1', { delay: 30 })
+  await editor().evaluate((el) => {
+    el.focus()
+    el.setSelectionRange(0, 3)
+  })
+  await insertSymbol('基本', '平方根')
+  const wrapped = await value()
+  check('囲める記号が選択範囲を包む', wrapped === '\\sqrt{x+1}', JSON.stringify(wrapped))
+  const wrappedCursor = await selection()
+  check(
+    '挿入直後のカーソルが包んだ内容の後ろに来る（0009）',
+    wrappedCursor.start === '\\sqrt{x+1'.length && wrappedCursor.end === wrappedCursor.start,
+    `start=${wrappedCursor.start} end=${wrappedCursor.end}`,
+  )
+  const unwrapped = await undo()
+  check('囲んだあとCtrl+Zで選択していた文字列に戻る', unwrapped === 'x+1', JSON.stringify(unwrapped))
+  const restoredSelection = await selection()
+  check(
+    'Ctrl+Zで囲む前の選択範囲も戻る',
+    restoredSelection.start === 0 && restoredSelection.end === 3,
+    `start=${restoredSelection.start} end=${restoredSelection.end}`,
+  )
+
+  // --- 公式タブからの挿入。プレビューと自動保存が追随しているかもここで見る ---
+  await openWith('')
+  await page.keyboard.type('x+1', { delay: 30 })
+  await savedAs('x+1')
+  await page.getByRole('tab', { name: '公式' }).click()
+  await page
+    .locator('.palette__tabs--sub')
+    .getByRole('tab', { name: '方程式', exact: true })
+    .click()
+  await page.locator('.palette__item--formula').first().click()
+  await page.waitForSelector('.preview .katex')
+  const formulaInserted = await value()
+  check(
+    '公式を挿入すると $$ で囲まれて入る',
+    formulaInserted.includes('$$'),
+    JSON.stringify(formulaInserted.slice(0, 30)),
+  )
+  // 挿入が保存されるまで待ってからUndoする。Undo後の内容が「最後に保存した内容」と
+  // 違う状態を作らないと、保存が走ったかどうかを見られない。
+  await savedAs(formulaInserted)
+  const formulaUndone = await undo()
+  check('公式の挿入もCtrl+Zで戻る', formulaUndone === 'x+1', JSON.stringify(formulaUndone))
+  await page.waitForTimeout(300)
+  const katexAfterUndo = await page.locator('.preview .katex').count()
+  check(
+    'Undoの後はプレビューからも数式が消える（stateが追随している）',
+    katexAfterUndo === 0,
+    `${katexAfterUndo}個`,
+  )
+  const stored = await savedAs('x+1').then(
+    () => true,
+    () => false,
+  )
+  const savedLabel = await saveStatus()
+  check(
+    'Undoした内容が自動保存される',
+    stored && savedLabel.startsWith('保存しました'),
+    `${savedLabel} / 保存された内容が一致: ${stored}`,
+  )
+
+  // --- 検索結果からの挿入 ---
+  await openWith('')
+  await page.keyboard.type('x+1', { delay: 30 })
+  await page.locator('.palette__search').fill('alpha')
+  await page.waitForTimeout(200)
+  await page.locator('.palette__items--results .palette__item').first().click()
+  await page.waitForTimeout(100)
+  const searchInserted = await value()
+  check(
+    '検索結果から挿入できる',
+    searchInserted.startsWith('x+1\\'),
+    JSON.stringify(searchInserted),
+  )
+  const searchUndone = await undo()
+  check('検索結果からの挿入もCtrl+Zで戻る', searchUndone === 'x+1', JSON.stringify(searchUndone))
+
+  await page.screenshot({ path: `${OUT}/undo.png` })
+})
+
 // ---- 0029: ギリシャ文字 ----
 
 section('greek', 'ギリシャ文字（0029）', async () => {
