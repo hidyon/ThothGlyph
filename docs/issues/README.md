@@ -44,7 +44,7 @@
 | [0034](0034-file-save.md) | .mdファイルの書き出し | closed | [仕様](../specs/0034-file-save.md) |
 | [0035](0035-readme-for-users.md) | READMEが開発者向けで、使う人に何ができるか伝わらない | closed | [仕様](../specs/0035-readme-for-users.md) |
 | [0036](0036-save-status-stuck.md) | 編集を取り消して保存済みの内容に戻すと「保存中…」が消えない | open | — |
-| [0037](0037-graph.md) | 関数のグラフを挿入する | open | — |
+| [0037](0037-graph.md) | 関数のグラフを挿入する | in-progress | [下書き](../specs/0037-graph.md)（未承認） |
 | [0038](0038-graph-series.md) | グラフにデータ系列を描く | open | — |
 
 ## 着手順の目安
