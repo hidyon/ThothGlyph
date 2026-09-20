@@ -1238,6 +1238,163 @@ section('loading', '読み込みの分割（0024）', async () => {
   console.log(`スクリーンショット: ${OUT}/loading-blocked.png, ${OUT}/loading-ready.png`)
 })
 
+// ---- 0032: 狭い画面でのパレットの高さ ----
+
+section('palette-height', 'パレットの高さ（0032）', async () => {
+  const paletteHeight = async () =>
+    Math.round((await page.locator('.palette').boundingBox()).height)
+  const tabNames = () =>
+    page.locator('.palette__bar > .palette__tabs > .palette__tab').allInnerTexts()
+  const subTabNames = () => page.locator('.palette__tabs--sub > .palette__tab').allInnerTexts()
+
+  /** 全タブ・全分類を順に開いて高さを集める。件数で伸びないことを見るため全部回る。 */
+  const heightsOfEveryTab = async () => {
+    const symbols = {}
+    const formulas = {}
+    for (const name of await tabNames()) {
+      await page.getByRole('tab', { name, exact: true }).first().click()
+      if (name === '公式') {
+        for (const sub of await subTabNames()) {
+          await page.locator('.palette__tabs--sub > .palette__tab', { hasText: sub }).first().click()
+          formulas[sub] = await paletteHeight()
+        }
+      } else {
+        symbols[name] = await paletteHeight()
+      }
+    }
+    return { symbols, formulas }
+  }
+
+  // 幅600px × 高さ900px。
+  await page.setViewportSize({ width: 600, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const narrow = await heightsOfEveryTab()
+  const narrowAll = [...Object.values(narrow.symbols), ...Object.values(narrow.formulas)]
+  check(
+    '幅600px・高さ900pxで、全タブ・全分類のパレットが180px以下',
+    Math.max(...narrowAll) <= 180,
+    `最大${Math.max(...narrowAll)}px / 最小${Math.min(...narrowAll)}px（分割前は126〜324px）`,
+  )
+
+  // 幅375px × 高さ667px（スマートフォン相当）。
+  await page.setViewportSize({ width: 375, height: 667 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const phone = await heightsOfEveryTab()
+  const phoneAll = [...Object.values(phone.symbols), ...Object.values(phone.formulas)]
+  check(
+    '幅375px・高さ667pxで、全タブ・全分類のパレットが180px以下（画面の27%以下）',
+    Math.max(...phoneAll) <= 180,
+    `最大${Math.max(...phoneAll)}px = 画面の${Math.round((Math.max(...phoneAll) / 667) * 100)}%（実装前は198〜533px、最大80%）`,
+  )
+
+  // 蓋に達している以上、件数が違っても高さは同じになる。ここが「際限なく伸びない」の中身。
+  const symbolHeights = Object.values(phone.symbols)
+  check(
+    '幅375pxで、記号のタブは件数が違っても高さが同じ',
+    new Set(symbolHeights).size === 1,
+    `${Object.entries(phone.symbols).map(([k, v]) => `${k}:${v}`).join(' ')}`,
+  )
+  const formulaHeights = Object.values(phone.formulas)
+  check(
+    '幅375pxで、公式の12分類すべてが同じ高さ',
+    new Set(formulaHeights).size === 1 && formulaHeights.length === 12,
+    `${formulaHeights.length}分類 / 高さ${[...new Set(formulaHeights)].join(',')}px`,
+  )
+
+  // 公式タブ（いちばん高い状態）でも編集領域が残る。
+  await page.getByRole('tab', { name: '公式', exact: true }).first().click()
+  const editorHeight = Math.round((await editor().boundingBox()).height)
+  check(
+    '幅375px・高さ667pxの公式タブでtextareaが150px以上',
+    editorHeight >= 150,
+    `${editorHeight}px（実装前は38px）`,
+  )
+  const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight)
+  check(
+    '幅375px・高さ667pxでページ全体が縦にはみ出さない',
+    scrollHeight === 667,
+    `${scrollHeight}px（実装前は公式タブで692px）`,
+  )
+  await page.screenshot({ path: `${OUT}/palette-phone.png` })
+
+  // 蓋の向こうへ縦スクロールで届く。ギリシャ小文字は31件。
+  await page.getByRole('tab', { name: 'ギリシャ小文字', exact: true }).first().click()
+  const items = page.locator('.palette__panel > .palette__items > .palette__item, .palette__items > .palette__item')
+  const itemCount = await items.count()
+  const before = await editor().inputValue()
+  await items.nth(itemCount - 1).scrollIntoViewIfNeeded()
+  await items.nth(itemCount - 1).click()
+  check(
+    '幅375pxで一覧を縦スクロールすると最後の記号まで届き、押すと挿入される',
+    itemCount === 31 && (await editor().inputValue()) !== before,
+    `${itemCount}件目まで到達`,
+  )
+
+  // 1段目のタブは横スクロールで最後まで届く。
+  const tabsScrollable = await page
+    .locator('.palette__bar > .palette__tabs')
+    .evaluate((el) => el.scrollWidth > el.clientWidth)
+  check('幅375pxで1段目のタブ行が横にスクロールする（折り返していない）', tabsScrollable)
+  const lastTab = (await tabNames()).at(-1)
+  await page.getByRole('tab', { name: lastTab, exact: true }).first().click()
+  check(
+    '横スクロールで最後のタブ（公式）に届き、押すと公式の一覧が出る',
+    lastTab === '公式' && (await page.locator('.palette__item--formula').count()) > 0,
+    lastTab,
+  )
+
+  // 2段目も同じ。
+  const subScrollable = await page
+    .locator('.palette__tabs--sub')
+    .evaluate((el) => el.scrollWidth > el.clientWidth)
+  check('幅375pxで2段目のタブ行が横にスクロールする', subScrollable)
+  const lastSub = (await subTabNames()).at(-1)
+  await page.locator('.palette__tabs--sub > .palette__tab', { hasText: lastSub }).first().click()
+  const lastSubSelected = await page
+    .locator('.palette__tabs--sub > .palette__tab[aria-selected="true"]')
+    .innerText()
+  check(
+    '横スクロールで最後の分類（極限・不等式）に届き、押すとその公式が出る',
+    lastSub === '極限・不等式' && lastSubSelected === lastSub,
+    lastSubSelected,
+  )
+
+  // 0011の回帰。検索欄はタブと同じ行に残り、横断検索も効く。
+  const searchRow = await page
+    .locator('.palette__search')
+    .evaluate((el) => el.parentElement.className)
+  check('幅375pxでも検索欄がタブと同じ行にある', searchRow === 'palette__bar', searchRow)
+  await page.locator('.palette__search').fill('\\int')
+  const beforeInt = await editor().inputValue()
+  await page.locator('.palette__items--results .palette__item').first().click()
+  check(
+    '幅375pxで検索から挿入できる（0011の回帰）',
+    (await editor().inputValue()) !== beforeInt,
+  )
+  await page.locator('.palette__search').fill('')
+
+  // 広い画面は変えない。
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  check('幅1280pxでパレットの高さが94pxのまま', (await paletteHeight()) === 94, `${await paletteHeight()}px`)
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.getByRole('tab', { name: '公式', exact: true }).first().click()
+  const wideFormula = await paletteHeight()
+  const wideScrolls = await page
+    .locator('.palette__panel > .palette__items')
+    .evaluate((el) => el.scrollHeight > el.clientHeight)
+  check('幅1440pxの公式タブが157px以下のまま', wideFormula <= 157, `${wideFormula}px`)
+  check('幅1440pxでは一覧に縦スクロールが出ない', !wideScrolls)
+  await page.screenshot({ path: `${OUT}/palette-wide.png` })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  console.log(`スクリーンショット: ${OUT}/palette-phone.png, ${OUT}/palette-wide.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

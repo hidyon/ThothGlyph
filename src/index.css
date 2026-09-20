@@ -516,6 +516,47 @@ body {
     white-space: nowrap;
   }
 
+  /* ---- 狭い画面でのパレット（0032） ----
+     幅375px・高さ667pxでは、公式タブでパレットが画面の72%を占め、textareaが
+     38px（約1.5行）しか残らなかった。高さの2/3はタブの折り返しだった。
+     タブを1行に固定し、一覧に蓋をして、**件数で高さが変わらない**ようにする。 */
+
+  /* 1段目のタブ。display: contents をやめてタブ側だけをスクロールさせる。
+     検索欄（0011）は bar の直接の子のままなので、同じ行の右端に残る。 */
+  .palette__bar > .palette__tabs {
+    display: flex;
+    flex: 1;
+    /* flexの子は既定で縮まないので、これがないとタブ全体が検索欄を押し出す。 */
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  /* 2段目（公式の12分類）も同じく1行に固定する。 */
+  .palette__tabs--sub {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .palette__bar > .palette__tabs > .palette__tab,
+  .palette__tabs--sub > .palette__tab {
+    /* 折り返さない以上、タブ自身が縮むと文字が潰れる。幅は内容のままにする。 */
+    flex: 0 0 auto;
+  }
+
+  /* 一覧の高さに蓋をする。98pxは記号ボタン2段ぶんの実測
+     （36px × 2 + gap 6px + padding 20px）。15vh を併記するのは、横向きなど
+     画面自体が低いときに比率で効かせるため。入りきらないぶんは縦スクロールで
+     たどれる（横断検索（0011）もある）。 */
+  /* 検索結果の蓋（min(168px, 21vh)）はそのまま残す。同じ詳細度でこちらが
+     後ろにあるため、除外しないと結果パネルまで98pxに縮む。 */
+  .palette__items:not(.palette__items--results) {
+    max-height: min(98px, 15vh);
+    overflow-y: auto;
+    /* 蓋より中身が低いとき、ボタンが縦に間延びしないよう上に寄せる。 */
+    align-content: flex-start;
+  }
+
   .button__label {
     display: none;
   }
