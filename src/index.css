@@ -571,3 +571,40 @@ body {
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* ---- 電話の実幅でのツールバー（0033） ----
+   幅360pxでツールバーに使える幅は304pxしかないのに、ボタン4つの合計は
+   409px（日本語）／420px（英語）あり、ページ全体が横スクロールしていた。
+   言語・テーマは .button__label を隠して削り切っているので、残る2つの文言を
+   短いほうへ差し替える。境目の480pxは、溢れ始める幅（日本語435px・英語446px）より
+   上で、既存の確認幅600pxより下。600pxの見た目は変わらない。
+   折り返さないのは、ツールバーが高くなるとtextareaの高さ（幅375pxで207px）が
+   そのぶん減り、0032で確保したものを打ち消すため。 */
+
+.button__narrow {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .button__wide {
+    display: none;
+  }
+
+  .button__narrow {
+    display: inline;
+  }
+
+  /*
+    文言の短縮だけでは、保存状態（「Saved at 05:18」）が出ている英語表示の
+    幅360pxで2px溢れた。保存状態は消さずに（書いたものが残っているかの表示は
+    狭い画面でも要る）、間隔とボタンの左右のpaddingを詰めて幅を作る。
+    高さ（34px）は変えないので、textareaのぶんは減らない。
+  */
+  .toolbar__actions {
+    gap: 6px;
+  }
+
+  .button {
+    padding: 7px 10px;
+  }
+}

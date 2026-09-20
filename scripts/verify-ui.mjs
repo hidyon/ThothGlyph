@@ -87,6 +87,8 @@ const check = (label, ok, detail = '', { timing = false } = {}) => {
 const saveStatus = () => page.locator('.toolbar__save').innerText()
 const editor = () => page.locator('.editor')
 const themeButton = () => page.getByRole('button', { name: /テーマ/ })
+/** 幅480px以下では見えている文字が「コピー」に変わる。名前は aria-label で固定（0033）。 */
+const copyButton = () => page.getByRole('button', { name: 'Markdownをコピー' })
 const ready = async () => {
   await page.waitForSelector('.preview .katex')
 }
@@ -299,11 +301,89 @@ section('layout', 'レイアウト', async () => {
   // 狭い画面でもツールバーのボタンが押し出されない。
   await page.setViewportSize({ width: 600, height: 900 })
   const toolbarWidth = await page.locator('.toolbar').evaluate((el) => el.clientWidth)
-  const copyRight = await page
-    .getByRole('button', { name: 'Markdownをコピー' })
-    .evaluate((el) => el.getBoundingClientRect().right)
+  const copyRight = await copyButton().evaluate((el) => el.getBoundingClientRect().right)
   check('狭い画面でもコピーボタンが画面内に収まる', copyRight <= toolbarWidth, `right=${Math.round(copyRight)} width=${toolbarWidth}`)
+  check(
+    '幅600pxではコピーボタンが長いほうの文言で出る（0033）',
+    (await copyButton().innerText()).trim() === 'Markdownをコピー',
+    await copyButton().innerText(),
+  )
   await page.screenshot({ path: `${OUT}/narrow.png` })
+
+  // ---- 0033: 電話の実幅（360〜414px） ----
+  // 起票時の実測では、幅360pxで scrollWidth が435px（日本語）になり、
+  // ページ全体が75px横スクロールしていた。
+  await page.setViewportSize({ width: 360, height: 667 })
+  const phone = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    innerW: window.innerWidth,
+  }))
+  check(
+    '幅360pxでページが横スクロールしない（0033）',
+    phone.scrollW <= phone.innerW,
+    `scrollWidth=${phone.scrollW} innerWidth=${phone.innerW}`,
+  )
+
+  const phoneButtons = await page
+    .locator('.toolbar__actions .button')
+    .evaluateAll((els) =>
+      els.map((el) => ({
+        text: el.innerText.trim(),
+        right: Math.round(el.getBoundingClientRect().right),
+      })),
+    )
+  check(
+    '幅360pxでツールバーの4ボタンすべてが画面内に収まる（0033）',
+    phoneButtons.length === 4 && phoneButtons.every((b) => b.right <= 360),
+    phoneButtons.map((b) => `${b.text}=${b.right}`).join(' '),
+  )
+  check(
+    '幅360pxでもコピーボタンを名前「Markdownをコピー」で引ける（0033）',
+    (await copyButton().count()) === 1,
+  )
+  check(
+    '幅360pxではコピーボタンに「コピー」と出る（0033）',
+    (await copyButton().innerText()).trim() === 'コピー',
+    await copyButton().innerText(),
+  )
+  // 押せるところまで確かめる（見えていても押せなければ意味がない）。
+  await copyButton().click()
+  // 結果表示は1.6秒で消える。出るのを待ってから読む（読みに行くのが早すぎると空のまま）。
+  const copyStatus = await page
+    .waitForFunction(
+      () => document.querySelector('.toolbar__status')?.innerText.trim() || null,
+      null,
+      { timeout: 3000 },
+    )
+    .then((handle) => handle.jsonValue())
+    .catch(() => '')
+  check('幅360pxでコピーボタンを押すとコピー結果が出る（0033）', copyStatus === 'コピーしました', copyStatus)
+  const copiedText = await page.evaluate(() => navigator.clipboard.readText())
+  check(
+    '幅360pxでコピーした内容がソースと一致する（0033）',
+    copiedText === (await editor().inputValue()),
+    `${copiedText.length}文字`,
+  )
+  await page.screenshot({ path: `${OUT}/phone-360.png` })
+
+  // 高さ側の回帰も見る。ツールバーが折り返すと textarea がそのぶん減る（0032）。
+  await page.setViewportSize({ width: 375, height: 667 })
+  const heights = await page.evaluate(() => ({
+    toolbar: Math.round(document.querySelector('.toolbar').getBoundingClientRect().height),
+    editor: Math.round(document.querySelector('.pane--editor textarea').getBoundingClientRect().height),
+  }))
+  check(
+    '幅375pxでツールバーが1行のまま（高さ51px以下）（0033）',
+    heights.toolbar <= 51,
+    `${heights.toolbar}px`,
+  )
+  check(
+    '幅375pxでtextareaの高さが207px以上ある（0032のぶんを減らさない）',
+    heights.editor >= 207,
+    `${heights.editor}px`,
+  )
+  await page.screenshot({ path: `${OUT}/phone-375.png` })
+
   await page.setViewportSize({ width: 1440, height: 900 })
 })
 
