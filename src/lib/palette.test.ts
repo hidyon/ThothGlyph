@@ -69,9 +69,47 @@ describe('ギリシャ文字', () => {
     expect(groupNamed('ギリシャ小文字')?.items).toHaveLength(31)
   })
 
-  it('大文字はラテン文字と字形が異なる11件', () => {
-    expect(groupNamed('ギリシャ大文字')?.items).toHaveLength(11)
+  // 0029は「ラテン文字と字形が同じ13件は見分けがつかない」として外していたが、
+  // 0055で取り消した。無いと出せないほうが困る（小文字の omicron と同じ扱い）。
+  const UPPERCASE = [
+    'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta',
+    'Iota', 'Kappa', 'Lambda', 'Mu', 'Nu', 'Xi', 'Omicron', 'Pi',
+    'Rho', 'Sigma', 'Tau', 'Upsilon', 'Phi', 'Chi', 'Psi', 'Omega',
+  ]
+
+  /** ラテン文字と字形が同じもの。見分けはtooltipで与える（0055）。 */
+  const SAME_AS_LATIN = {
+    Alpha: 'A', Beta: 'B', Epsilon: 'E', Zeta: 'Z', Eta: 'H', Iota: 'I',
+    Kappa: 'K', Mu: 'M', Nu: 'N', Omicron: 'O', Rho: 'P', Tau: 'T', Chi: 'X',
+  }
+
+  it('大文字は24件', () => {
+    expect(groupNamed('ギリシャ大文字')?.items).toHaveLength(24)
   })
+
+  it.each(UPPERCASE)('大文字の %s がパレットにある', (name) => {
+    const items = groupNamed('ギリシャ大文字')?.items ?? []
+
+    expect(items.some((item) => item.snippet.trim() === `\\${name}`)).toBe(true)
+  })
+
+  it('大文字は字母順に並んでいる', () => {
+    const items = groupNamed('ギリシャ大文字')?.items ?? []
+
+    expect(items.map((item) => item.snippet.trim().slice(1))).toEqual(UPPERCASE)
+  })
+
+  it.each(Object.entries(SAME_AS_LATIN))(
+    '%s のtooltipにラテン文字 %s と同じ字形だと書いてある',
+    (name, latin) => {
+      const item = groupNamed('ギリシャ大文字')?.items.find(
+        (candidate) => candidate.snippet.trim() === `\\${name}`,
+      )
+
+      expect(item?.title.ja).toContain(`ラテン文字の${latin}と同じ字形`)
+      expect(item?.title.en).toContain(`same shape as Latin ${latin}`)
+    },
+  )
 
   it.each(LOWERCASE)('小文字の %s がパレットにある', (name) => {
     const items = groupNamed('ギリシャ小文字')?.items ?? []
@@ -125,8 +163,8 @@ describe('タブのアイコン', () => {
 
 // READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
 describe('READMEに書いた件数', () => {
-  it('記号は7グループ89件', () => {
+  it('記号は7グループ102件', () => {
     expect(paletteGroups).toHaveLength(7)
-    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(89)
+    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(102)
   })
 })

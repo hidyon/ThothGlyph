@@ -831,7 +831,7 @@ section('undo', 'パレット挿入のUndo（0021）', async () => {
 
 // ---- 0029: ギリシャ文字 ----
 
-section('greek', 'ギリシャ文字（0029）', async () => {
+section('greek', 'ギリシャ文字（0029・0055）', async () => {
   const items = page.locator('.palette__items .palette__item')
 
   await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
@@ -866,16 +866,90 @@ section('greek', 'ギリシャ文字（0029）', async () => {
 
   await page.getByRole('tab', { name: 'ギリシャ大文字' }).click()
   const upperCount = await items.count()
-  check('ギリシャ大文字タブに11個のボタンが出る', upperCount === 11, `${upperCount}個`)
+  check('ギリシャ大文字タブに24個のボタンが出る（0055）', upperCount === 24, `${upperCount}個`)
   const upperHeight = await page.locator('.palette').evaluate((el) =>
     Math.round(el.getBoundingClientRect().height),
   )
   console.log(`ギリシャ大文字タブのパレットの高さ: ${upperHeight}px`)
 
+  // 0055で足した13件の代表。ラテン文字のAと字形は同じだが別のコマンド。
+  await editor().fill('大文字の検証 $x$')
+  await editor().evaluate((el) => {
+    el.focus()
+    const at = el.value.indexOf('$') + 1
+    el.setSelectionRange(at, at)
+  })
+  await page.locator('.palette__item[title^="Alpha（大文字"]').click()
+  await page.waitForTimeout(400)
+  check(
+    'Alpha を押すと \\Alpha が入る（0055）',
+    (await editor().inputValue()).includes('$\\Alpha x$'),
+    JSON.stringify(await editor().inputValue()),
+  )
+  // KaTeXは \\Alpha を**ラテン文字のA（U+0041）**として描く。Α（U+0391）は出ない
+  // ので、「Αとして描画される」は確かめようがない（0055の実測）。見えるのは
+  // 「エラーにならず、Aの形が出て、式のソースに \\Alpha が残る」ところまで。
+  const alphaTex = await page
+    .locator('.preview .katex annotation')
+    .first()
+    .evaluate((el) => el.textContent)
+  check(
+    '挿入した Alpha がエラーなく描画され、式のソースに \\Alpha が残る',
+    alphaTex.includes('\\Alpha'),
+    JSON.stringify(alphaTex),
+  )
+
   check(
     '挿入したギリシャ文字にKaTeXのエラーが出ない',
     (await page.locator('.preview .katex-error').count()) === 0,
   )
+
+  // ボタンが24個＝縦帯では6行になる。上の行が下の行のラベルに覆われないこと
+  // （0054で入れた当たり判定の回帰）。
+  const everyClickable = await page.evaluate(() =>
+    [...document.querySelectorAll('.palette__item')].every((item) => {
+      const b = item.getBoundingClientRect()
+      return item.contains(document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2))
+    }),
+  )
+  check('大文字24個すべて、中心のクリックが自分に当たる（0054の回帰）', everyClickable)
+
+  // 検索（0011）から引けること。tooltipにコマンド名が入っているので当たる。
+  await page.locator('.palette__search').fill('Alpha')
+  await page.waitForTimeout(200)
+  const hitTitles = await page.locator('.palette__items--results .palette__item').evaluateAll((els) =>
+    els.map((el) => el.getAttribute('title')),
+  )
+  check(
+    '検索欄に Alpha と打つと大文字のAlphaが結果に出る',
+    hitTitles.some((title) => title?.startsWith('Alpha（大文字')),
+    `${hitTitles.length}件: ${hitTitles.slice(0, 3).join(' / ')}`,
+  )
+  await page.locator('.palette__search').fill('')
+
+  // 高さ。増えてよいのは幅720pxだけで、そこも0032の蓋の中に収まる。
+  for (const [width, height, limit] of [[1199, 800, 94], [720, 800, 141], [360, 640, 139]]) {
+    await page.setViewportSize({ width, height })
+    await page.goto(URL, { waitUntil: 'networkidle' })
+    await ready()
+    await page.getByRole('tab', { name: 'ギリシャ大文字' }).click()
+    await page.waitForTimeout(150)
+    const h = await page.locator('.palette').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    check(`幅${width}pxの大文字タブでパレットが${limit}px以下（0032の蓋の中）`, h <= limit, `${h}px`)
+  }
+
+  // 縦帯（0054）でも帯の高さは変わらず、横スクロールも出ない。
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await page.getByRole('tab', { name: 'ギリシャ大文字' }).click()
+  await page.waitForTimeout(150)
+  const strip = await page.evaluate(() => {
+    const el = document.querySelector('.palette')
+    return { h: Math.round(el.getBoundingClientRect().height), sw: el.scrollWidth, cw: el.clientWidth }
+  })
+  check('幅1440pxの縦帯で大文字24個でも帯が845pxのまま', Math.abs(strip.h - 845) <= 5, `${strip.h}px`)
+  check('幅1440pxの縦帯で帯に横スクロールが出ない', strip.sw <= strip.cw, `${strip.sw} / ${strip.cw}`)
 
   await page.getByRole('tab', { name: 'ギリシャ小文字' }).click()
   await page.screenshot({ path: `${OUT}/greek.png` })
