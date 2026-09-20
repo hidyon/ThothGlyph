@@ -48,8 +48,10 @@ describe('翻訳の網羅', () => {
 
   it('画面の文言が両方の言語を持つ', () => {
     for (const [key, value] of Object.entries(messages)) {
-      // 関数の文言（語順が変わるもの）は引数を与えてから見る。
-      const text = typeof value === 'function' ? value('x') : value
+      // 関数の文言（語順が変わるもの）は引数を与えてから見る。引数の数も型も
+      // 関数ごとに違うので、ここでは数を揃えずに渡す（余分な引数は無視される）。
+      const call = value as (...args: unknown[]) => Text
+      const text = typeof value === 'function' ? call('x', 1) : value
       both(`messages.${key}`, text)
     }
   })

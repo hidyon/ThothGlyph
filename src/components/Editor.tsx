@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react'
 import type { Ref } from 'react'
+import type { Match } from '../lib/findMatches'
+import type { InsertResult } from '../lib/insertSnippet'
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
+import { FindBar } from './FindBar'
 
 type Props = {
   value: string
@@ -13,11 +16,36 @@ type Props = {
   onOpenFiles: (files: FileList | null) => void
   /** 編集中の内容を .md として書き出す（0034）。 */
   onSaveFile: () => void
+  /** 一致をtextarea上で選ぶ（0043）。 */
+  onSelectRange: (match: Match) => void
+  /** 置換を挿入と同じ経路で行う（0021のUndo履歴に乗せる。0043）。 */
+  onReplace: (result: InsertResult) => void
+  /** 検索バーを開くときに、いま選択している文字列を初期値にする。 */
+  selectedText: () => string
 }
 
-export function Editor({ value, onChange, textareaRef, lang, onOpenFiles, onSaveFile }: Props) {
+export function Editor({
+  value,
+  onChange,
+  textareaRef,
+  lang,
+  onOpenFiles,
+  onSaveFile,
+  onSelectRange,
+  onReplace,
+  selectedText,
+}: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  // 検索バーの開閉と、開いたときの初期値（0043）。どちらもUIの一時的な状態。
+  const [find, setFind] = useState<{ open: boolean; query: string }>({ open: false, query: '' })
+
+  const openFind = () => setFind({ open: true, query: selectedText() })
+  const closeFind = () => {
+    setFind((state) => ({ ...state, open: false }))
+    // 閉じたら書く場所へ戻す。Escで閉じた直後にそのまま打てるように。
+    if (typeof textareaRef === 'object' && textareaRef !== null) textareaRef.current?.focus()
+  }
 
   const handleDrop = (event: React.DragEvent) => {
     // 止めないとブラウザがファイルを別ページとして開き、書いたものが画面から消える。
@@ -49,6 +77,14 @@ export function Editor({ value, onChange, textareaRef, lang, onOpenFiles, onSave
           保存が先、読み込みが後。書くほうが主で、読み込みは入口。
         */}
         <span className="pane__actions">
+        <button
+          type="button"
+          className="button button--quiet button--small"
+          onClick={openFind}
+          title={pick(messages.findTitle, lang)}
+        >
+          {pick(messages.find, lang)}
+        </button>
         <button
           type="button"
           className="button button--quiet button--small"
@@ -86,11 +122,32 @@ export function Editor({ value, onChange, textareaRef, lang, onOpenFiles, onSave
           />
         </span>
       </header>
+      {find.open && (
+        <FindBar
+          source={value}
+          initialQuery={find.query}
+          lang={lang}
+          onSelect={onSelectRange}
+          onReplace={onReplace}
+          onClose={closeFind}
+        />
+      )}
       <textarea
         ref={textareaRef}
         className="editor"
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          /*
+            Ctrl+F は**エディタにフォーカスがあるときだけ**奪う（0043）。
+            プレビューやパレットにいるときはブラウザの検索に任せる
+            （プレビューの文字を探す手段を残すため）。
+          */
+          if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+            event.preventDefault()
+            openFind()
+          }
+        }}
         spellCheck={false}
         placeholder={pick(messages.editorPlaceholder, lang)}
       />

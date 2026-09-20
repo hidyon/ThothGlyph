@@ -5,6 +5,7 @@ import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
 import { loadDocument, saveDocument } from './lib/documentStorage'
+import type { Match } from './lib/findMatches'
 import type { Lang } from './lib/i18n'
 import { pick } from './lib/i18n'
 import { loadLang, nextLang, saveLang } from './lib/langStorage'
@@ -178,6 +179,52 @@ export default function App() {
     })
   }
 
+  /**
+   * 検索の一致をtextarea上で選ぶ（0043）。
+   *
+   * **フォーカスは奪わない。** 奪うと検索欄から文字を打てなくなる。
+   * `setSelectionRange` はフォーカスが無くても効くが、そのままでは画面外の
+   * 一致へスクロールしないので、行の高さから位置を計算して自分で寄せる。
+   */
+  const handleSelectRange = ({ start, end }: Match) => {
+    const textarea = textareaRef.current
+    if (textarea === null) return
+
+    textarea.setSelectionRange(start, end)
+
+    const line = source.slice(0, start).split('\n').length - 1
+    const lineHeight = Number.parseFloat(getComputedStyle(textarea).lineHeight)
+    if (!Number.isFinite(lineHeight)) return
+
+    const top = line * lineHeight
+    const view = textarea.clientHeight
+    // 見えている範囲に無いときだけ動かす。2行ぶん上に余白を残す。
+    if (top < textarea.scrollTop || top > textarea.scrollTop + view - lineHeight) {
+      textarea.scrollTop = Math.max(0, top - lineHeight * 2)
+    }
+  }
+
+  /** 置換。挿入と同じ経路を通すので、Undoは自動で効く（0021・0043）。 */
+  const handleReplace = (result: InsertResult) => {
+    const textarea = textareaRef.current
+
+    if (textarea !== null && insertIntoTextarea(textarea, result)) return
+
+    // 退避経路（0021と同じ）。Undoは効かなくなるが、置換自体は動かす。
+    setSource(result.text)
+    requestAnimationFrame(() => {
+      textarea?.focus()
+      textarea?.setSelectionRange(result.cursor, result.cursor)
+    })
+  }
+
+  /** 検索バーを開くときの初期値。選択していればその文字列。 */
+  const selectedText = () => {
+    const textarea = textareaRef.current
+    if (textarea === null) return ''
+    return source.slice(textarea.selectionStart, textarea.selectionEnd)
+  }
+
   // 読み込みの結果（コピーの結果と同じ枠に出す）。数秒で消す。
   const [notice, setNotice] = useState('')
   const noticeTimer = useRef(0)
@@ -273,6 +320,9 @@ export default function App() {
           lang={lang}
           onOpenFiles={handleOpenFiles}
           onSaveFile={handleSaveFile}
+          onSelectRange={handleSelectRange}
+          onReplace={handleReplace}
+          selectedText={selectedText}
         />
         <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
       </main>

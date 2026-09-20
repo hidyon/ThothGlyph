@@ -53,6 +53,7 @@
 | `src/lib/` | 純粋関数。テストはこの隣に置く |
 | `src/lib/previewEngine.ts` / `engine.ts` | 数式の描画エンジンの遅延読み込み（下の「7. 読み込みの分割」） |
 | `src/lib/expression.ts` / `graphBlock.ts` / `renderGraph.ts` | グラフ（式の評価・ブロックの解析・SVGの生成）（[0037](specs/0037-graph.md)） |
+| `src/lib/findMatches.ts` | 文書内の検索・置換（一致の列挙と置換後の全文）（[0043](specs/0043-find-replace.md)） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
@@ -182,6 +183,22 @@ KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの�
 `App.tsx` の `insertIntoTextarea` が、その範囲を `setSelectionRange` で選んでから
 `execCommand` を呼ぶ。**挿入の前後で選択を置き直すのはUndo単位を切るため**で、
 省くとChromiumが打鍵と挿入をまとめ、「打つ→挿入→打つ」がCtrl+Z 1回で全部消える。
+
+### 文書内の検索・置換（[0043](specs/0043-find-replace.md)）
+
+**バーの開閉・検索語・置換語・何件目かは `Editor` / `FindBar` が持つ**
+（パレットの検索クエリと同じ、UIの一時的な状態）。保存もしない。
+
+**textareaを触る操作は `App.tsx` に置く。** `textareaRef` を持っているのが
+`App` で、置換は挿入と同じ `insertIntoTextarea` を通す必要があるため（0021）。
+`FindBar` は「この範囲を選びたい」「この範囲をこう置き換えたい」を渡すだけ。
+
+- **一致を選ぶときフォーカスを奪わない。** 奪うと検索欄で打てなくなる。
+  `setSelectionRange` はフォーカス無しでも効くので、スクロールだけ
+  行の高さから計算して自分で寄せる。
+- **すべて置換は全文を1回で差し替える**（`lib/findMatches.ts` の `replaceAll` が
+  `start: 0, end: source.length` の形で返す）。1件ずつ置き換えると、
+  Undoの回数が件数ぶんになる。
 
 ### 保存形式（`lib/documentStorage.ts`）
 

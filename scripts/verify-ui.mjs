@@ -1970,12 +1970,12 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
     return buttons.map((b) => b.innerText.trim())
   })
   check(
-    '「ファイルに保存」が「ファイルを開く」の左に並ぶ',
-    order.join(' / ') === 'ファイルに保存 / ファイルを開く',
+    '見出し行のボタンが「検索 / ファイルに保存 / ファイルを開く」の順に並ぶ（0043で3つ目が増えた）',
+    order.join(' / ') === '検索 / ファイルに保存 / ファイルを開く',
     order.join(' / '),
   )
 
-  // ボタンが2つになっても見出し行の高さとtextareaが変わらない（0012・0032・0033）。
+  // ボタンが3つになっても見出し行の高さとtextareaが変わらない（0012・0032・0033・0043）。
   for (const width of [1440, 600, 375, 360]) {
     await page.setViewportSize({ width, height: 667 })
     const size = await page.evaluate(() => ({
@@ -1992,7 +1992,7 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
       })(),
     }))
     check(
-      `幅${width}pxでボタン2つでも見出し行が30pxのまま、横スクロールも出ない（0034）`,
+      `幅${width}pxでボタン3つでも見出し行が30pxのまま、横スクロールも出ない（0034・0043）`,
       size.heads.every((h) => h === 30) && size.scrollW <= size.innerW,
       // used は「見出し行の左端から右のボタンの右端まで」。space-between で
       // 右寄せなので、内容の合計ではなく見出し行の内側の幅にほぼ等しい。
@@ -2307,6 +2307,242 @@ section('graph', '関数のグラフ（0037）', async () => {
 })
 
 
+
+// ---- 文書内の検索・置換（0043） ----
+
+section('find', '検索・置換（0043）', async () => {
+  const findButton = () => page.getByRole('button', { name: '検索', exact: true })
+  const bar = () => page.locator('.find')
+  const queryField = () => page.getByRole('textbox', { name: '文書内を検索' })
+  const replaceField = () => page.getByRole('textbox', { name: '置換後の文字列' })
+  const count = () => page.locator('.find__count').innerText()
+  const selection = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.editor')
+      return el.value.slice(el.selectionStart, el.selectionEnd)
+    })
+  const selectionStart = () => page.evaluate(() => document.querySelector('.editor').selectionStart)
+  /** バーの高さと、開く前後のtextareaの高さ。 */
+  const sizes = () =>
+    page.evaluate(() => ({
+      bar: Math.round(document.querySelector('.find')?.getBoundingClientRect().height ?? 0),
+      editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
+      header: Math.round(document.querySelector('.pane--editor .pane__header').getBoundingClientRect().height),
+      scrollW: document.documentElement.scrollWidth,
+      innerW: window.innerWidth,
+    }))
+
+  const doc = '# 検索の検証\n\n$\\alpha$ と $\\alpha$ と $\\Alpha$ と $\\beta$。\n\n本文の $\\alpha$ で4件目。\n'
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await editor().fill(doc)
+  await page.waitForTimeout(300)
+
+  // 閉じているときは、見出し行もtextareaも今までどおり。
+  const closed = await sizes()
+  check('バーを開く前は見出し行が30pxのまま', closed.header === 30, `${closed.header}px`)
+  check('バーを開く前は .find がない', (await bar().count()) === 0)
+
+  // 入口1: 見出し行のボタン。
+  await findButton().click()
+  check('見出し行の「検索」でバーが開く', (await bar().count()) === 1)
+  check(
+    '検索欄にフォーカスが入る',
+    await page.evaluate(() => document.activeElement?.classList.contains('find__field')),
+  )
+
+  // 件数と移動。
+  await queryField().fill('\\alpha')
+  await page.waitForTimeout(200)
+  check('一致の件数が出る（大文字小文字を区別して3件）', (await count()) === '1/3件', await count())
+  check('1件目がtextarea上で選択される', (await selection()) === '\\alpha', await selection())
+
+  const first = await selectionStart()
+  await page.getByRole('button', { name: '次へ' }).click()
+  check('「次へ」で2件目へ進む', (await count()) === '2/3件' && (await selectionStart()) > first, await count())
+
+  await page.getByRole('button', { name: '次へ' }).click()
+  await page.getByRole('button', { name: '次へ' }).click()
+  check('末尾の次で先頭へ回る', (await count()) === '1/3件', await count())
+
+  await page.getByRole('button', { name: '前へ' }).click()
+  check('「前へ」で末尾へ回る', (await count()) === '3/3件', await count())
+
+  // 0件のとき。
+  await queryField().fill('存在しない語')
+  await page.waitForTimeout(200)
+  check('一致しないときは0件と出る', (await count()) === '0件', await count())
+  check(
+    '0件では前へ・次へが押せない',
+    (await page.getByRole('button', { name: '次へ' }).isDisabled()) === true,
+  )
+
+  // 置換（1件）。
+  await queryField().fill('\\alpha')
+  await page.waitForTimeout(200)
+  await page.getByRole('button', { name: '置換', exact: true }).first().click()
+  await replaceField().fill('\\gamma')
+  await page.getByRole('button', { name: '置換', exact: true }).last().click()
+  await page.waitForTimeout(300)
+  const afterOne = await editor().inputValue()
+  check(
+    '「置換」で1件だけ置き換わる',
+    (afterOne.match(/\\gamma/g) ?? []).length === 1 && (afterOne.match(/\\alpha/g) ?? []).length === 2,
+    `gamma ${(afterOne.match(/\\gamma/g) ?? []).length}件 / alpha ${(afterOne.match(/\\alpha/g) ?? []).length}件`,
+  )
+
+  // すべて置換とUndo。1回で戻ることがこのissueの肝（0021の経路に乗せている）。
+  await page.getByRole('button', { name: 'すべて置換' }).click()
+  await page.waitForTimeout(300)
+  const afterAll = await editor().inputValue()
+  check(
+    '「すべて置換」で残り2件も置き換わる',
+    (afterAll.match(/\\gamma/g) ?? []).length === 3 && !afterAll.includes('\\alpha$'),
+    `gamma ${(afterAll.match(/\\gamma/g) ?? []).length}件`,
+  )
+  check('大文字の \\Alpha は置き換えない', afterAll.includes('\\Alpha'))
+
+  await editor().click()
+  await page.keyboard.press('Control+z')
+  await page.waitForTimeout(300)
+  check(
+    'すべて置換はCtrl+Z 1回で元に戻る',
+    (await editor().inputValue()) === afterOne,
+    `${(await editor().inputValue()).length}文字`,
+  )
+
+  // Esc で閉じる。
+  await findButton().click()
+  await queryField().press('Escape')
+  await page.waitForTimeout(200)
+  check('Escでバーが閉じる', (await bar().count()) === 0)
+  check(
+    'Escのあとエディタにフォーカスが戻る',
+    await page.evaluate(() => document.activeElement?.classList.contains('editor')),
+  )
+
+  // 入口2: エディタでの Ctrl+F。プレビューでは奪わない。
+  await editor().click()
+  await page.keyboard.press('Control+f')
+  await page.waitForTimeout(200)
+  check('エディタで Ctrl+F を押すとバーが開く', (await bar().count()) === 1)
+  await queryField().press('Escape')
+
+  // 選択していた文字列が初期値になる。
+  await page.evaluate(() => {
+    const el = document.querySelector('.editor')
+    el.focus()
+    el.setSelectionRange(0, 7)
+  })
+  await page.keyboard.press('Control+f')
+  await page.waitForTimeout(200)
+  check(
+    '選択していた文字列が検索欄の初期値になる',
+    (await queryField().inputValue()) === '# 検索の検証',
+    await queryField().inputValue(),
+  )
+  await queryField().press('Escape')
+
+  // 狭い画面での占有（0032・0033で確保したぶんを割らないか）。
+  // 期待するtextareaの高さは画面の高さで決まる（幅375pxは高さ667px、
+  // 幅360pxは高さ640pxで測っている）。0032・0033で確保した値を割らないこと。
+  for (const [width, height, floor] of [
+    [375, 667, 207],
+    [360, 640, 194],
+  ]) {
+    await page.setViewportSize({ width, height })
+    await page.waitForTimeout(200)
+    const shut = await sizes()
+    check(
+      `幅${width}px・高さ${height}pxで、閉じている間はtextareaが${floor}px以上ある`,
+      shut.editor >= floor,
+      `${shut.editor}px`,
+    )
+
+    await findButton().click()
+    await page.waitForTimeout(200)
+    const open = await sizes()
+    check(
+      `幅${width}pxで検索のみのバーが41px（±2px）`,
+      Math.abs(open.bar - 41) <= 2,
+      `${open.bar}px / textarea ${open.editor}px`,
+    )
+    check(
+      `幅${width}pxでバーを開いても横スクロールが出ない`,
+      open.scrollW <= open.innerW,
+      `scrollWidth ${open.scrollW} / ${open.innerW}`,
+    )
+
+    await page.getByRole('button', { name: '置換', exact: true }).first().click()
+    await page.waitForTimeout(200)
+    const both = await sizes()
+    check(
+      `幅${width}pxで置換も開くと73px（±2px）`,
+      Math.abs(both.bar - 73) <= 2,
+      `${both.bar}px / textarea ${both.editor}px`,
+    )
+    check(
+      `幅${width}pxで置換も開いて横スクロールが出ない`,
+      both.scrollW <= both.innerW,
+      `scrollWidth ${both.scrollW} / ${both.innerW}`,
+    )
+    if (width === 360) await page.screenshot({ path: `${OUT}/find-narrow.png` })
+    await queryField().press('Escape')
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await findButton().click()
+  await queryField().fill('\\gamma')
+  await page.getByRole('button', { name: '置換', exact: true }).first().click()
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: `${OUT}/find-wide.png` })
+  await queryField().press('Escape')
+
+  // 英語表示（0031）。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(300)
+  await page.getByRole('button', { name: 'Find', exact: true }).click()
+  await page.waitForTimeout(200)
+  check(
+    '英語表示では文言が英語になる',
+    (await page.getByRole('textbox', { name: 'Find in document' }).count()) === 1 &&
+      (await page.getByRole('button', { name: 'Replace all' }).count()) >= 0,
+  )
+  await page.getByRole('textbox', { name: 'Find in document' }).fill('zzz')
+  await page.waitForTimeout(200)
+  check('英語の0件は No matches', (await count()) === 'No matches', await count())
+  await page.getByRole('textbox', { name: 'Find in document' }).press('Escape')
+  await page.getByRole('button', { name: /Language/ }).click()
+  await page.waitForTimeout(300)
+
+  // 長い文書でも入力が重くならない（perf区分と同じ測り方）。
+  const longDoc = Array.from(
+    { length: 400 },
+    (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx$ である。\n`,
+  ).join('\n')
+  await editor().fill(longDoc)
+  await page.waitForFunction(() => document.querySelectorAll('.preview .katex').length === 400, null, {
+    timeout: 30000,
+  })
+  await findButton().click()
+  await queryField().fill('\\int')
+  await page.waitForTimeout(300)
+  check('400節の文書で一致件数が出る', (await count()) === '1/400件', await count())
+  const TYPED = 20
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  const typeStart = Date.now()
+  await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
+  const perKey = (Date.now() - typeStart) / TYPED
+  check(
+    'バーを開いたまま400節の文書を打っても1文字あたり50ms以内',
+    perKey <= 50,
+    `${perKey.toFixed(1)}ms/文字`,
+    { timing: true },
+  )
+
+  await resetState()
+})
 
 // ---- 実行 ----
 
