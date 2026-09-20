@@ -280,6 +280,20 @@ body {
   line-height: 1;
 }
 
+/* 数式の描画エンジンが届くまでのラベル（LaTeXのソース）。そのまま出すと
+   ボタンが横に広がって段数が増え、届いた瞬間にパレットの高さが変わる（0024）。
+   幅は描画後のボタン（実測42〜47px）に合わせて詰め、溢れは省略記号にする。
+   何が入るかはtooltipで読めるので、ここは見分けがつけば足りる。 */
+.palette__source {
+  display: block;
+  max-width: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 .palette__item:hover {
   background: var(--accent-soft);
   border-color: var(--accent);

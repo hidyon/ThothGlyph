@@ -12,6 +12,9 @@
       ^                          |
       |                          +--600msのデバウンス--> [ localStorage ]
       +--挿入-- [ 記号パレット ]
+
+[ 数式の描画エンジン（KaTeX・marked・DOMPurify） ] は別チャンク。起動と同時に
+取りに行き、届くまではプレビューが「準備中…」、パレットのラベルはLaTeXのソース。
 ```
 
 状態は `App.tsx` の `source`（Markdownソース文字列）1つに集約する。
@@ -22,15 +25,15 @@
 
 ### 依存
 
-| 依存 | 役割 | 選んだ理由 |
-|---|---|---|
-| React 19 | 画面 | `useDeferredValue` で重い描画を入力から切り離している |
-| Vite 8 | 開発・ビルド | 設定を1つに保てる（Vitestと共有） |
-| KaTeX 0.18 | 数式の描画 | 同期API。MathJaxより速く、依存が軽い |
-| marked 18 | Markdownの変換 | 同期API、GFM対応 |
-| DOMPurify 3 | サニタイズ | markedの出力を通す |
-| Vitest 5 | 単体テスト | Viteの設定を共有できる |
-| playwright-core 1.63 | 実機検証 | Chromiumはコンテナに焼いてある |
+| 依存 | チャンク | 役割 | 選んだ理由 |
+|---|---|---|---|
+| React 19 | 初期 | 画面 | `useDeferredValue` で重い描画を入力から切り離している |
+| Vite 8 | — | 開発・ビルド | 設定を1つに保てる（Vitestと共有） |
+| KaTeX 0.18 | 遅延 | 数式の描画 | 同期API。MathJaxより速く、依存が軽い |
+| marked 18 | 遅延 | Markdownの変換 | 同期API、GFM対応 |
+| DOMPurify 3 | 遅延 | サニタイズ | markedの出力を通す |
+| Vitest 5 | — | 単体テスト | Viteの設定を共有できる |
+| playwright-core 1.63 | — | 実機検証 | Chromiumはコンテナに焼いてある |
 
 **状態管理ライブラリもUIフレームワークも入れない。** この規模ではReactの状態と
 素のCSSで足りる。`@types/katex` は入れない（katex 0.18 が型定義を同梱していて衝突する）。
@@ -48,9 +51,11 @@
 | `src/App.tsx` | 状態の集約。保存・挿入・復元の配線 |
 | `src/components/` | 描画と配線だけ。ロジックを持たない |
 | `src/lib/` | 純粋関数。テストはこの隣に置く |
+| `src/lib/previewEngine.ts` / `engine.ts` | 数式の描画エンジンの遅延読み込み（下の「7. 読み込みの分割」） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
+| `scripts/measure-load.mjs` | 本番ビルドの大きさと読み込み時間の実測 |
 | `scripts/make-icons.mjs` | `favicon.svg` からPNGを書き出す |
 | `docs/` | 要求・アーキテクチャ・機能・テストの4文書と、issue／issue仕様／振り返り |
 
@@ -60,6 +65,7 @@
 ## 3. 変換パイプライン（`lib/renderMarkdown.ts`）
 
 Markdownソースから表示用HTMLまでの順序。**この順序は変えない。**
+このファイルは遅延チャンク側にある（「7. 読み込みの分割」）。
 
 ```
 source
@@ -224,6 +230,41 @@ devcontainer内で開発する（`.devcontainer/`）。Node 22 と検証用Chrom
 （コンテナ内で 0.0.0.0 にバインドしないとホストのブラウザから届かない）。
 検証スクリプトに `executablePath` を書かない（`PLAYWRIGHT_BROWSERS_PATH` から
 playwright-coreが自力で見つける）。
+
+## 7. 読み込みの分割（[0024](specs/0024-bundle-size.md)）
+
+JSを2つに分けている。
+
+```
+初期チャンク : React + アプリ本体（Toolbar / Editor / SymbolPalette の骨組み）+ アプリのCSS
+遅延チャンク : KaTeX + marked + DOMPurify + renderMarkdown + KaTeXのCSS
+```
+
+`lib/engine.ts` が遅延チャンクの入口で、**ここから静的にたどれるものが遅延側に入る**。
+`lib/previewEngine.ts` の `loadEngine()` が `import('./engine')` を1回だけ走らせ、
+結果を使い回す。`App` が受け取って `Preview` と `SymbolPalette` へ props で配る。
+
+**取得は利用者の操作を待たず、`main.tsx` でReactのマウント前に始める。**
+「必要になってから読む」にすると、初期チャンクの評価 → 遅延チャンクの取得が
+直列になり、プレビューが出るまでが分割前より遅くなる。
+
+届くまでの間:
+
+- エディタ・自動保存・テーマ・言語は初期チャンクだけで動く。
+- プレビューは本文が空で、ヘッダに `準備中…`。
+- パレットのラベルはLaTeXのソース（`.palette__source`）。押せば挿入は効く。
+  **幅は描画後のボタンに合わせて詰めてある**（40px、溢れは省略記号）。
+  そのまま出すとボタンが広がって段数が増え、届いた瞬間にパレットが縮む。
+
+エンジンの取得に失敗しても**エディタは使えたままにする**（書いたものを失わせない）。
+`loadEngine()` は失敗したPromiseを捨てるので、次に呼ばれたらもう一度試せる。
+
+実装前後（`node scripts/measure-load.mjs`）:
+
+| | 初期JS | 初期CSS | textareaまで（Fast 3G + CPU 4倍） | 数式まで |
+|---|---|---|---|---|
+| 分割前 | 579.98 kB（gzip 180.50） | 36.09 kB | 1964 ms | 2021 ms |
+| 分割後 | 243.20 kB（gzip 76.82） | 6.32 kB | 1085 ms | 1939 ms |
 
 ## 関連
 

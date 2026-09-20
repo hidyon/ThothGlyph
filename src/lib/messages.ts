@@ -52,6 +52,8 @@ export const messages = {
   previewLabel: t('プレビュー', 'Preview'),
   previewHeader: t('プレビュー', 'Preview'),
   previewStale: t('更新中…', 'Updating…'),
+  // 数式の描画エンジンが届くまでの表示（0024）。
+  previewPreparing: t('準備中…', 'Preparing…'),
 
   // パレット
   paletteLabel: t('記号パレット', 'Symbol palette'),
