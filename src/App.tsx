@@ -11,6 +11,7 @@ import { loadLang, nextLang, saveLang } from './lib/langStorage'
 import { messages } from './lib/messages'
 import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
+import type { InsertResult } from './lib/insertSnippet'
 import { insertSnippet } from './lib/insertSnippet'
 import { checkFile, normalizeText } from './lib/loadMarkdownFile'
 import { contentFor, fileNameFor, isEmptySource } from './lib/downloadName'
@@ -20,6 +21,28 @@ import { sampleDocument } from './sampleDocument'
 
 /** 入力が止まってから保存するまでの待ち時間。localStorageは同期APIなので1文字ごとには書かない。 */
 const SAVE_DELAY_MS = 600
+
+/**
+ * textarea に「利用者が打ったのと同じ扱い」で挿入する（0021）。
+ * ブラウザのUndo履歴に乗るのはこの経路だけなので、非推奨の execCommand を使う。
+ * 入らなかった場合は false を返し、呼び出し側が state の差し替えへ落ちる。
+ *
+ * 前後の setSelectionRange は、カーソルを動かすためだけのものではない。
+ * Chromiumは連続した入力を1つのUndo単位にまとめるため、選択を置き直して
+ * 区切らないと「打つ→挿入→打つ」がCtrl+Z 1回でまとめて消える。
+ */
+function insertIntoTextarea(textarea: HTMLTextAreaElement, result: InsertResult): boolean {
+  try {
+    textarea.focus()
+    textarea.setSelectionRange(result.start, result.end)
+    if (!document.execCommand('insertText', false, result.inserted)) return false
+  } catch {
+    return false
+  }
+
+  textarea.setSelectionRange(result.cursor, result.cursor)
+  return true
+}
 
 export default function App() {
   // 遅延初期化でマウント時の1回だけ読む。再レンダリングで読み直さない。
@@ -136,13 +159,21 @@ export default function App() {
     const start = textarea?.selectionStart ?? source.length
     const end = textarea?.selectionEnd ?? source.length
 
-    const { text, cursor } = insertSnippet(source, snippet, start, end)
-    setSource(text)
+    const result = insertSnippet(source, snippet, start, end)
+
+    if (textarea !== null && insertIntoTextarea(textarea, result)) {
+      // execCommand が成功していればブラウザが input を投げ、Editor の onChange
+      // 経由で source が更新される。ここで setSource は呼ばない。
+      return
+    }
+
+    // 退避経路。Undoは効かなくなるが、挿入自体は動かす（0021）。
+    setSource(result.text)
 
     // setStateの反映後にカーソルを復元する。
     requestAnimationFrame(() => {
       textarea?.focus()
-      textarea?.setSelectionRange(cursor, cursor)
+      textarea?.setSelectionRange(result.cursor, result.cursor)
     })
   }
 

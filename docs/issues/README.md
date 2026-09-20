@@ -28,7 +28,7 @@
 | [0018](0018-formula-library.md) | 有名な公式を選んで挿入する | closed | [仕様](../specs/0018-formula-library.md) |
 | [0019](0019-app-icon.md) | アプリのアイコン | closed | [仕様](../specs/0019-app-icon.md) |
 | [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | open | — |
-| [0021](0021-undo.md) | パレットで挿入したあとUndoで戻せない | open | — |
+| [0021](0021-undo.md) | パレットで挿入したあとUndoで戻せない | closed | [仕様](../specs/0021-undo.md) |
 | [0022](0022-narrow-pane-switch.md) | 狭い画面でソースとプレビューを切り替えられない | open | — |
 | [0023](0023-snapshot-recovery.md) | 誤操作から書いたものを取り戻せない | open | — |
 | [0024](0024-bundle-size.md) | 初期バンドルが563kBある | closed | [仕様](../specs/0024-bundle-size.md) |
@@ -43,6 +43,7 @@
 | [0033](0033-toolbar-overflow-phone.md) | 幅414px以下でツールバーのボタンが画面から溢れる | closed | [仕様](../specs/0033-toolbar-overflow-phone.md) |
 | [0034](0034-file-save.md) | .mdファイルの書き出し | closed | [仕様](../specs/0034-file-save.md) |
 | [0035](0035-readme-for-users.md) | READMEが開発者向けで、使う人に何ができるか伝わらない | closed | [仕様](../specs/0035-readme-for-users.md) |
+| [0036](0036-save-status-stuck.md) | 編集を取り消して保存済みの内容に戻すと「保存中…」が消えない | open | — |
 
 ## 着手順の目安
 
@@ -84,8 +85,13 @@
 実装を2つに分けたことで、同じファイルを2回書き換えずに済んだ。
 残りは0028（初期表示の区分にチェックがない）。
 
-**0021（Undo）は0008（ショートカット）と近い。** どちらもキー入力とtextareaの
-扱いに触れるので、続けてやると土台を共有できる。
+**0021（Undo）は完了した。** パレットからの挿入が `execCommand('insertText')`
+経由になり、ブラウザのUndo履歴に乗る。**textareaへ文字を入れる経路は
+`App.tsx` の `insertIntoTextarea` に1つだけある**ので、0008（ショートカット）で
+`$` で囲むキーなどを足すときは、そこを通せばUndoは自動で効く。
+0021で見つけた0036（「保存中…」が消えない）は0021とは独立した既存の不具合で、
+**Ctrl+Zで踏みやすくなったぶん先に片付ける価値がある**（表示だけの問題で、
+書いたものは失われない）。
 
 0032は完了した。**幅720px以下でパレットの高さに上限ができた**ので、
 記号や公式をこれ以上足しても狭い画面は悪くならない（0029・0030で起きた

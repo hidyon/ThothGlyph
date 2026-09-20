@@ -135,6 +135,20 @@ KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの�
 表示中のHTMLが古い間（`deferredSource !== source`）は、プレビューのヘッダに
 「更新中…」を出す。
 
+### パレットからの挿入（[0021](specs/0021-undo.md)）
+
+**挿入だけは、stateではなくDOMを先に変える。** `document.execCommand('insertText')`
+でtextareaに入れ、そこで出る `input` イベントを `Editor` の `onChange` が拾って
+`source` が更新される。ブラウザのUndo履歴に乗せる方法が他にないため
+（`setRangeText` は履歴に乗らないことを実測した）。`execCommand` は非推奨APIなので、
+**失敗したら `setSource` で全文を差し替える経路へ落ちる**（Undoは効かなくなるが、
+挿入そのものは動く）。
+
+`insertSnippet` は挿入後の全文に加えて「置き換える範囲と入れる文字列」を返す。
+`App.tsx` の `insertIntoTextarea` が、その範囲を `setSelectionRange` で選んでから
+`execCommand` を呼ぶ。**挿入の前後で選択を置き直すのはUndo単位を切るため**で、
+省くとChromiumが打鍵と挿入をまとめ、「打つ→挿入→打つ」がCtrl+Z 1回で全部消える。
+
 ### 保存形式（`lib/documentStorage.ts`）
 
 localStorageに1件だけ持つ。
