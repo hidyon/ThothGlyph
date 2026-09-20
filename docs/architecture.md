@@ -240,6 +240,18 @@ favicon を直したときに片方だけ古くなる）。アイコンが自前
 読み込みは自動保存の特別扱いをしない。`setSource` した後は、通常の入力と同じ
 デバウンスに乗って保存される。
 
+### ファイルの書き出し（`lib/downloadName.ts`、[0034](specs/0034-file-save.md)）
+
+読み込みと同じ切り分けで、**名前と中身を決める純粋関数**（`fileNameFor` /
+`contentFor` / `isEmptySource`）を `lib/` に置き、Blobと `<a download>` を使う
+部分だけ `App.tsx` に残す。
+
+- File System Access API を使わないのは、Safari・Firefoxが対応していないため。
+- `URL.revokeObjectURL` はクリックの直後ではなく次のタスクで呼ぶ
+  （早すぎるとダウンロードが始まらないブラウザがある）。
+- 書き出した `.md` は、そのまま読み込み（0012）に通る形にしておく。
+  この往復は検証の区分 `file-save` の1件で確かめている。
+
 ## 6. 開発環境
 
 devcontainer内で開発する（`.devcontainer/`）。Node 22 と検証用Chromiumをイメージに

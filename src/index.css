@@ -373,6 +373,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+/* 見出し行のボタンのまとまり（0034）。2つ以上あっても右端で隣り合う。 */
+.pane__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* 見出し行に収まる小さいボタン。高さ29pxで、見出し行の30pxを超えない。
    .button と2つ重ねるのは、幅720px以下の .button（padding 7px 12px）に
    後ろから上書きされないようにするため（同じ詳細度だと後ろが勝つ）。 */

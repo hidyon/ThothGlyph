@@ -1724,6 +1724,166 @@ section('file-load', 'ファイルの読み込み（0012）', async () => {
   console.log(`スクリーンショット: ${OUT}/file-load.png, ${OUT}/file-load-en.png`)
 })
 
+// ---- 0034: .mdファイルの書き出し ----
+
+section('file-save', 'ファイルの書き出し（0034）', async () => {
+  const saveButton = () => page.getByRole('button', { name: 'ファイルに保存' })
+  const statusText = () => page.locator('.toolbar__status').innerText()
+  const waitNotice = () =>
+    page
+      .waitForFunction(
+        () => document.querySelector('.toolbar__status')?.innerText.trim() || null,
+        null,
+        { timeout: 3000 },
+      )
+      .then((handle) => handle.jsonValue())
+      .catch(() => '')
+  /** ボタンを押してダウンロードを受け取り、名前と中身を返す。 */
+  const download = async () => {
+    const [event] = await Promise.all([page.waitForEvent('download'), saveButton().click()])
+    const stream = await event.createReadStream()
+    const chunks = []
+    for await (const chunk of stream) chunks.push(chunk)
+    return { name: event.suggestedFilename(), text: Buffer.concat(chunks).toString('utf8') }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+
+  check('ソースの見出し行に「ファイルに保存」ボタンがある', (await saveButton().count()) === 1)
+  const order = await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('.pane--editor .pane__header button')]
+    return buttons.map((b) => b.innerText.trim())
+  })
+  check(
+    '「ファイルに保存」が「ファイルを開く」の左に並ぶ',
+    order.join(' / ') === 'ファイルに保存 / ファイルを開く',
+    order.join(' / '),
+  )
+
+  // ボタンが2つになっても見出し行の高さとtextareaが変わらない（0012・0032・0033）。
+  for (const width of [1440, 600, 375, 360]) {
+    await page.setViewportSize({ width, height: 667 })
+    const size = await page.evaluate(() => ({
+      heads: [...document.querySelectorAll('.pane__header')].map((h) =>
+        Math.round(h.getBoundingClientRect().height),
+      ),
+      editor: Math.round(document.querySelector('.editor').getBoundingClientRect().height),
+      scrollW: document.documentElement.scrollWidth,
+      innerW: window.innerWidth,
+      used: (() => {
+        const head = document.querySelector('.pane--editor .pane__header')
+        const buttons = [...head.querySelectorAll('button')]
+        return Math.round(buttons.at(-1).getBoundingClientRect().right - head.getBoundingClientRect().left)
+      })(),
+    }))
+    check(
+      `幅${width}pxでボタン2つでも見出し行が30pxのまま、横スクロールも出ない（0034）`,
+      size.heads.every((h) => h === 30) && size.scrollW <= size.innerW,
+      // used は「見出し行の左端から右のボタンの右端まで」。space-between で
+      // 右寄せなので、内容の合計ではなく見出し行の内側の幅にほぼ等しい。
+      `見出し行 ${size.heads.join('/')}px 右端=${size.used}px scrollWidth=${size.scrollW}`,
+    )
+    if (width === 375) {
+      check(
+        '幅375pxでtextareaが207px以上ある（0032・0033・0012のぶんを減らさない）',
+        size.editor >= 207,
+        `${size.editor}px`,
+      )
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  // サンプル文書をそのまま書き出す。
+  const source = await editor().inputValue()
+  const saved = await download()
+  check('サンプル文書の見出しがファイル名になる', saved.name === '二次方程式の解の公式.md', saved.name)
+  check(
+    '書き出した中身がエディタの内容と一致する',
+    saved.text === (source.endsWith('\n') ? source : `${source}\n`),
+    `${saved.text.length}文字`,
+  )
+  check('書き出すと結果が表示される', (await waitNotice()).includes('二次方程式の解の公式.md を保存しました'), await statusText())
+
+  // 見出しがない文書、使えない文字を含む見出し、末尾に改行がない文書。
+  await page.waitForTimeout(3100)
+  await editor().fill('見出しのない文書')
+  const noHeading = await download()
+  check('見出しがなければ document.md になる', noHeading.name === 'document.md', noHeading.name)
+  check('末尾に改行がなければ1つ足される', noHeading.text === '見出しのない文書\n', JSON.stringify(noHeading.text))
+
+  await page.waitForTimeout(3100)
+  await editor().fill('# 2026/09/20 の記録: 前半\n\n本文\n')
+  const sanitized = await download()
+  check(
+    '使えない文字が - に置き換わる',
+    sanitized.name === '2026-09-20 の記録- 前半.md',
+    sanitized.name,
+  )
+
+  // 空の文書は書き出さない。
+  await page.waitForTimeout(3100)
+  await editor().fill('   \n\t\n')
+  let started = false
+  const guard = () => {
+    started = true
+  }
+  page.on('download', guard)
+  await saveButton().click()
+  await page.waitForTimeout(500)
+  page.off('download', guard)
+  check('空白だけの文書ではダウンロードが始まらない', !started)
+  check('空白だけの文書では「書き出す内容がありません」と出る', (await waitNotice()) === '書き出す内容がありません', await statusText())
+
+  // 0012との往復。書き出したものを読み込むと同じ内容に戻る。
+  await page.waitForTimeout(3100)
+  const roundTripSource = '# 往復の確認\n\n式 $\\frac{a}{b}$ である。\n'
+  await editor().fill(roundTripSource)
+  const roundTrip = await download()
+  const savedPath = 'tmp/fixtures/round-trip.md'
+  await mkdir('tmp/fixtures', { recursive: true })
+  await writeFile(savedPath, roundTrip.text)
+  await editor().fill('別の内容')
+  page.once('dialog', (d) => d.accept())
+  await page.locator('.pane--editor input[type="file"]').setInputFiles(savedPath)
+  await page.waitForFunction(() => document.querySelector('.editor').value.startsWith('# 往復の確認'), null, { timeout: 5000 })
+  check(
+    '書き出した .md を読み込み直すと同じ内容に戻る（0012との往復）',
+    (await editor().inputValue()) === roundTripSource,
+    roundTrip.name,
+  )
+  await page.screenshot({ path: `${OUT}/file-save.png` })
+
+  // 英語表示。
+  await page.waitForTimeout(3100)
+  await page.getByRole('button', { name: /言語/ }).click()
+  await appReady()
+  check(
+    '英語表示ではボタンが Save to file になる',
+    (await page.getByRole('button', { name: 'Save to file' }).count()) === 1,
+  )
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: 'Reset to sample' }).click()
+  await ready()
+  const [englishDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Save to file' }).click(),
+  ])
+  check(
+    '英語のサンプルは The quadratic formula.md になる',
+    englishDownload.suggestedFilename() === 'The quadratic formula.md',
+    englishDownload.suggestedFilename(),
+  )
+  check('英語表示では結果が Saved … になる', (await waitNotice()).includes('Saved The quadratic formula.md'), await statusText())
+  await page.screenshot({ path: `${OUT}/file-save-en.png` })
+
+  // 次の区分のために日本語へ戻す。
+  await page.getByRole('button', { name: /Language/ }).click()
+  await appReady()
+  console.log(`スクリーンショット: ${OUT}/file-save.png, ${OUT}/file-save-en.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
