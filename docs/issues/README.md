@@ -19,7 +19,7 @@
 | [0009](0009-wrap-selection.md) | 選択範囲があるときの挿入の扱いを揃える | closed | [仕様](../specs/0009-wrap-selection.md) |
 | [0010](0010-scroll-sync.md) | スクロール同期と編集位置の復元 | open | [下書き](../specs/0010-scroll-sync.md)（未承認） |
 | [0011](0011-palette-search.md) | 記号パレットの検索 | closed | [仕様](../specs/0011-palette-search.md) |
-| [0012](0012-file-io.md) | .mdファイルの書き出しと読み込み | open | — |
+| [0012](0012-file-io.md) | .mdファイルの読み込み | open | — |
 | [0013](0013-print-style.md) | 印刷とPDF出力のスタイル | open | — |
 | [0014](0014-unit-tests.md) | 単体テストの土台を入れる | closed | [仕様](../specs/0014-unit-tests.md) |
 | [0015](0015-error-list.md) | 数式エラーの一覧 | open | — |
@@ -41,6 +41,7 @@
 | [0031](0031-english-ui.md) | 英語に対応する | closed | [仕様](../specs/0031-english-ui.md) |
 | [0032](0032-palette-height-narrow.md) | 狭い画面でパレットが画面の3割を占める | closed | [仕様](../specs/0032-palette-height-narrow.md) |
 | [0033](0033-toolbar-overflow-phone.md) | 幅414px以下でツールバーのボタンが画面から溢れる | closed | [仕様](../specs/0033-toolbar-overflow-phone.md) |
+| [0034](0034-file-save.md) | .mdファイルの書き出し | open | — |
 
 ## 着手順の目安
 
@@ -92,6 +93,11 @@
 何かを足すissueは360pxで測る**。残る狭い画面の問題は
 [0022](0022-narrow-pane-switch.md)（ソースとプレビューの切り替え）だけで、
 `layout` 区分に幅360px・375pxのチェックができたぶん、測り直しの土台がある。
+
+**ファイルの入出力**は0012（読み込み）と[0034](0034-file-save.md)（書き出し）に
+分かれている。0012を先にやって置き場所を決めれば、0034は同じ場所へ1つ足すだけになる。
+どちらも**画面に要素を足すissueなので、幅360pxでの余白を測ってから仕様を書く**
+（0033の実測では、ツールバーの右の余白は360pxで使い切っている）。
 
 0024のスコープ外に置いた「起動時にラベル122件をKaTeXで一気に描くCPUコスト」は
 まだ残っている（バイト数ではなくCPUの話）。
