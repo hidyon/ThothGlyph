@@ -158,6 +158,16 @@ section('initial', '初期表示', async () => {
   console.log('ブロック数式:', await page.locator('.preview .katex-display').count())
   console.log('数式の総数:', await page.locator('.preview .katex').count())
 
+  // サンプル文書のグラフ（0040）。初回訪問でグラフが見えていること。
+  check(
+    '初回訪問でサンプル文書のグラフが1つ描かれる',
+    (await page.locator('.preview svg.graph').count()) === 1,
+  )
+  check(
+    'グラフが描けなかったときの赤字が出ていない',
+    (await page.locator('.preview .graph-error').count()) === 0,
+  )
+
   await page.screenshot({ path: `${OUT}/initial.png` })
   console.log(`スクリーンショット: ${OUT}/initial.png`)
 })
@@ -229,6 +239,10 @@ section('autosave', '自動保存（0001）', async () => {
   await page.getByRole('button', { name: 'サンプルに戻す' }).click()
   await ready()
   check('確認をOKするとサンプル文書に戻る', (await editor().inputValue()).startsWith('# 二次方程式の解の公式'))
+  check(
+    'サンプルに戻したあともグラフが描かれる（0040）',
+    (await page.locator('.preview svg.graph').count()) === 1,
+  )
   await page.screenshot({ path: `${OUT}/reset.png` })
 
   // 壊れたJSONが入っていても起動する。
@@ -1046,6 +1060,23 @@ section('i18n', '英語対応（0031）', async () => {
     (await editor().inputValue()).startsWith('# 二次方程式の解の公式'),
     (await editor().inputValue()).slice(0, 20),
   )
+
+  // 英語のサンプル文書にもグラフが入っている（0040）。
+  await langButton().click()
+  page.once('dialog', (d) => d.accept())
+  await page.getByRole('button', { name: 'Reset to sample' }).click()
+  await ready()
+  check(
+    '英語のサンプル文書が出る',
+    (await editor().inputValue()).startsWith('# The quadratic formula'),
+    (await editor().inputValue()).slice(0, 25),
+  )
+  check(
+    '英語のサンプル文書にもグラフが1つある（0040）',
+    (await page.locator('.preview svg.graph').count()) === 1,
+  )
+  await langButton().click()
+  await ready()
 
   await page.screenshot({ path: `${OUT}/i18n-ja.png` })
   console.log(`スクリーンショット: ${OUT}/i18n-en.png, ${OUT}/i18n-ja.png`)
