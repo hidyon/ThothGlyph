@@ -9,7 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
-# dist-file
+# dist-file は**わざと追跡している**（0074）。GitHubから落としてそのまま
+# index.html を開けるようにするため。ソースを変えたら `npm run build:file` で
+# 作り直してコミットすること（さもないと古い出力が配られる）。
 dist-ssr
 *.local
 
