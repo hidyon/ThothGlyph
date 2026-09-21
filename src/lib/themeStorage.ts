@@ -8,15 +8,19 @@
 import type { Lang } from './i18n'
 import { pick } from './i18n'
 import { messages } from './messages'
+import { readWithMigration } from './storageMigration'
 
 /**
- * キーは `matheditor:<名前>:v<版>`（documentStorage と揃える）。
+ * キーは `thothglyph:<名前>:v<版>`（documentStorage と揃える）。
  *
  * このキーと値の形は index.html のインラインスクリプトにも書いてある。
  * 本体の読み込み前にテーマを当てないと白がちらつくため（実測20ms）。
  * 変えるときは両方直す。
  */
-const KEY = 'matheditor:theme:v1'
+const KEY = 'thothglyph:theme:v1'
+
+/** 0062で `matheditor:` から改名した。古い保存を読み継ぐために見る。 */
+const LEGACY_KEY = 'matheditor:theme:v1'
 
 const VERSION = 1
 
@@ -30,12 +34,8 @@ const isTheme = (value: unknown): value is Theme =>
 
 /** 保存された選択を返す。読めない・壊れている場合は 'system'。 */
 export function loadTheme(): Theme {
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(KEY)
-  } catch {
-    return 'system'
-  }
+  // 新キー→旧キーの順で読む。旧キーから読めたら新キーへ写される（0062）。
+  const raw = readWithMigration(KEY, LEGACY_KEY)
   if (raw === null) return 'system'
 
   try {

@@ -29,7 +29,7 @@ const browser = await chromium.launch({ args: ['--no-sandbox'] })
 const context = await browser.newContext()
 // 画面の文言は日本語で撮る（リポジトリの文書が日本語なので揃える）。
 await context.addInitScript(() =>
-  window.localStorage.setItem('matheditor:lang:v1', JSON.stringify({ version: 1, lang: 'ja' })),
+  window.localStorage.setItem('thothglyph:lang:v1', JSON.stringify({ version: 1, lang: 'ja' })),
 )
 const page = await context.newPage()
 
@@ -38,7 +38,7 @@ for (const shot of shots) {
   await page.setViewportSize({ width: shot.width, height: shot.height })
   // 前に撮ったときの文書が残っていると条件が変わる。毎回サンプル文書から撮る。
   await page.goto(URL, { waitUntil: 'networkidle' })
-  await page.evaluate(() => window.localStorage.removeItem('matheditor:document:v1'))
+  await page.evaluate(() => window.localStorage.removeItem('thothglyph:document:v1'))
   await page.reload({ waitUntil: 'networkidle' })
   // 数式が描けてから撮る（KaTeXは別チャンクなので、待たないと素のソースが写る）。
   await page.waitForSelector('.preview .katex')

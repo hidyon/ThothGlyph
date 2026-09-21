@@ -1,4 +1,4 @@
-# matheditor
+# ThothGlyph
 
 数式入りMarkdownを書くためのWebエディタ。左にMarkdownソース、右にリアルタイムプレビュー、
 記号パレット（幅1200px以上では左の縦帯、それ以下では上部の横帯）。

@@ -9,7 +9,12 @@
  * ウィンドウを広げたときにソースだけが広がる（割合なら両方が広がる）。
  */
 
-const KEY = 'matheditor:panes:v1'
+import { readWithMigration } from './storageMigration'
+
+const KEY = 'thothglyph:panes:v1'
+
+/** 0062で `matheditor:` から改名した。古い保存を読み継ぐために見る。 */
+const LEGACY_KEY = 'matheditor:panes:v1'
 
 const VERSION = 1
 
@@ -72,12 +77,8 @@ export function clampPaneSizes(sizes: PaneSizes, windowWidth: number): PaneSizes
 
 /** 保存された分け方を返す。読めない・壊れている・版違いなら既定。 */
 export function loadPaneSizes(): PaneSizes {
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(KEY)
-  } catch {
-    return defaultPaneSizes()
-  }
+  // 新キー→旧キーの順で読む。旧キーから読めたら新キーへ写される（0062）。
+  const raw = readWithMigration(KEY, LEGACY_KEY)
   if (raw === null) return defaultPaneSizes()
 
   try {

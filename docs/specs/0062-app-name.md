@@ -1,7 +1,7 @@
 # 0062: アプリの名前を ThothGlyph にする
 
 - 対応issue: [0062](../issues/0062-app-name.md)
-- 状態: draft
+- 状態: implemented
 - 作成日: 2026-09-21
 
 ## 目的
@@ -154,49 +154,80 @@ issue仕様は変更の単位」）。`matheditor` が出てくるのは、当�
 
 **単体テスト（`npm test`）** — 4つのストレージの読み継ぎ
 
-- [ ] 新キーだけがあるとき、その値が読まれる（4ファイルそれぞれ）
-- [ ] 旧キーだけがあるとき、その値が読まれ、**新キーに書かれ、旧キーが消える**
-- [ ] 新旧の両方があるとき、**新キーの値が読まれ、旧キーは見られない**
-- [ ] 旧キーの値が壊れているとき、既定値になる（例外を投げない）
-- [ ] `localStorage` が例外を投げる環境でも、移行が例外を外に出さない
+- [x] 新キーだけがあるとき、その値が読まれる（4ファイルそれぞれ）
+- [x] 旧キーだけがあるとき、その値が読まれ、**新キーに書かれ、旧キーが消える**
+- [x] 新旧の両方があるとき、**新キーの値が読まれ、旧キーは見られない**
+- [x] 旧キーの値が壊れているとき、既定値になる（例外を投げない）
+- [x] `localStorage` が例外を投げる環境でも、移行が例外を外に出さない
 
 **実機検証（`node scripts/verify-ui.mjs name`）** — 新しい `name` 区分
 
-- [ ] `<title>` が `ThothGlyph` になっている
-- [ ] 幅1440pxでツールバーの `h1` の文字列が `ThothGlyph`、幅が100〜110px（実測105.8px）
-- [ ] 幅721pxで横スクロールが出ない（保存状態「保存しました hh:mm」が出ている状態で、日英とも）
-- [ ] 幅720pxで `h1` が 1×1px のまま（隠す挙動が変わっていない）
-- [ ] 幅360px・600pxでページの横スクロールが出ない
-- [ ] `manifest.webmanifest` の `name` と `short_name` が `ThothGlyph`
-- [ ] **旧キー `matheditor:document:v1` に文書を置いて開くと、その文書が出る**
-- [ ] そのリロード後、`thothglyph:document:v1` に値があり、`matheditor:document:v1` が消えている
-- [ ] 旧キーにダークを置いて開くと、ダークで表示され、**初期表示でライトがちらつかない**
-- [ ] 旧キーに英語を置いて開くと、英語で表示される
-- [ ] 旧キーにペイン幅を置いて開くと、その幅で表示される
-- [ ] 移行後に文書を編集すると `thothglyph:document:v1` が更新され、リロードで復元する
+- [x] `<title>` が `ThothGlyph` になっている
+- [x] 幅1440pxでツールバーの `h1` の文字列が `ThothGlyph`、幅が100〜110px（実測105.8px）
+- [x] 幅721pxで横スクロールが出ない（保存状態「保存しました hh:mm」が出ている状態で、日英とも）
+- [x] 幅720pxで `h1` が 1×1px のまま（隠す挙動が変わっていない）
+- [x] 幅360px・600pxでページの横スクロールが出ない
+- [x] `manifest.webmanifest` の `name` と `short_name` が `ThothGlyph`
+- [x] **旧キー `matheditor:document:v1` に文書を置いて開くと、その文書が出る**
+- [x] そのリロード後、`thothglyph:document:v1` に値があり、`matheditor:document:v1` が消えている
+- [x] 旧キーにダークを置いて開くと、ダークで表示され、**初期表示でライトがちらつかない**
+- [x] 旧キーに英語を置いて開くと、英語で表示される
+- [x] 旧キーにペイン幅を置いて開くと、その幅で表示される
+- [x] 移行後に文書を編集すると `thothglyph:document:v1` が更新され、リロードで復元する
 
 **回帰（既存の区分をすべて流す）**
 
-- [ ] `node scripts/verify-ui.mjs` が全377件OK（キー定数を変えた影響で落ちない）
-- [ ] `icon` 区分14件がOK（favicon の `<title>` 変更が描画に効いていない）
+- [x] `node scripts/verify-ui.mjs` が全377件OK（キー定数を変えた影響で落ちない）
+- [x] `icon` 区分14件がOK（favicon の `<title>` 変更が描画に効いていない）
 
 **文書と成果物（残ったもので判定する）**
 
-- [ ] `grep -rn matheditor docs/requirements.md docs/architecture.md docs/functional-spec.md docs/test-spec.md`
+- [x] `grep -rn matheditor docs/requirements.md docs/architecture.md docs/functional-spec.md docs/test-spec.md`
       が、種別の説明としての言及（要求仕様）以外に何も出さない
-- [ ] `node scripts/make-screenshots.mjs` で撮り直した3枚のツールバーに
+- [x] `node scripts/make-screenshots.mjs` で撮り直した3枚のツールバーに
       `ThothGlyph` と写っている（幅1440pxのライト・ダークの2枚。幅360pxの1枚は
       名前が隠れるので、隠れたままであることを見る）
 - [ ] devcontainerをリビルドしても `npm run dev` が起動する
+      → **未確認。** 実装はコンテナの中で行っており、自分が入っているコンテナを
+      建て直せない。次にリビルドする人が確かめる。`node_modules` が空から
+      入り直すぶん、初回は時間がかかる。
 
 **目視**
 
 - [ ] 手元のブラウザでタブに `ThothGlyph` と出る（faviconのタブ表示はDOMの外なので、
       [0019](../specs/0019-app-icon.md) と同じくここだけ目で見ると決める）
+      → **未確認。** ヘッドレスChromiumからはタブを見られない。`<title>` が
+      `ThothGlyph` であることは `name` 区分で確認済み。
 
 **前提**
 
-- [ ] `npm run build` と `npm run lint` が通る
+- [x] `npm run build` と `npm run lint` が通る
+
+## 実装で分かったこと
+
+**`icon` 区分のチェックが `manifest.name === 'matheditor'` を判定条件に含んでいた**
+（`scripts/verify-ui.mjs`、ラベルは「manifestが192と512のアイコンを宣言している」）。
+名前を変えた時点でここが落ちた。**自分の変更が起こした回帰なので、その場で
+`'ThothGlyph'` に更新した。** チェック自体は消していない（名前の判定は `name` 区分にも
+あるが、「前回までのチェックは消さない」に従って両方に残す）。
+
+**言語の読み継ぎは、英語ではなく日本語で確かめないと意味がない。** 仕様を書いた
+時点では「旧キーに英語を置いて開くと英語で表示される」としていたが、
+**ヘッドレスChromiumの `navigator.language` は英語なので、読み継ぎが効かなくても
+英語になる**。基準を「旧キーに `ja` を置いて日本語で表示される」に変えた
+（既定が英語だから、日本語が出れば移行が効いた証拠になる）。
+
+**読み継ぎの検証には専用のブラウザコンテキストが要る。** `verify-ui.mjs` は
+表示言語を固定するために `addInitScript` で**新キーに `ja` を置く**ので、共有の
+ページでは「旧キーだけがある」状態を作れない。`name` 区分の移行チェックだけ
+`browser.newContext()` で別のコンテキストを作っている。そのコンテキストには
+言語固定がないため英語表示になり、保存状態の待ち受けは
+`/保存しました|Saved at/` の形にした。
+
+**テストのスタブに `removeItem` が要る。** 既存の `window.localStorage` スタブは
+`getItem` / `setItem` の2つだけだった。読み継ぎが旧キーを消すので、4つの
+テストファイルすべてに `removeItem` を足した（なくても例外は外に出ないが、
+旧キーが消えず「写したあと旧キーが消えている」が確かめられない）。
 
 ## 検討したが採らなかった案
 

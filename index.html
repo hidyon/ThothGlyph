@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>matheditor</title>
+    <title>ThothGlyph</title>
     <!--
       本体の読み込み前にテーマと表示言語を適用する。Reactのマウントを待つと、
       OSがライトで手動ダークを選んでいる場合に白が一瞬見える（実測20ms）。
@@ -21,11 +21,16 @@
       中身と食い違う宣言（英語と書いて中身は日本語）を残さないため。
 
       キー名と値の形は src/lib/themeStorage.ts / src/lib/langStorage.ts と
-      合わせること。
+      合わせること。旧名 `matheditor:` も読むのは、改名（0062）より前に
+      保存した人の設定を初回から当てるため。ここでは書き込みと削除をしない
+      （移行はReactの起動後に storageMigration が1回で済ませる）。
     -->
     <script>
       try {
-        const saved = JSON.parse(localStorage.getItem('matheditor:theme:v1') || 'null')
+        const raw =
+          localStorage.getItem('thothglyph:theme:v1') ??
+          localStorage.getItem('matheditor:theme:v1')
+        const saved = JSON.parse(raw || 'null')
         if (saved?.theme === 'dark' || saved?.theme === 'light') {
           document.documentElement.dataset.theme = saved.theme
         }
@@ -34,7 +39,10 @@
       }
 
       try {
-        const saved = JSON.parse(localStorage.getItem('matheditor:lang:v1') || 'null')
+        const raw =
+          localStorage.getItem('thothglyph:lang:v1') ??
+          localStorage.getItem('matheditor:lang:v1')
+        const saved = JSON.parse(raw || 'null')
         const lang =
           saved?.lang === 'ja' || saved?.lang === 'en'
             ? saved.lang

@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="matheditor">
-  <title>matheditor</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="ThothGlyph">
+  <title>ThothGlyph</title>
   <!--
     平方根記号。直線3本だけで描く。曲線や細い装飾は16pxで潰れる。
     <text> を使わないのは、見る側のフォントに依存して字形が変わるか消えるため。
