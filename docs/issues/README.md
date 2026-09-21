@@ -78,6 +78,7 @@
 | [0066](0066-moon-icon.md) | アイコンの図柄が名前と結びついていない | closed | [仕様](../specs/0066-moon-icon.md) |
 | [0067](0067-palette-linear-algebra.md) | パレットに線形代数の記号と公式がない | open | — |
 | [0068](0068-palette-decorations.md) | パレットに装飾・書体の記号がない | closed | [仕様](../specs/0068-palette-decorations.md) |
+| [0069](0069-flaky-timing-mark.md) | フレークするチェックに `⏱` が付いていない | open | — |
 
 ## 着手順の目安
 
