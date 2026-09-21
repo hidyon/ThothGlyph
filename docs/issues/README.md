@@ -84,6 +84,7 @@
 | [0072](0072-sample-document.md) | サンプル文書が二次方程式のままで、いまできることを見せていない | closed | [仕様](../specs/0072-sample-document.md) |
 | [0073](0073-initial-css-size.md) | 初期CSSが基準の10 kBを超えている | open | — |
 | [0074](0074-file-protocol.md) | 静的ファイルだけ（file://）では開けない | closed | [仕様](../specs/0074-file-protocol.md) |
+| [0075](0075-lint-dist-file.md) | lintがビルド出力を見て1538件の警告を出す | open | — |
 
 ## 着手順の目安
 
