@@ -428,6 +428,32 @@ JSを2つに分けている。
 | 分割前 | 579.98 kB（gzip 180.50） | 36.09 kB | 1964 ms | 2021 ms |
 | 分割後 | 243.20 kB（gzip 76.82） | 6.32 kB | 1085 ms | 1939 ms |
 
+## 8. ビルドの出力は2つある（[0074](specs/0074-file-protocol.md)）
+
+| コマンド | 出力 | 形 | 配り方 |
+|---|---|---|---|
+| `npm run build` | `dist/` | ESモジュール。上の分割のまま（初期268.85 kB + 遅延340.62 kB） | HTTPで配る |
+| `npm run build:file` | `dist-file/` | **1本のIIFE**（app.js 602.8 kB）。CSSも1つ | `index.html` を直接開く |
+
+**`file://` ではESモジュールが使えない。** パスの問題ではなく、origin が `null`
+になるためモジュールの取得そのものがCORSで拒否される（`--base=./` でも同じ）。
+そこで `vite.config.file.ts` では次の3つをしている。
+
+1. `format: 'iife'` + `inlineDynamicImports` で1本にまとめる
+   （動的importも `file://` では同じ理由で止まるため）
+2. `base: './'` で隣を指す
+3. HTMLの `<script type="module" crossorigin>` を `<script defer>` に書き換える。
+   **`defer` は必須** —— classic script はモジュールと違って defer されないので、
+   付けないと `#root` より先に走って React が落ちる
+
+**分割（第7節）を捨てていない**のは、`準備中…`（エンジンが届く前でも打てる）と
+要求仕様N10（初期JSは300 kB以下）がその上に乗っているため。`file://` は
+ローカルディスクから読むので回線の話にならず（数式まで301ms。HTTPの分割版は273ms）、
+**配り方ごとに出力を分けるほうが安い**という判断。
+
+`dist-file/` の確認は `node scripts/verify-file-build.mjs`。`verify-ui.mjs` は
+開発サーバに向いているので分けてある。
+
 ## 関連
 
 - [要求仕様](requirements.md) — なぜこの構成なのか

@@ -85,7 +85,7 @@ export function Toolbar({
           書き写すと favicon を直したときに片方だけ古くなる。
           隣に ThothGlyph の文字があるので、画像は装飾（alt="")。
         */}
-        <img className="toolbar__mark" src="/favicon.svg" alt="" width="20" height="20" />
+        <img className="toolbar__mark" src="./favicon.svg" alt="" width="20" height="20" />
         <h1 className="toolbar__title">ThothGlyph</h1>
       </div>
       <div className="toolbar__actions">
