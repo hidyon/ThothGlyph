@@ -227,3 +227,84 @@ describe('renderMarkdown（グラフ）', () => {
     expect(renderMarkdown(source)).toBe(first)
   })
 })
+
+/** ある要素に付いた data-line の値。無ければ null。 */
+const lineOf = (html: string, tag: string): number | null => {
+  // タグ名の直後は空白か `>`。これが無いと <p> が <pre> にも当たる。
+  const match = html.match(new RegExp(`<${tag}(?=[\\s>])[^>]*\\sdata-line="(\\d+)"`))
+  return match === null ? null : Number(match[1])
+}
+
+describe('renderMarkdown の data-line（0010）', () => {
+  it('トップレベルのブロックに元ソースの行番号が付く', () => {
+    const html = renderMarkdown('# 見出し\n\n本文')
+
+    expect(html).toContain('<h1 data-line="1"')
+    expect(html).toContain('<p data-line="3"')
+  })
+
+  it('ブロック数式で縮んだぶん、後ろの段落の行番号がずれない', () => {
+    // 1: 見出し / 2: 空 / 3-5: $$ 式 $$ / 6: 空 / 7: 段落
+    const source = '# 見出し\n\n$$\n\\int_0^1 x\\,dx\n$$\n\n後ろの段落'
+    const html = renderMarkdown(source)
+
+    // 数式そのものは3行目の段落。後ろの段落は、畳まれた2行ぶんを戻して7行目。
+    expect(html).toContain('<p data-line="3">')
+    expect(html).toContain('data-line="7">後ろの段落')
+  })
+
+  it('インライン数式が並んでいても後ろの行番号がずれない', () => {
+    const source = '$a$ $b$ $c$ の行\n\n次の段落'
+    const html = renderMarkdown(source)
+
+    expect(lineOf(html, 'h1')).toBe(null)
+    expect(html).toContain('data-line="3"')
+  })
+
+  it('graphブロックで縮んだぶん、後ろの段落の行番号がずれない', () => {
+    // 1-5: ```graph / y = x / x: 0..1 / y: 0..1 / ``` / 6: 空 / 7: 段落
+    const source = '```graph\ny = x\nx: 0..1\ny: 0..1\n```\n\n後ろの段落'
+    const html = renderMarkdown(source)
+
+    expect(html).toContain('data-line="7">後ろの段落')
+  })
+
+  it('コードフェンスの後ろの段落の行番号が元ソースと一致する', () => {
+    // 1-5: ```js .. ``` / 6: 空 / 7: 段落
+    const source = '```js\nconst a = 1\nconst b = 2\nconst c = 3\n```\n\n後ろの段落'
+    const html = renderMarkdown(source)
+
+    expect(lineOf(html, 'pre')).toBe(1)
+    expect(html).toContain('data-line="7">後ろの段落')
+  })
+
+  it('リストの li と表の td には付かない', () => {
+    const html = renderMarkdown('- a\n- b\n\n| x | y |\n|---|---|\n| 1 | 2 |')
+
+    expect(lineOf(html, 'ul')).toBe(1)
+    expect(lineOf(html, 'table')).toBe(4)
+    expect(lineOf(html, 'li')).toBe(null)
+    expect(lineOf(html, 'td')).toBe(null)
+    expect(lineOf(html, 'th')).toBe(null)
+  })
+
+  it('KaTeXの出力には現れない', () => {
+    const html = renderMarkdown('$$\nx^2\n$$')
+    const katexPart = html.slice(html.indexOf('<span class="katex'))
+
+    expect(katexPart).not.toContain('data-line')
+  })
+
+  it('引用とコードブロックにも付く', () => {
+    const html = renderMarkdown('> 引用\n\n```\ncode\n```')
+
+    expect(lineOf(html, 'blockquote')).toBe(1)
+    expect(lineOf(html, 'pre')).toBe(3)
+  })
+
+  it('参照リンクの定義が壊れない（トークンごとに解析しても解決される）', () => {
+    const html = renderMarkdown('本文の [foo] を見る。\n\n[foo]: https://example.com\n')
+
+    expect(html).toContain('href="https://example.com"')
+  })
+})

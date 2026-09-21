@@ -3204,6 +3204,362 @@ section('find', '検索・置換（0043）', async () => {
   await resetState()
 })
 
+// ---- スクロールの同期（0010） ----
+
+section('scroll', 'スクロールの同期（0010）', async () => {
+  /*
+    「見出しをエディタの上端に合わせる」には、その行のy座標が要る。
+    行番号 × 行高では出せない（長い行は折り返す）ので、**ミラーの座標を読む**。
+    仕様を書くときにここを取り違えて、ずれを3〜5倍に見積もった。
+  */
+  const setup = async (doc, expectHeadings) => {
+    await editor().fill(doc)
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('.preview h2[data-line]').length >= n,
+      expectHeadings,
+      { timeout: 30000 },
+    )
+    // 1度スクロールさせてミラーを組み立てさせる（測るのはスクロールのときだけ）。
+    await page.evaluate(() => {
+      document.querySelector('.editor').scrollTop = 40
+    })
+    await page.waitForTimeout(300)
+  }
+
+  /** 見出しの行のエディタ内y座標。ミラーに入ったspanから読む。 */
+  const editorTopOf = (heading) =>
+    page.evaluate((text) => {
+      const textarea = document.querySelector('.editor')
+      const line = textarea.value.split('\n').indexOf(text) + 1
+      const span = document.querySelector(`.editor-mirror span[data-line="${line}"]`)
+      return span === null ? null : span.offsetTop
+    }, heading)
+
+  /** その見出しをエディタの上端に合わせ、プレビューでの上端からのずれを返す。 */
+  const driftFor = async (heading) => {
+    const top = await editorTopOf(heading)
+    if (top === null) return null
+    await page.evaluate((value) => {
+      document.querySelector('.editor').scrollTop = value
+    }, top)
+    await page.waitForTimeout(250)
+    return page.evaluate((text) => {
+      const preview = document.querySelector('.preview')
+      const found = [...preview.querySelectorAll('h2')].find(
+        (element) => element.textContent.trim() === text.replace('## ', ''),
+      )
+      if (found === undefined) return null
+      return found.getBoundingClientRect().top - preview.getBoundingClientRect().top
+    }, heading)
+  }
+
+  const scrollTops = () =>
+    page.evaluate(() => ({
+      editor: document.querySelector('.editor').scrollTop,
+      preview: document.querySelector('.preview').scrollTop,
+    }))
+
+  // 数式・表・コードブロックを含む40節の文書（仕様の実測と同じもの）。
+  const parts = []
+  for (let i = 1; i <= 40; i += 1) {
+    parts.push(`## 節 ${i}`, '', `本文 ${i} です。インライン数式 $a_{${i}}$ を含みます。`, '')
+    if (i % 3 === 0) {
+      parts.push(
+        '$$',
+        `\\int_0^{${i}} \\frac{x^2 + 1}{\\sqrt{x + 1}}\\,dx = \\sum_{k=1}^{${i}} \\frac{1}{k}`,
+        '$$',
+        '',
+      )
+    }
+    if (i % 5 === 0) {
+      parts.push('| a | b | c |', '|---|---|---|')
+      for (let r = 0; r < 4; r += 1) parts.push(`| ${r} | ${r * 2} | ${r * 3} |`)
+      parts.push('')
+    }
+    if (i % 7 === 0) {
+      parts.push('```js')
+      for (let r = 0; r < 5; r += 1) parts.push(`const v${r} = ${r}`)
+      parts.push('```', '')
+    }
+  }
+  const mixedDoc = parts.join('\n')
+
+  const errorsBefore = errors.length
+  await setup(mixedDoc, 40)
+
+  const drift20 = await driftFor('## 節 20')
+  check(
+    'エディタで節20を上端に合わせるとプレビューでも上端から32px以内',
+    drift20 !== null && Math.abs(drift20) <= 32,
+    `${drift20 === null ? '見つからない' : Math.round(drift20)}px（割合なら38px）`,
+  )
+
+  const drift36 = await driftFor('## 節 36')
+  check(
+    'エディタで節36を上端に合わせるとプレビューでも上端から32px以内',
+    drift36 !== null && Math.abs(drift36) <= 32,
+    `${drift36 === null ? '見つからない' : Math.round(drift36)}px（割合なら43px）`,
+  )
+
+  // 節19は節18のブロック数式の直後。割合でいちばんずれるところ。
+  const drift19 = await driftFor('## 節 19')
+  check(
+    'ブロック数式の直後の見出しでも上端から32px以内',
+    drift19 !== null && Math.abs(drift19) <= 32,
+    `${drift19 === null ? '見つからない' : Math.round(drift19)}px`,
+  )
+
+  await page.evaluate(() => {
+    document.querySelector('.editor').scrollTop = 0
+  })
+  await page.waitForTimeout(250)
+  const atTop = await scrollTops()
+  check('エディタを最上端にするとプレビューも最上端', atTop.preview === 0, `preview=${atTop.preview}`)
+
+  await page.evaluate(() => {
+    const textarea = document.querySelector('.editor')
+    textarea.scrollTop = textarea.scrollHeight
+  })
+  await page.waitForTimeout(250)
+  const atBottom = await page.evaluate(() => {
+    const preview = document.querySelector('.preview')
+    return {
+      scrollTop: Math.round(preview.scrollTop),
+      max: Math.round(preview.scrollHeight - preview.clientHeight),
+    }
+  })
+  check(
+    'エディタを最下端にするとプレビューも最下端',
+    atBottom.max - atBottom.scrollTop <= 4,
+    `${atBottom.scrollTop} / ${atBottom.max}`,
+  )
+
+  // ---- 逆方向 ----
+
+  const expected25 = await editorTopOf('## 節 25')
+  await page.evaluate(() => {
+    const preview = document.querySelector('.preview')
+    const found = [...preview.querySelectorAll('h2')].find(
+      (element) => element.textContent.trim() === '節 25',
+    )
+    preview.scrollTop +=
+      found.getBoundingClientRect().top - preview.getBoundingClientRect().top
+  })
+  await page.waitForTimeout(250)
+  const reverse = await scrollTops()
+  check(
+    'プレビューで節25を上端に合わせるとエディタもその行に来る（32px以内）',
+    Math.abs(reverse.editor - expected25) <= 32,
+    `エディタ ${Math.round(reverse.editor)}px / 期待 ${Math.round(expected25)}px`,
+  )
+
+  await page.evaluate(() => {
+    const preview = document.querySelector('.preview')
+    preview.scrollTop = preview.scrollHeight
+  })
+  await page.waitForTimeout(250)
+  const editorBottom = await page.evaluate(() => {
+    const textarea = document.querySelector('.editor')
+    return {
+      scrollTop: Math.round(textarea.scrollTop),
+      max: Math.round(textarea.scrollHeight - textarea.clientHeight),
+    }
+  })
+  check(
+    'プレビューを最下端にするとエディタも最下端',
+    editorBottom.max - editorBottom.scrollTop <= 4,
+    `${editorBottom.scrollTop} / ${editorBottom.max}`,
+  )
+
+  // ---- ループしないこと ----
+
+  await driftFor('## 節 20')
+  const beforeWait = await scrollTops()
+  await page.waitForTimeout(600)
+  const afterWait = await scrollTops()
+  check(
+    'エディタを動かしたあと600ms待っても両方の位置が動かない',
+    beforeWait.editor === afterWait.editor && beforeWait.preview === afterWait.preview,
+    `editor ${Math.round(beforeWait.editor)}→${Math.round(afterWait.editor)} / preview ${Math.round(beforeWait.preview)}→${Math.round(afterWait.preview)}`,
+    { timing: true },
+  )
+
+  await page.evaluate(() => {
+    const preview = document.querySelector('.preview')
+    preview.scrollTop = Math.round((preview.scrollHeight - preview.clientHeight) * 0.4)
+  })
+  await page.waitForTimeout(250)
+  const reverseBefore = await scrollTops()
+  await page.waitForTimeout(600)
+  const reverseAfter = await scrollTops()
+  check(
+    'プレビューを動かしたあと600ms待っても両方の位置が動かない',
+    reverseBefore.editor === reverseAfter.editor &&
+      reverseBefore.preview === reverseAfter.preview,
+    `editor ${Math.round(reverseBefore.editor)}→${Math.round(reverseAfter.editor)} / preview ${Math.round(reverseBefore.preview)}→${Math.round(reverseAfter.preview)}`,
+    { timing: true },
+  )
+
+  // ---- カーソルに触らないこと ----
+
+  await page.evaluate(() => {
+    const textarea = document.querySelector('.editor')
+    textarea.focus()
+    textarea.setSelectionRange(100, 120)
+  })
+  await page.evaluate(() => {
+    const preview = document.querySelector('.preview')
+    preview.scrollTop = Math.round((preview.scrollHeight - preview.clientHeight) * 0.7)
+  })
+  await page.waitForTimeout(250)
+  const selection = await page.evaluate(() => {
+    const textarea = document.querySelector('.editor')
+    return { start: textarea.selectionStart, end: textarea.selectionEnd }
+  })
+  check(
+    'プレビューをスクロールしてもカーソルと選択範囲が変わらない',
+    selection.start === 100 && selection.end === 120,
+    `${selection.start}-${selection.end}`,
+  )
+
+  // ---- ミラーが見えないこと・場所を取らないこと ----
+
+  const mirrorState = await page.evaluate(() => {
+    const textarea = document.querySelector('.editor')
+    const rect = textarea.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    const panes = document.querySelector('.panes')
+    return {
+      hit: hit === null ? 'なし' : hit.tagName + (hit.className ? `.${hit.className}` : ''),
+      mirrors: document.querySelectorAll('.editor-mirror').length,
+      visibility: getComputedStyle(document.querySelector('.editor-mirror')).visibility,
+      textareaHeight: Math.round(textarea.clientHeight),
+      panesScrollWidth: panes.scrollWidth,
+      panesClientWidth: panes.clientWidth,
+    }
+  })
+  check(
+    'エディタの中央をクリックするとtextareaに当たる（ミラーが覆っていない）',
+    mirrorState.hit.startsWith('TEXTAREA'),
+    mirrorState.hit,
+  )
+  check(
+    'ミラーは描画されない（visibility: hidden）',
+    mirrorState.mirrors === 1 && mirrorState.visibility === 'hidden',
+    `${mirrorState.mirrors}件 / ${mirrorState.visibility}`,
+  )
+  check(
+    'ミラーが場所を取らない（幅1440pxでtextareaは815px高のまま）',
+    mirrorState.textareaHeight === 815,
+    `${mirrorState.textareaHeight}px`,
+  )
+  check(
+    'ミラーで横スクロールが増えない',
+    mirrorState.panesScrollWidth === mirrorState.panesClientWidth,
+    `${mirrorState.panesScrollWidth} / ${mirrorState.panesClientWidth}`,
+  )
+
+  // ---- 折り返しのある文書 ----
+
+  const wrapped = []
+  for (let i = 1; i <= 20; i += 1) {
+    wrapped.push(
+      `## 節 ${i}`,
+      '',
+      `${'これは折り返しを起こすための長い行です。'.repeat(5)}${i}`,
+      '',
+    )
+  }
+  await setup(wrapped.join('\n'), 20)
+  const wrappedDrift = await driftFor('## 節 12')
+  check(
+    '1行が折り返す文書でも上端から32px以内',
+    wrappedDrift !== null && Math.abs(wrappedDrift) <= 32,
+    `${wrappedDrift === null ? '見つからない' : Math.round(wrappedDrift)}px`,
+  )
+
+  // ---- 狭い画面（上下分割） ----
+
+  await page.setViewportSize({ width: 1199, height: 900 })
+  await page.waitForTimeout(300)
+  await setup(mixedDoc, 40)
+  const narrowDrift = await driftFor('## 節 20')
+  check(
+    '幅1199px（上下分割）でも上端から32px以内',
+    narrowDrift !== null && Math.abs(narrowDrift) <= 32,
+    `${narrowDrift === null ? '見つからない' : Math.round(narrowDrift)}px`,
+  )
+
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.waitForTimeout(300)
+  await setup(mixedDoc, 40)
+  const phoneDrift = await driftFor('## 節 20')
+  check(
+    '幅360pxでも上端から32px以内',
+    phoneDrift !== null && Math.abs(phoneDrift) <= 32,
+    `${phoneDrift === null ? '見つからない' : Math.round(phoneDrift)}px`,
+  )
+  const phoneScroll = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  check(
+    '幅360pxで横スクロールが出ない',
+    phoneScroll.scrollWidth <= phoneScroll.clientWidth,
+    `${phoneScroll.scrollWidth} / ${phoneScroll.clientWidth}`,
+  )
+
+  // ---- 400節での同期にかかる時間 ----
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.waitForTimeout(300)
+  const longDoc = Array.from(
+    { length: 400 },
+    (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
+  ).join('\n')
+  await editor().fill(longDoc)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.preview .katex').length === 400,
+    null,
+    { timeout: 60000 },
+  )
+  await page.waitForTimeout(500)
+
+  // 内容が変わった直後の1回目。ここで測り直しが走る（いちばん重い）。
+  const elapsed = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const textarea = document.querySelector('.editor')
+        const preview = document.querySelector('.preview')
+        const was = preview.scrollTop
+        const started = performance.now()
+        const tick = () => {
+          if (preview.scrollTop !== was) resolve(performance.now() - started)
+          else requestAnimationFrame(tick)
+        }
+        textarea.scrollTop = Math.round((textarea.scrollHeight - textarea.clientHeight) * 0.5)
+        requestAnimationFrame(tick)
+      }),
+  )
+  check(
+    '400節の文書でスクロールしてからプレビューが追いつくまで50ms以内',
+    elapsed <= 50,
+    `${elapsed.toFixed(1)}ms`,
+    { timing: true },
+  )
+
+  await page.screenshot({ path: `${OUT}/scroll-sync.png` })
+  console.log(`スクリーンショット: ${OUT}/scroll-sync.png`)
+
+  check(
+    'この区分の実行中にコンソールエラーが出ない',
+    errors.length === errorsBefore,
+    `${errors.length - errorsBefore}件`,
+  )
+
+  await resetState()
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

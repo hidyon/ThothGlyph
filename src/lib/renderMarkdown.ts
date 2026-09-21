@@ -5,6 +5,8 @@ import { marked } from 'marked'
 import { parseGraphBlock } from './graphBlock'
 import type { Lang } from './i18n'
 import { pick } from './i18n'
+import type { OffsetMap } from './lineMap'
+import { lineAt, lineStarts, toOriginal } from './lineMap'
 import { renderGraph } from './renderGraph'
 
 /**
@@ -126,27 +128,66 @@ function extractBlocks(source: string): {
   masked: string
   formulas: Formula[]
   graphs: string[]
+  offsets: OffsetMap
 } {
   const formulas: Formula[] = []
   const graphs: string[] = []
 
+  /*
+    退避のたびに「退避後の位置」と「元ソースの位置」の対応を控える（0010）。
+    プレースホルダは元の文字列より短く、$$...$$ は複数行を1行に畳むので、
+    これが無いと退避後のテキストから元の行番号を出せない。
+  */
+  const offsets: OffsetMap = [{ masked: 0, original: 0 }]
+  const parts: string[] = []
+  let maskedLength = 0
+  let original = 0
+
+  /** 1件退避したときに、両側の位置を進めて対応点を記録する。 */
+  const replaced = (placeholder: string, originalLength: number) => {
+    parts.push(placeholder)
+    maskedLength += placeholder.length
+    original += originalLength
+    offsets.push({ masked: maskedLength, original })
+  }
+
+  /** 素通しの部分。両側が同じだけ進むので対応点は増えない。 */
+  const kept = (text: string) => {
+    parts.push(text)
+    maskedLength += text.length
+    original += text.length
+  }
+
   // 数式の番号は文書全体を通した連番。コード領域を跨いでも狂わない。
-  const masked = splitByCode(source)
-    .map((segment) =>
-      segment.isCode
-        ? maskGraph(segment.text, graphs)
-        : segment.text.replace(MATH_PATTERN, (_match, block, inline) => {
-            const isBlock = block !== undefined
-            const latex = (isBlock ? block : inline).trim()
-            if (latex.length === 0) return _match
+  for (const segment of splitByCode(source)) {
+    if (segment.isCode) {
+      const masked = maskGraph(segment.text, graphs)
+      if (masked === segment.text) kept(segment.text)
+      else replaced(masked, segment.text.length)
+      continue
+    }
 
-            const index = formulas.push({ latex, displayMode: isBlock }) - 1
-            return placeholderFor(index)
-          }),
-    )
-    .join('')
+    let last = 0
+    for (const match of segment.text.matchAll(MATH_PATTERN)) {
+      const start = match.index
+      if (start > last) kept(segment.text.slice(last, start))
 
-  return { masked, formulas, graphs }
+      const isBlock = match[1] !== undefined
+      const latex = (isBlock ? match[1] : match[2]).trim()
+      // 中身が空の $$ $$ は数式にしない。文字として残す。
+      if (latex.length === 0) kept(match[0])
+      else {
+        const index = formulas.push({ latex, displayMode: isBlock }) - 1
+        replaced(placeholderFor(index), match[0].length)
+      }
+
+      last = start + match[0].length
+    }
+
+    if (last < segment.text.length) kept(segment.text.slice(last))
+  }
+
+  return { masked: parts.join(''), formulas, graphs, offsets }
 }
 
 /**
@@ -220,11 +261,52 @@ function restoreFormulas(html: string, formulas: Formula[]): string {
   )
 }
 
-export function renderMarkdown(source: string, lang: Lang = 'ja'): string {
-  const { masked, formulas, graphs } = extractBlocks(source)
+const MARKED_OPTIONS = { async: false, breaks: true, gfm: true } as const
 
-  // marked.parse は async にも設定できるが、既定は同期。型のためだけに String() する。
-  const rawHtml = marked.parse(masked, { async: false, breaks: true, gfm: true })
+// 出力の先頭にある開始タグ。ここへ data-line を差し込む。
+const OPEN_TAG = /^(\s*<[a-zA-Z][a-zA-Z0-9-]*)/
+
+/**
+ * Markdownを解析しつつ、トップレベルのブロックに元ソースの行番号を付ける（0010）。
+ *
+ * 文書全体を一度に `marked.parse()` すると、出力のどこがソースの何行目かが
+ * 分からない。トークンに分けて1つずつ解析し、それぞれの先頭の開始タグへ
+ * `data-line` を差し込む。トークンの `raw` を連結すると入力と完全に一致するので、
+ * 足し上げた長さがそのトークンの開始位置になる。
+ *
+ * 付けるのはトップレベルだけ。`li` や `td` まで付けると、アンカーが数千件になり
+ * 測定のコストが入力の体感に出る（ブロック単位で足りる）。
+ */
+function parseWithLines(masked: string, source: string, offsets: OffsetMap): string {
+  const tokens = marked.lexer(masked, MARKED_OPTIONS)
+  const starts = lineStarts(source)
+  const parts: string[] = []
+  let offset = 0
+
+  for (const token of tokens) {
+    /*
+      参照リンクの定義（[foo]: url）はトークンではなくlexerの状態に載る。
+      1件ずつ渡すときも持たせないと、参照で書いたリンクが文字のまま残る。
+    */
+    const one = [token] as typeof tokens
+    one.links = tokens.links
+
+    const html = marked.parser(one, MARKED_OPTIONS)
+    const line = lineAt(starts, toOriginal(offsets, offset))
+    offset += token.raw.length
+
+    // 空行（space）や、開始タグで始まらない出力には付けない。
+    // アンカーが1つ減るだけで、前後のアンカーからの補間で足りる。
+    parts.push(html === '' ? html : html.replace(OPEN_TAG, `$1 data-line="${line}"`))
+  }
+
+  return parts.join('')
+}
+
+export function renderMarkdown(source: string, lang: Lang = 'ja'): string {
+  const { masked, formulas, graphs, offsets } = extractBlocks(source)
+
+  const rawHtml = parseWithLines(masked, source, offsets)
 
   const safeHtml = DOMPurify.sanitize(rawHtml, {
     USE_PROFILES: { html: true, mathMl: true, svg: true },

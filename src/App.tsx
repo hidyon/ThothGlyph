@@ -7,6 +7,9 @@ import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
 import { loadDocument, saveDocument } from './lib/documentStorage'
+import { mirrorHtml } from './lib/mirrorHtml'
+import type { Anchor, Pair } from './lib/scrollMap'
+import { mapScroll, pairAnchors } from './lib/scrollMap'
 import type { Match } from './lib/findMatches'
 import type { Lang } from './lib/i18n'
 import { pick } from './lib/i18n'
@@ -174,6 +177,129 @@ export default function App() {
     }
     window.addEventListener('beforeunload', saveNow)
     return () => window.removeEventListener('beforeunload', saveNow)
+  }, [])
+
+  /*
+    ソースとプレビューのスクロールの同期（0010）。
+
+    行の対応づけは、両側の `data-line` を突き合わせた「y座標どうしの対応表」に
+    畳んである（`lib/scrollMap.ts`）。逆方向は対応表を裏返すだけなので、
+    補間の計算は1つしか要らない。
+  */
+  const previewRef = useRef<HTMLDivElement>(null)
+  const mirrorRef = useRef<HTMLDivElement>(null)
+
+  // 測り直しが要るか。**スクロールが来るまで測らない**（400節で約20msかかり、
+  // 打鍵のたびに払うと入力の体感に出る）。
+  const needsMeasure = useRef(true)
+  const scrollPairs = useRef<{ forward: Pair[]; backward: Pair[] }>({
+    forward: [],
+    backward: [],
+  })
+
+  /*
+    自分が書いた scrollTop。戻ってきた scroll がこの値なら自分のせいなので
+    相手を動かし返さない。**読み戻した値**を覚えるのが要点で、端で丸められても
+    食い違わない（要求値と比べると端で振動する）。
+  */
+  const writtenScroll = useRef<{ editor: number | null; preview: number | null }>({
+    editor: null,
+    preview: null,
+  })
+
+  const measureAnchors = useCallback(() => {
+    const textarea = textareaRef.current
+    const preview = previewRef.current
+    const mirror = mirrorRef.current
+    if (textarea === null || preview === null || mirror === null) return
+
+    // プレビュー側。スクロール内容の座標にするため、スクロール量を足し戻す。
+    const base = preview.getBoundingClientRect().top - preview.scrollTop
+    const previewAnchors: Anchor[] = []
+    for (const element of preview.querySelectorAll<HTMLElement>('[data-line]')) {
+      const line = Number(element.dataset.line)
+      if (!Number.isFinite(line)) continue
+      previewAnchors.push({ line, top: element.getBoundingClientRect().top - base })
+    }
+
+    /*
+      エディタ側。ミラーの中身はここで入れる（Reactに持たせると31kBの文字列を
+      打鍵のたびに描き直すことになる）。アンカーの行番号はプレビューから
+      もらうので、両側が同じ行を見る。
+      縦スクロールバーのぶん右を詰めるのは、折り返しを合わせるため（0043と同じ）。
+    */
+    mirror.style.right = `${textarea.offsetWidth - textarea.clientWidth}px`
+    mirror.innerHTML = mirrorHtml(
+      textarea.value,
+      previewAnchors.map((anchor) => anchor.line),
+    )
+
+    const editorAnchors: Anchor[] = []
+    for (const span of mirror.querySelectorAll<HTMLElement>('span[data-line]')) {
+      editorAnchors.push({ line: Number(span.dataset.line), top: span.offsetTop })
+    }
+
+    const forward = pairAnchors(editorAnchors, previewAnchors)
+    scrollPairs.current = {
+      forward,
+      backward: forward
+        .map((pair) => ({ from: pair.to, to: pair.from }))
+        .sort((a, b) => a.from - b.from),
+    }
+    needsMeasure.current = false
+  }, [])
+
+  const handleScrollSync = useCallback(
+    (from: 'editor' | 'preview') => {
+      const textarea = textareaRef.current
+      const preview = previewRef.current
+      if (textarea === null || preview === null) return
+
+      const source = from === 'editor' ? textarea : preview
+      const written = writtenScroll.current[from]
+      writtenScroll.current[from] = null
+      // 自分で書いた値が返ってきただけなら、動かし返さない（往復が止まらなくなる）。
+      if (written !== null && Math.abs(source.scrollTop - written) < 1) return
+
+      if (needsMeasure.current) measureAnchors()
+
+      const target = from === 'editor' ? preview : textarea
+      const pairs =
+        from === 'editor' ? scrollPairs.current.forward : scrollPairs.current.backward
+      const next = mapScroll(
+        pairs,
+        source.scrollTop,
+        source.scrollHeight - source.clientHeight,
+        target.scrollHeight - target.clientHeight,
+      )
+
+      target.scrollTop = next
+      writtenScroll.current[from === 'editor' ? 'preview' : 'editor'] = target.scrollTop
+    },
+    [measureAnchors],
+  )
+
+  // 内容が変われば測り直す。ただし印を立てるだけで、測るのはスクロールのとき。
+  useEffect(() => {
+    needsMeasure.current = true
+  }, [source, html])
+
+  // 大きさが変わっても行の座標は変わる。フォントの差し替えでも変わる
+  // （KaTeXのフォントが届くとプレビューの高さが動く）。
+  useEffect(() => {
+    const textarea = textareaRef.current
+    const preview = previewRef.current
+    if (textarea === null || preview === null) return
+
+    const invalidate = () => {
+      needsMeasure.current = true
+    }
+    const observer = new ResizeObserver(invalidate)
+    observer.observe(textarea)
+    observer.observe(preview)
+    document.fonts?.ready.then(invalidate, () => {})
+
+    return () => observer.disconnect()
   }, [])
 
   const handleInsert = (snippet: string) => {
@@ -382,6 +508,8 @@ export default function App() {
           onSelectRange={handleSelectRange}
           onReplace={handleReplace}
           selectedText={selectedText}
+          mirrorRef={mirrorRef}
+          onScrollSync={() => handleScrollSync('editor')}
         />
         <PaneDivider
           label={pick(messages.sourceDivider, lang)}
@@ -392,7 +520,14 @@ export default function App() {
             savePaneSizes({ ...paneSizesRef.current, sourceRatio: defaultPaneSizes().sourceRatio })
           }}
         />
-        <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
+        <Preview
+          html={html}
+          stale={isPreviewStale}
+          ready={engine !== null}
+          lang={lang}
+          containerRef={previewRef}
+          onScrollSync={() => handleScrollSync('preview')}
+        />
       </main>
     </div>
   )
