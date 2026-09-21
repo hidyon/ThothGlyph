@@ -81,6 +81,7 @@
 | [0069](0069-flaky-timing-mark.md) | フレークするチェックに `⏱` が付いていない | open | — |
 | [0070](0070-wide-accents.md) | 2文字以上に掛かる上飾りがなく、装飾が2グループに散っている | closed | [仕様](../specs/0070-wide-accents.md) |
 | [0071](0071-graph-height-narrow.md) | 狭い画面でグラフがプレビューの高さに収まらない | open | — |
+| [0072](0072-sample-document.md) | サンプル文書が二次方程式のままで、いまできることを見せていない | open | — |
 
 ## 着手順の目安
 
