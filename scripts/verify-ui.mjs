@@ -1320,7 +1320,9 @@ section('icon', 'アイコン（0019）', async () => {
   check('ツールバーにアイコンが出る', (await mark.count()) === 1)
   check(
     'ツールバーのアイコンが favicon.svg を参照している（パスを書き写していない）',
-    (await mark.getAttribute('src')) === '/favicon.svg',
+    // 0074で `./favicon.svg`（相対）にした。file:// では絶対パスがルートを
+    // 見にいくため。開発サーバとHTTP配信では同じファイルを指す。
+    (await mark.getAttribute('src')) === './favicon.svg',
     await mark.getAttribute('src'),
   )
   const markBox = await mark.boundingBox()

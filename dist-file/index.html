@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      SVGを主に、読めない環境にはPNGを渡す。apple-touch-icon だけ角丸なしなのは、
+      iOSが自分で角を丸めるため（角丸付きを渡すと角が二重に落ちる）。
+      PNGは public/favicon.svg から scripts/make-icons.mjs で書き出している。
+    -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ThothGlyph</title>
+    <!--
+      本体の読み込み前にテーマと表示言語を適用する。Reactのマウントを待つと、
+      OSがライトで手動ダークを選んでいる場合に白が一瞬見える（実測20ms）。
+      <html lang> も同じ理由でここで当てる。Reactのマウントを待つと、読み上げや
+      翻訳判定が一瞬だけ違う言語になる。<html> に lang を書き置かないのは、
+      中身と食い違う宣言（英語と書いて中身は日本語）を残さないため。
+
+      キー名と値の形は src/lib/themeStorage.ts / src/lib/langStorage.ts と
+      合わせること。旧名 `matheditor:` も読むのは、改名（0065）より前に
+      保存した人の設定を初回から当てるため。ここでは書き込みと削除をしない
+      （移行はReactの起動後に storageMigration が1回で済ませる）。
+    -->
+    <script>
+      try {
+        const raw =
+          localStorage.getItem('thothglyph:theme:v1') ??
+          localStorage.getItem('matheditor:theme:v1')
+        const saved = JSON.parse(raw || 'null')
+        if (saved?.theme === 'dark' || saved?.theme === 'light') {
+          document.documentElement.dataset.theme = saved.theme
+        }
+      } catch {
+        // プライベートウィンドウなどでlocalStorageが読めない。OSの設定に任せる。
+      }
+
+      try {
+        const raw =
+          localStorage.getItem('thothglyph:lang:v1') ??
+          localStorage.getItem('matheditor:lang:v1')
+        const saved = JSON.parse(raw || 'null')
+        const lang =
+          saved?.lang === 'ja' || saved?.lang === 'en'
+            ? saved.lang
+            : // 保存がないときの既定。langStorage.detectLang() と同じ判定。
+              (navigator.language || '').toLowerCase().startsWith('ja')
+              ? 'ja'
+              : 'en'
+        document.documentElement.lang = lang
+      } catch {
+        document.documentElement.lang = 'en'
+      }
+    </script>
+    <script defer src="./app.js"></script>
+    <link rel="stylesheet" href="./assets/style.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
