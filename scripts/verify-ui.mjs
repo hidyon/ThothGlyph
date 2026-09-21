@@ -20,9 +20,11 @@ import { chromium } from 'playwright-core'
 const URL = process.env.VERIFY_URL ?? 'http://localhost:5173'
 const OUT = process.env.VERIFY_OUT ?? 'tmp/screenshots'
 const JSON_OUT = process.env.VERIFY_JSON ?? 'tmp/verify-result.json'
-const STORAGE_KEY = 'matheditor:document:v1'
-const THEME_KEY = 'matheditor:theme:v1'
-const LANG_KEY = 'matheditor:lang:v1'
+const STORAGE_KEY = 'thothglyph:document:v1'
+const THEME_KEY = 'thothglyph:theme:v1'
+const LANG_KEY = 'thothglyph:lang:v1'
+/** 0065で改名する前の接頭辞。読み継ぎの確認に使う。 */
+const LEGACY_PREFIX = 'matheditor:'
 
 // ---- 区分の宣言 ----
 // run は下で定義する。ここでは名前と表示名だけ先に並べ、実体を後から入れる。
@@ -1208,7 +1210,7 @@ section('icon', 'アイコン（0019）', async () => {
   const sizes = (manifest.icons ?? []).map((i) => i.sizes).sort()
   check(
     'manifestが192と512のアイコンを宣言している',
-    manifest.name === 'matheditor' && sizes.join(',') === '192x192,512x512',
+    manifest.name === 'ThothGlyph' && sizes.join(',') === '192x192,512x512',
     sizes.join(' / '),
   )
 
@@ -1627,7 +1629,7 @@ section('loading', '読み込みの分割（0024）', async () => {
 // ---- 0032: 狭い画面でのパレットの高さ ----
 
 section('panes', '領域の幅の可変（0057）', async () => {
-  const PANES_KEY = 'matheditor:panes:v1'
+  const PANES_KEY = 'thothglyph:panes:v1'
   const widths = () =>
     page.evaluate(() => {
       const w = (sel) => {
@@ -3558,6 +3560,212 @@ section('scroll', 'スクロールの同期（0010）', async () => {
   )
 
   await resetState()
+})
+
+// ---- 0065: アプリの名前 ----
+
+section('name', '名前の反映（0065）', async () => {
+  await resetState()
+
+  check('タブのタイトルが ThothGlyph', (await page.title()) === 'ThothGlyph', await page.title())
+
+  const title = page.locator('.toolbar__title')
+  check('ツールバーの見出しが ThothGlyph', (await title.innerText()) === 'ThothGlyph')
+
+  // 仕様に書いた実測値は105.8px（幅721px以上、日英とも、保存状態が出ている状態）。
+  const titleBox = await title.boundingBox()
+  check(
+    '幅1440pxで見出しの幅が100〜110px',
+    titleBox.width >= 100 && titleBox.width <= 110,
+    `${Math.round(titleBox.width * 10) / 10}px × ${Math.round(titleBox.height)}px`,
+  )
+
+  // 名前が出る最小の幅。ここで溢れなければ、これより広い幅でも溢れない。
+  // いちばん長い保存状態（保存しました HH:MM）を出した状態で見る。
+  await page.setViewportSize({ width: 721, height: 900 })
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await editor().pressSequentially('\n名前の検証\n', { delay: 8 })
+  await saveSettled()
+  const at721 = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    client: document.documentElement.clientWidth,
+    title: document.querySelector('.toolbar__title').getBoundingClientRect().width,
+  }))
+  check(
+    '幅721px（名前が出る最小の幅）で横スクロールが出ない',
+    at721.scroll <= at721.client,
+    `scrollWidth ${at721.scroll} / clientWidth ${at721.client} / 見出し ${Math.round(at721.title * 10) / 10}px`,
+  )
+
+  // 720px以下は clip-path で視覚的にだけ隠す（0031の実測にもとづく挙動を保つ）。
+  await page.setViewportSize({ width: 720, height: 900 })
+  const at720 = await page.evaluate(() => {
+    const r = document.querySelector('.toolbar__title').getBoundingClientRect()
+    return { w: r.width, h: r.height }
+  })
+  check(
+    '幅720pxで見出しが1×1pxに隠れたまま',
+    Math.round(at720.w) === 1 && Math.round(at720.h) === 1,
+    `${at720.w} × ${at720.h}`,
+  )
+
+  for (const width of [600, 360]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.waitForTimeout(80)
+    const over = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }))
+    check(
+      `幅${width}pxで横スクロールが出ない`,
+      over.scroll <= over.client,
+      `${over.scroll} / ${over.client}`,
+    )
+  }
+
+  const manifest = await page.evaluate(async () => {
+    const res = await fetch('/manifest.webmanifest')
+    return res.json()
+  })
+  check(
+    'manifestの name と short_name が ThothGlyph',
+    manifest.name === 'ThothGlyph' && manifest.short_name === 'ThothGlyph',
+    `${manifest.name} / ${manifest.short_name}`,
+  )
+
+  // ---- 旧キーからの読み継ぎ ----
+  //
+  // 言語を固定する addInitScript が新キーに ja を置くため、この共有ページでは
+  // 「旧キーだけがある」状態を作れない。専用のコンテキストで見る。
+  const fresh = async (width = 1440) => {
+    const ctx = await browser.newContext({ viewport: { width, height: 900 } })
+    const p = await ctx.newPage()
+    p.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+    p.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
+    await p.goto(URL, { waitUntil: 'load' })
+    return { ctx, p }
+  }
+
+  // 文書
+  {
+    const { ctx, p } = await fresh()
+    const source = '# 改名前に書いた文書\n\n$x^2 + y^2 = z^2$\n'
+    await p.evaluate(
+      ([prefix, text]) => {
+        window.localStorage.clear()
+        window.localStorage.setItem(
+          `${prefix}document:v1`,
+          JSON.stringify({ version: 1, source: text, savedAt: '2026-09-21T00:00:00.000Z' }),
+        )
+      },
+      [LEGACY_PREFIX, source],
+    )
+    await p.reload({ waitUntil: 'networkidle' })
+    await p.waitForSelector('.editor')
+    const shown = await p.locator('.editor').inputValue()
+    check(
+      '旧キーに置いた文書が復元される',
+      shown.startsWith('# 改名前に書いた文書'),
+      shown.slice(0, 20),
+    )
+
+    const keys = await p.evaluate(() => ({
+      next: window.localStorage.getItem('thothglyph:document:v1'),
+      legacy: window.localStorage.getItem('matheditor:document:v1'),
+    }))
+    check('読み継いだ文書が新キーに写っている', (keys.next ?? '').includes('改名前に書いた文書'))
+    check('写したあと旧キーが消えている', keys.legacy === null, String(keys.legacy))
+
+    // 移行後に編集したものが、新キーに保存されてリロードで戻る。
+    await p.locator('.editor').click()
+    await p.keyboard.press('Control+End')
+    await p.locator('.editor').pressSequentially('\n移行後の追記\n', { delay: 8 })
+    // このコンテキストには言語を固定する仕掛けがないので、既定の英語で表示される。
+    // 日英どちらの文言でも「保存し終えた」と分かる形で待つ。
+    await p.waitForFunction(() => {
+      const el = document.querySelector('.toolbar__save')
+      return el !== null && /保存しました|Saved at/.test(el.textContent ?? '')
+    }, null, { timeout: 8000 })
+    await p.reload({ waitUntil: 'networkidle' })
+    await p.waitForSelector('.editor')
+    check(
+      '移行後の編集が新キーに保存され、リロードで戻る',
+      (await p.locator('.editor').inputValue()).includes('移行後の追記'),
+    )
+    await ctx.close()
+  }
+
+  // テーマ（OSはライトのまま。旧キーのダークが効けば読み継ぎが効いた証拠）
+  {
+    const { ctx, p } = await fresh()
+    await p.emulateMedia({ colorScheme: 'light' })
+    await p.evaluate((prefix) => {
+      window.localStorage.clear()
+      window.localStorage.setItem(`${prefix}theme:v1`, JSON.stringify({ version: 1, theme: 'dark' }))
+    }, LEGACY_PREFIX)
+
+    const flash = []
+    await p.reload({ waitUntil: 'commit' })
+    for (let i = 0; i < 12; i += 1) {
+      flash.push(
+        await p.evaluate(() => getComputedStyle(document.body).backgroundColor).catch(() => 'n/a'),
+      )
+      await p.waitForTimeout(16)
+    }
+    await p.waitForSelector('.editor')
+    check(
+      '旧キーのダークが効く',
+      (await p.evaluate(() => document.documentElement.dataset.theme)) === 'dark',
+    )
+    check(
+      '読み継ぎでも初期表示でライトの背景が現れない',
+      !flash.includes('rgb(255, 255, 255)'),
+      [...new Set(flash)].join(' / '),
+      { timing: true },
+    )
+    await ctx.close()
+  }
+
+  // 言語（ヘッドレスChromiumの既定は英語なので、日本語が出れば読み継ぎが効いた証拠）
+  {
+    const { ctx, p } = await fresh()
+    await p.evaluate((prefix) => {
+      window.localStorage.clear()
+      window.localStorage.setItem(`${prefix}lang:v1`, JSON.stringify({ version: 1, lang: 'ja' }))
+    }, LEGACY_PREFIX)
+    await p.reload({ waitUntil: 'networkidle' })
+    await p.waitForSelector('.editor')
+    check(
+      '旧キーの言語（ja）が効く',
+      (await p.evaluate(() => document.documentElement.lang)) === 'ja',
+      await p.evaluate(() => document.documentElement.lang),
+    )
+    await ctx.close()
+  }
+
+  // 領域の幅
+  {
+    const { ctx, p } = await fresh()
+    await p.evaluate((prefix) => {
+      window.localStorage.clear()
+      window.localStorage.setItem(
+        `${prefix}panes:v1`,
+        JSON.stringify({ version: 1, palette: 240, sourceRatio: 0.62 }),
+      )
+    }, LEGACY_PREFIX)
+    await p.reload({ waitUntil: 'networkidle' })
+    await p.waitForSelector('.palette')
+    const palette = await p.evaluate(() =>
+      Math.round(document.querySelector('.palette').getBoundingClientRect().width),
+    )
+    check('旧キーの領域の幅が効く（パレット240px）', Math.abs(palette - 240) <= 2, `${palette}px`)
+    await ctx.close()
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.screenshot({ path: `${OUT}/name.png` })
+  console.log(`スクリーンショット: ${OUT}/name.png`)
 })
 
 // ---- 実行 ----

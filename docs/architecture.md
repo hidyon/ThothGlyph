@@ -273,11 +273,11 @@ KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの�
 localStorageに1件だけ持つ。
 
 ```
-キー: matheditor:document:v1
+キー: thothglyph:document:v1
 値:   { "version": 1, "source": "...", "savedAt": "2026-09-19T12:34:56.789Z" }
 ```
 
-- キーの命名は `matheditor:<名前>:v<版>`。複数文書（[0004](issues/0004-multi-document.md)）へ
+- キーの命名は `thothglyph:<名前>:v<版>`。複数文書（[0004](issues/0004-multi-document.md)）へ
   移るときは名前と版を変える。
 - 読み込み時に `version !== 1` や `source` が文字列でない場合は「保存なし」として扱う。
   壊れたデータで起動を壊さない。
@@ -287,7 +287,7 @@ localStorageに1件だけ持つ。
 
 ### テーマの保存
 
-同じくlocalStorageに1件。キーは `matheditor:theme:v1`、値は
+同じくlocalStorageに1件。キーは `thothglyph:theme:v1`、値は
 `{ "version": 1, "theme": "system" | "light" | "dark" }`。
 読めない・知らない値なら `system`（OS追従）に落とす。
 
@@ -306,7 +306,7 @@ CSSの `prefers-color-scheme` に任せる。
 追従する相手（使用中に変わる設定）がないため。保存がないときの既定を
 `navigator.language` から決めるだけにしてある（`detectLang()`）。
 
-保存はlocalStorageに1件。キーは `matheditor:lang:v1`、値は
+保存はlocalStorageに1件。キーは `thothglyph:lang:v1`、値は
 `{ "version": 1, "lang": "ja" | "en" }`。読めない・知らない値なら `detectLang()` に落とす。
 
 **翻訳は元の文字列の隣に書く。** 辞書ファイルを別に持たない。

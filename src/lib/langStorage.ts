@@ -7,14 +7,18 @@
  */
 
 import type { Lang } from './i18n'
+import { readWithMigration } from './storageMigration'
 
 /**
- * キーは `matheditor:<名前>:v<版>`（documentStorage と揃える）。
+ * キーは `thothglyph:<名前>:v<版>`（documentStorage と揃える）。
  *
  * このキーと値の形は index.html のインラインスクリプトにも書いてある。
  * <html lang> をReactのマウント前に当てるため。変えるときは両方直す。
  */
-const KEY = 'matheditor:lang:v1'
+const KEY = 'thothglyph:lang:v1'
+
+/** 0065で `matheditor:` から改名した。古い保存を読み継ぐために見る。 */
+const LEGACY_KEY = 'matheditor:lang:v1'
 
 const VERSION = 1
 
@@ -39,12 +43,8 @@ export function detectLang(): Lang {
 
 /** 保存された選択を返す。読めない・壊れている・版違いなら detectLang()。 */
 export function loadLang(): Lang {
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(KEY)
-  } catch {
-    return detectLang()
-  }
+  // 新キー→旧キーの順で読む。旧キーから読めたら新キーへ写される（0065）。
+  const raw = readWithMigration(KEY, LEGACY_KEY)
   if (raw === null) return detectLang()
 
   try {

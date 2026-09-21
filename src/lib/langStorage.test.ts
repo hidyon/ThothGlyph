@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { detectLang, langLabel, loadLang, nextLang, saveLang } from './langStorage'
 
-const KEY = 'matheditor:lang:v1'
+const KEY = 'thothglyph:lang:v1'
+/** 0065で改名する前のキー。読み継ぎの確認に使う。 */
+const LEGACY_KEY = 'matheditor:lang:v1'
 
 let store: Map<string, string>
 
@@ -16,6 +18,8 @@ beforeEach(() => {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
+      // 0065の読み継ぎが旧キーを消すので、スタブにも要る。
+      removeItem: (key: string) => void store.delete(key),
     },
   })
   stubNavigator('en-US')
@@ -119,5 +123,34 @@ describe('langLabel', () => {
   it('言語そのものの名前を返す（表示中の言語では訳さない）', () => {
     expect(langLabel('ja')).toBe('日本語')
     expect(langLabel('en')).toBe('English')
+  })
+})
+
+describe('旧キーからの読み継ぎ（0065）', () => {
+  const legacyValue = (lang: string) => JSON.stringify({ version: 1, lang })
+
+  it('旧キーだけがあるとき、その選択が読まれる', () => {
+    store.set(LEGACY_KEY, legacyValue('ja'))
+    expect(loadLang()).toBe('ja')
+  })
+
+  it('読み継ぐと新キーに写り、旧キーが消える', () => {
+    store.set(LEGACY_KEY, legacyValue('ja'))
+    loadLang()
+    expect(store.has(LEGACY_KEY)).toBe(false)
+    expect(JSON.parse(store.get(KEY) ?? 'null')?.lang).toBe('ja')
+  })
+
+  it('新旧の両方があるときは新キーが読まれる（旧キーは触らない）', () => {
+    store.set(KEY, legacyValue('en'))
+    store.set(LEGACY_KEY, legacyValue('ja'))
+    expect(loadLang()).toBe('en')
+    expect(store.has(LEGACY_KEY)).toBe(true)
+  })
+
+  it('旧キーの値が壊れていれば detectLang() に落ちる', () => {
+    store.set(LEGACY_KEY, '{壊れたJSON')
+    stubNavigator('ja-JP')
+    expect(loadLang()).toBe('ja')
   })
 })

@@ -1,5 +1,5 @@
 {
-  "name": "matheditor",
+  "name": "ThothGlyph",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -18,7 +18,7 @@
   "mounts": [
     // WSLのファイルシステムをbindマウント経由で読み書きするとnpmが極端に遅い。
     // node_modules だけコンテナ側のボリュームに逃がす。
-    "source=matheditor-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=thothglyph-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
     // ホストのClaude Codeの認証・設定を引き継ぐ。認証情報を含むため、
     // このコンテナはローカル専用でイメージを配布しない前提。
     "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,consistency=cached"

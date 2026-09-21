@@ -83,10 +83,10 @@ export function Toolbar({
         {/*
           記号のパスを書き写さず public/favicon.svg をそのまま参照する。
           書き写すと favicon を直したときに片方だけ古くなる。
-          隣に matheditor の文字があるので、画像は装飾（alt="")。
+          隣に ThothGlyph の文字があるので、画像は装飾（alt="")。
         */}
         <img className="toolbar__mark" src="/favicon.svg" alt="" width="20" height="20" />
-        <h1 className="toolbar__title">matheditor</h1>
+        <h1 className="toolbar__title">ThothGlyph</h1>
       </div>
       <div className="toolbar__actions">
         <span className="toolbar__status" role="status">

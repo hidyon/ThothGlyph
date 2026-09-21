@@ -10,7 +10,9 @@ import {
   savePaneSizes,
 } from './paneSizes'
 
-const KEY = 'matheditor:panes:v1'
+const KEY = 'thothglyph:panes:v1'
+/** 0065で改名する前のキー。読み継ぎの確認に使う。 */
+const LEGACY_KEY = 'matheditor:panes:v1'
 
 // themeStorage.test.ts と同じ形。テストはnode環境で走るので window を差し込む。
 let store: Map<string, string>
@@ -72,6 +74,8 @@ describe('保存と復元', () => {
       localStorage: {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => void store.set(key, value),
+      // 0065の読み継ぎが旧キーを消すので、スタブにも要る。
+      removeItem: (key: string) => void store.delete(key),
       },
     })
   })
@@ -118,5 +122,49 @@ describe('paneColumns', () => {
 
   it('端数は5桁で丸める（3桁だと下限ちょうどで360pxを割る）', () => {
     expect(paneColumns(0.713456789)).toBe('0.71346fr 6px 0.28654fr')
+  })
+})
+
+describe('旧キーからの読み継ぎ（0065）', () => {
+  const legacyValue = (palette: number, sourceRatio: number) =>
+    JSON.stringify({ version: 1, palette, sourceRatio })
+
+  beforeEach(() => {
+    store = new Map()
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => void store.set(key, value),
+        removeItem: (key: string) => void store.delete(key),
+      },
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('旧キーだけがあるとき、その分け方が読まれる', () => {
+    store.set(LEGACY_KEY, legacyValue(240, 0.62))
+    expect(loadPaneSizes()).toEqual({ palette: 240, sourceRatio: 0.62 })
+  })
+
+  it('読み継ぐと新キーに写り、旧キーが消える', () => {
+    store.set(LEGACY_KEY, legacyValue(240, 0.62))
+    loadPaneSizes()
+    expect(store.has(LEGACY_KEY)).toBe(false)
+    expect(JSON.parse(store.get(KEY) ?? 'null')?.palette).toBe(240)
+  })
+
+  it('新旧の両方があるときは新キーが読まれる（旧キーは触らない）', () => {
+    store.set(KEY, legacyValue(200, 0.4))
+    store.set(LEGACY_KEY, legacyValue(240, 0.62))
+    expect(loadPaneSizes()).toEqual({ palette: 200, sourceRatio: 0.4 })
+    expect(store.has(LEGACY_KEY)).toBe(true)
+  })
+
+  it('旧キーの値が壊れていても既定に落ちる', () => {
+    store.set(LEGACY_KEY, '{壊れたJSON')
+    expect(loadPaneSizes()).toEqual(defaultPaneSizes())
   })
 })
