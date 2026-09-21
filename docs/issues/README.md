@@ -6,6 +6,10 @@
 状態は `open` / `in-progress` / `closed` の3つ。新規issueは
 [TEMPLATE.md](TEMPLATE.md) をコピーして作る。番号は連番で、再利用しない。
 
+**0062は欠番。** 別々の作業が同時に0062を取ってしまい、一方を
+[0063](0063-unsupported-commands.md)、もう一方を[0065](0065-app-name.md)へ
+振り直した。再利用しない決まりなので0062は空けてある。
+
 | # | タイトル | 状態 | 仕様 |
 |---|---|---|---|
 | [0001](0001-autosave.md) | 編集内容の自動保存 | closed | [仕様](../specs/0001-autosave.md) |
@@ -68,9 +72,9 @@
 | [0059](0059-perf-headroom.md) | 400節の文書で「追いつくまで」が基準1.5秒に余裕がない | open | — |
 | [0060](0060-display-math-overflow.md) | 長いブロック数式が右で切れ、切れていることが画面から分からない | open | — |
 | [0061](0061-new-note.md) | 白紙のノートを始められない | open | — |
-| [0062](0062-app-name.md) | アプリに名前がない | closed | [仕様](../specs/0062-app-name.md) |
 | [0063](0063-unsupported-commands.md) | KaTeXが対応していないコマンドが、エラーとして扱われないまま本文に混ざる | open | — |
 | [0064](0064-palette-beyond-highschool.md) | パレットの中身が高校数学の範囲しかなく、要求仕様R2を満たしていない | open | — |
+| [0065](0065-app-name.md) | アプリに名前がない | closed | [仕様](../specs/0065-app-name.md) |
 
 ## 着手順の目安
 

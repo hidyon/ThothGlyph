@@ -1,5 +1,5 @@
 /**
- * 旧名 `matheditor:` のキーからの読み継ぎ（0062）。
+ * 旧名 `matheditor:` のキーからの読み継ぎ（0065）。
  *
  * アプリ名を ThothGlyph に変えたとき、localStorageのキーの接頭辞も
  * `thothglyph:` に変えた。すでに書いたものを持っている利用者の文書・テーマ・

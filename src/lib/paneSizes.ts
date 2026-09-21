@@ -13,7 +13,7 @@ import { readWithMigration } from './storageMigration'
 
 const KEY = 'thothglyph:panes:v1'
 
-/** 0062で `matheditor:` から改名した。古い保存を読み継ぐために見る。 */
+/** 0065で `matheditor:` から改名した。古い保存を読み継ぐために見る。 */
 const LEGACY_KEY = 'matheditor:panes:v1'
 
 const VERSION = 1
@@ -77,7 +77,7 @@ export function clampPaneSizes(sizes: PaneSizes, windowWidth: number): PaneSizes
 
 /** 保存された分け方を返す。読めない・壊れている・版違いなら既定。 */
 export function loadPaneSizes(): PaneSizes {
-  // 新キー→旧キーの順で読む。旧キーから読めたら新キーへ写される（0062）。
+  // 新キー→旧キーの順で読む。旧キーから読めたら新キーへ写される（0065）。
   const raw = readWithMigration(KEY, LEGACY_KEY)
   if (raw === null) return defaultPaneSizes()
 

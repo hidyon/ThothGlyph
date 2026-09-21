@@ -23,7 +23,7 @@ const JSON_OUT = process.env.VERIFY_JSON ?? 'tmp/verify-result.json'
 const STORAGE_KEY = 'thothglyph:document:v1'
 const THEME_KEY = 'thothglyph:theme:v1'
 const LANG_KEY = 'thothglyph:lang:v1'
-/** 0062で改名する前の接頭辞。読み継ぎの確認に使う。 */
+/** 0065で改名する前の接頭辞。読み継ぎの確認に使う。 */
 const LEGACY_PREFIX = 'matheditor:'
 
 // ---- 区分の宣言 ----
@@ -3562,9 +3562,9 @@ section('scroll', 'スクロールの同期（0010）', async () => {
   await resetState()
 })
 
-// ---- 0062: アプリの名前 ----
+// ---- 0065: アプリの名前 ----
 
-section('name', '名前の反映（0062）', async () => {
+section('name', '名前の反映（0065）', async () => {
   await resetState()
 
   check('タブのタイトルが ThothGlyph', (await page.title()) === 'ThothGlyph', await page.title())

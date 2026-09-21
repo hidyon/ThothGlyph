@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadDocument, saveDocument } from './documentStorage'
 
 const KEY = 'thothglyph:document:v1'
-/** 0062で改名する前のキー。読み継ぎの確認に使う。 */
+/** 0065で改名する前のキー。読み継ぎの確認に使う。 */
 const LEGACY_KEY = 'matheditor:document:v1'
 
 /**
@@ -14,7 +14,7 @@ function stubStorage(store: Map<string, string>) {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
-      // 0062の読み継ぎが旧キーを消すので、スタブにも要る。
+      // 0065の読み継ぎが旧キーを消すので、スタブにも要る。
       removeItem: (key: string) => void store.delete(key),
     },
   })
@@ -96,7 +96,7 @@ describe('saveDocument / loadDocument', () => {
   })
 })
 
-describe('旧キーからの読み継ぎ（0062）', () => {
+describe('旧キーからの読み継ぎ（0065）', () => {
   const legacyValue = (source: string) =>
     JSON.stringify({ version: 1, source, savedAt: '2026-09-21T00:00:00.000Z' })
 

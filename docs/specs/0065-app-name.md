@@ -1,6 +1,6 @@
-# 0062: アプリの名前を ThothGlyph にする
+# 0065: アプリの名前を ThothGlyph にする
 
-- 対応issue: [0062](../issues/0062-app-name.md)
+- 対応issue: [0065](../issues/0065-app-name.md)
 - 状態: implemented
 - 作成日: 2026-09-21
 

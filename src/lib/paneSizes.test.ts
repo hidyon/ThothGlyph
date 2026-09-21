@@ -11,7 +11,7 @@ import {
 } from './paneSizes'
 
 const KEY = 'thothglyph:panes:v1'
-/** 0062で改名する前のキー。読み継ぎの確認に使う。 */
+/** 0065で改名する前のキー。読み継ぎの確認に使う。 */
 const LEGACY_KEY = 'matheditor:panes:v1'
 
 // themeStorage.test.ts と同じ形。テストはnode環境で走るので window を差し込む。
@@ -74,7 +74,7 @@ describe('保存と復元', () => {
       localStorage: {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => void store.set(key, value),
-      // 0062の読み継ぎが旧キーを消すので、スタブにも要る。
+      // 0065の読み継ぎが旧キーを消すので、スタブにも要る。
       removeItem: (key: string) => void store.delete(key),
       },
     })
@@ -125,7 +125,7 @@ describe('paneColumns', () => {
   })
 })
 
-describe('旧キーからの読み継ぎ（0062）', () => {
+describe('旧キーからの読み継ぎ（0065）', () => {
   const legacyValue = (palette: number, sourceRatio: number) =>
     JSON.stringify({ version: 1, palette, sourceRatio })
 

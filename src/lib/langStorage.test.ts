@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { detectLang, langLabel, loadLang, nextLang, saveLang } from './langStorage'
 
 const KEY = 'thothglyph:lang:v1'
-/** 0062で改名する前のキー。読み継ぎの確認に使う。 */
+/** 0065で改名する前のキー。読み継ぎの確認に使う。 */
 const LEGACY_KEY = 'matheditor:lang:v1'
 
 let store: Map<string, string>
@@ -18,7 +18,7 @@ beforeEach(() => {
     localStorage: {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
-      // 0062の読み継ぎが旧キーを消すので、スタブにも要る。
+      // 0065の読み継ぎが旧キーを消すので、スタブにも要る。
       removeItem: (key: string) => void store.delete(key),
     },
   })
@@ -126,7 +126,7 @@ describe('langLabel', () => {
   })
 })
 
-describe('旧キーからの読み継ぎ（0062）', () => {
+describe('旧キーからの読み継ぎ（0065）', () => {
   const legacyValue = (lang: string) => JSON.stringify({ version: 1, lang })
 
   it('旧キーだけがあるとき、その選択が読まれる', () => {
