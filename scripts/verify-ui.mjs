@@ -197,7 +197,7 @@ section('initial', '初期表示', async () => {
 section('autosave', '自動保存（0001）', async () => {
   // 初回訪問（localStorageが空）ではサンプル文書が出て、保存状態は空。
   const firstVisit = await editor().inputValue()
-  check('初回訪問でサンプル文書が表示される', firstVisit.startsWith('# 二次方程式の解の公式'))
+  check('初回訪問でサンプル文書が表示される', firstVisit.startsWith('# 正規分布と標本平均'))
   check('初回訪問では保存状態を出さない', (await saveStatus()) === '')
 
   // 入力直後は「保存中…」、待つと「保存しました HH:MM」。
@@ -258,7 +258,7 @@ section('autosave', '自動保存（0001）', async () => {
   page.once('dialog', (d) => d.accept())
   await page.getByRole('button', { name: 'サンプルに戻す' }).click()
   await ready()
-  check('確認をOKするとサンプル文書に戻る', (await editor().inputValue()).startsWith('# 二次方程式の解の公式'))
+  check('確認をOKするとサンプル文書に戻る', (await editor().inputValue()).startsWith('# 正規分布と標本平均'))
   check(
     'サンプルに戻したあともグラフが描かれる（0040）',
     (await page.locator('.preview svg.graph').count()) === 1,
@@ -271,7 +271,7 @@ section('autosave', '自動保存（0001）', async () => {
   await ready()
   check(
     '壊れたJSONでもサンプル文書で起動する',
-    (await editor().inputValue()).startsWith('# 二次方程式の解の公式'),
+    (await editor().inputValue()).startsWith('# 正規分布と標本平均'),
   )
 
   // 保存できない環境（容量超過やサイトデータ無効）では、その旨を出し続ける。
@@ -1152,7 +1152,7 @@ section('i18n', '英語対応（0031）', async () => {
   await ready()
   check(
     '保存がないときは日本語のサンプル文書が出る（ja を固定しているため）',
-    (await editor().inputValue()).startsWith('# 二次方程式の解の公式'),
+    (await editor().inputValue()).startsWith('# 正規分布と標本平均'),
     (await editor().inputValue()).slice(0, 20),
   )
 
@@ -1163,7 +1163,7 @@ section('i18n', '英語対応（0031）', async () => {
   await ready()
   check(
     '英語のサンプル文書が出る',
-    (await editor().inputValue()).startsWith('# The quadratic formula'),
+    (await editor().inputValue()).startsWith('# The normal distribution and sample means'),
     (await editor().inputValue()).slice(0, 25),
   )
   check(
@@ -2611,13 +2611,13 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
   // サンプル文書をそのまま書き出す。
   const source = await editor().inputValue()
   const saved = await download()
-  check('サンプル文書の見出しがファイル名になる', saved.name === '二次方程式の解の公式.md', saved.name)
+  check('サンプル文書の見出しがファイル名になる', saved.name === '正規分布と標本平均.md', saved.name)
   check(
     '書き出した中身がエディタの内容と一致する',
     saved.text === (source.endsWith('\n') ? source : `${source}\n`),
     `${saved.text.length}文字`,
   )
-  check('書き出すと結果が表示される', (await waitNotice()).includes('二次方程式の解の公式.md を保存しました'), await statusText())
+  check('書き出すと結果が表示される', (await waitNotice()).includes('正規分布と標本平均.md を保存しました'), await statusText())
 
   // 見出しがない文書、使えない文字を含む見出し、末尾に改行がない文書。
   await page.waitForTimeout(3100)
@@ -2684,11 +2684,11 @@ section('file-save', 'ファイルの書き出し（0034）', async () => {
     page.getByRole('button', { name: 'Save to file' }).click(),
   ])
   check(
-    '英語のサンプルは The quadratic formula.md になる',
-    englishDownload.suggestedFilename() === 'The quadratic formula.md',
+    '英語のサンプルは The normal distribution and sample means.md になる',
+    englishDownload.suggestedFilename() === 'The normal distribution and sample means.md',
     englishDownload.suggestedFilename(),
   )
-  check('英語表示では結果が Saved … になる', (await waitNotice()).includes('Saved The quadratic formula.md'), await statusText())
+  check('英語表示では結果が Saved … になる', (await waitNotice()).includes('Saved The normal distribution and sample means.md'), await statusText())
   await page.screenshot({ path: `${OUT}/file-save-en.png` })
 
   // 次の区分のために日本語へ戻す。

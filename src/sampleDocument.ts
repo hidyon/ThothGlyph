@@ -1,73 +1,82 @@
 import type { Lang } from './lib/i18n'
 
-/** 初回起動時に入っている文書。何ができるかが一目で分かることを狙う。 */
-const japanese = `# 二次方程式の解の公式
+/**
+ * 初回起動時に入っている文書。何ができるかが一目で分かることを狙う。
+ *
+ * 0072で二次方程式から**正規分布と標本平均の覚書**へ差し替えた。パレットが
+ * 記号62→150件・公式30→75件になったのに、サンプルには0064以降に足した記号が
+ * 1つも出てこなかったため。
+ *
+ * **中身を変えるときは、先頭行とファイル名に依存した検証9件を直すこと**
+ * （`autosave` 3件・`i18n` 2件・`file-save` 4件）。グラフの存在を見る4件と
+ * 「上のパレット」という語がないことを見る2件もあるので、**グラフは1つ入れ、
+ * 位置の言葉は書かない**。
+ */
+const japanese = `# 正規分布と標本平均
 
-二次方程式 $ax^2 + bx + c = 0$（ただし $a \\neq 0$）の解は次で与えられる。
+測定誤差のようなばらつきは、正規分布 $\\mathcal{N}(\\mu, \\sigma^2)$ で近似できることが多い。
+確率変数 $X$ がこれに従うことを $X \\sim \\mathcal{N}(\\mu, \\sigma^2)$ と書く。
 
 $$
-x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right)
 $$
 
-判別式 $D = b^2 - 4ac$ の符号で解の種類が決まる。
+- 期待値は $\\mathrm{E}(X) = \\mu$
+- 分散は $\\mathrm{Var}(X) = \\sigma^2$
+- $\\mu \\pm \\sigma$ の内側に約68%が入る
 
-- $D > 0$ のとき、異なる2つの実数解
-- $D = 0$ のとき、重解
-- $D < 0$ のとき、共役な2つの虚数解
-
-判別式の符号は、グラフが $x$ 軸と何回交わるかに対応する。$D > 0$ の例を描いてみる。
+$\\mu = 0$、$\\sigma = 1$ とした標準正規分布の密度を描いてみる。
 
 \`\`\`graph
-y = x^2 - 2x
-x: -2..4
+y = exp(-x^2/2)/sqrt(2*pi)
+x: -4..4
 \`\`\`
 
-## 導出
+## 標本平均
+
+$n$ 個の標本の平均 $\\overline{X}$ は、$n$ が大きいほど $\\mu$ の近くに集まる。
 
 $$
-\\begin{aligned}
-ax^2 + bx + c &= 0 \\\\
-x^2 + \\frac{b}{a}x &= -\\frac{c}{a} \\\\
-\\left( x + \\frac{b}{2a} \\right)^2 &= \\frac{b^2 - 4ac}{4a^2}
-\\end{aligned}
+\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}
 $$
+
+標本から推定した $\\mu$ の値は $\\widehat{\\mu}$ と書く。
 
 パレットのボタンを押すと、カーソル位置に数式コマンドが入ります。
 `
 
 /** 英語版。訳ではなく、同じ狙い（数式・箇条書き・複数行の式）を英語で満たす文書。 */
-const english = `# The quadratic formula
+const english = `# The normal distribution and sample means
 
-The solutions of $ax^2 + bx + c = 0$ (with $a \\neq 0$) are given by
+Spread such as measurement error is often approximated by a normal distribution $\\mathcal{N}(\\mu, \\sigma^2)$.
+We write $X \\sim \\mathcal{N}(\\mu, \\sigma^2)$ to say that $X$ follows it.
 
 $$
-x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right)
 $$
 
-The sign of the discriminant $D = b^2 - 4ac$ tells you what kind of roots you get.
+- The mean is $\\mathrm{E}(X) = \\mu$
+- The variance is $\\mathrm{Var}(X) = \\sigma^2$
+- About 68% of the mass lies within $\\mu \\pm \\sigma$
 
-- $D > 0$: two distinct real roots
-- $D = 0$: one repeated root
-- $D < 0$: two complex conjugate roots
-
-The sign of $D$ tells you how often the graph meets the $x$-axis. Here is a case with $D > 0$.
+Here is the standard normal density, with $\\mu = 0$ and $\\sigma = 1$.
 
 \`\`\`graph
-y = x^2 - 2x
-x: -2..4
+y = exp(-x^2/2)/sqrt(2*pi)
+x: -4..4
 \`\`\`
 
-## Derivation
+## Sample means
+
+The mean $\\overline{X}$ of $n$ samples clusters closer to $\\mu$ as $n$ grows.
 
 $$
-\\begin{aligned}
-ax^2 + bx + c &= 0 \\\\
-x^2 + \\frac{b}{a}x &= -\\frac{c}{a} \\\\
-\\left( x + \\frac{b}{2a} \\right)^2 &= \\frac{b^2 - 4ac}{4a^2}
-\\end{aligned}
+\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}
 $$
 
-Press a button in the palette to insert a math command at the cursor.
+An estimate of $\\mu$ from a sample is written $\\widehat{\\mu}$.
+
+Press a palette button to insert a command at the cursor.
 `
 
 /**
