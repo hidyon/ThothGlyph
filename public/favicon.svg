@@ -1,11 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="ThothGlyph">
   <title>ThothGlyph</title>
   <!--
-    平方根記号。直線3本だけで描く。曲線や細い装飾は16pxで潰れる。
-    <text> を使わないのは、見る側のフォントに依存して字形が変わるか消えるため。
+    三日月。トトは月の神で、満ち欠けを数えて暦を刻む。
+    円弧のパスではなく円を2つ重ねて描く。パスだと large-arc と sweep の
+    組み合わせで膨らむ向きが変わり、stroke-width を持つぶん縮小で太さが飛ぶ。
+    <text> を使わないのは、見る側のフォントに依存して字形が変わるため。
+    rx を持つのは背景の rect だけ（make-icons.mjs が角丸を落とす前提）。
   -->
   <rect width="32" height="32" rx="7" fill="#2563eb"/>
-  <path d="M6.5 17 L10.5 22 L15 9 L25.5 9"
-        fill="none" stroke="#ffffff" stroke-width="3"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="16" cy="16" r="10" fill="#ffffff"/>
+  <circle cx="21" cy="14" r="8.5" fill="#2563eb"/>
 </svg>

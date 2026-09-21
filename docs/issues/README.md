@@ -75,6 +75,7 @@
 | [0063](0063-unsupported-commands.md) | KaTeXが対応していないコマンドが、エラーとして扱われないまま本文に混ざる | open | — |
 | [0064](0064-palette-beyond-highschool.md) | パレットの中身が高校数学の範囲しかなく、要求仕様R2を満たしていない | open | — |
 | [0065](0065-app-name.md) | アプリに名前がない | closed | [仕様](../specs/0065-app-name.md) |
+| [0066](0066-moon-icon.md) | アイコンの図柄が名前と結びついていない | closed | [仕様](../specs/0066-moon-icon.md) |
 
 ## 着手順の目安
 
