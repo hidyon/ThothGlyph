@@ -454,6 +454,12 @@ JSを2つに分けている。
 `dist-file/` の確認は `node scripts/verify-file-build.mjs`。`verify-ui.mjs` は
 開発サーバに向いているので分けてある。
 
+**`dist-file/` はリポジトリで追跡している**（`dist/` は追跡しない）。
+GitHubから落としてそのまま `index.html` を開けるようにするため。
+出力のファイル名にハッシュを付けていない（`app.js` 固定）ので差分は中身だけだが、
+**ソースを変えたら `npm run build:file` して commit し直すこと。**
+忘れると古い出力が配られる。
+
 ## 関連
 
 - [要求仕様](requirements.md) — なぜこの構成なのか

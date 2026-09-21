@@ -126,7 +126,14 @@ export default defineConfig({
 "build:file": "tsc -b && vite build --config vite.config.file.ts"
 ```
 
-`.gitignore` に `dist-file` を足す（`dist` と同じ扱い）。
+**`dist-file/` は `.gitignore` に入れず、リポジトリで追跡する。**
+GitHubから落としてそのまま `index.html` を開けるようにするため
+（`dist/` は追跡しない。あちらはHTTPで配る前提で、配る側がビルドできる）。
+
+出力のファイル名にハッシュを付けていない（`app.js` 固定）ので、
+**追跡しても差分は中身の変化だけ**で、ビルドごとに別ファイルが増えることはない。
+代わりに**ソースを変えたら `npm run build:file` して commit し直す**必要がある。
+さもないと古い出力が配られる。`.gitignore` にその旨をコメントで残す。
 
 ### 2. ツールバーのロゴを相対パスにする
 
@@ -163,7 +170,7 @@ export default defineConfig({
 |---|---|
 | `vite.config.file.ts` | 新規（上記） |
 | `package.json` | `build:file` を足す |
-| `.gitignore` | `dist-file` を足す |
+| `.gitignore` | `dist-file` を**追跡する**旨をコメントで残す（無視には入れない） |
 | `src/components/Toolbar.tsx` | ロゴを `./favicon.svg` に |
 | `scripts/verify-file-build.mjs` | 新規 |
 | `scripts/verify-ui.mjs` | `icon` 区分1件の判定を直す |
@@ -226,6 +233,12 @@ export default defineConfig({
   （`include` が `["vite.config.ts"]` だけだと新しい設定が検査されない）。
 - **README のファイル数を実測で書いた**（`dist-file/` は69ファイル）。
   仕様には「1.9 MB」までしか書いていなかった。
+- **`dist-file/` を追跡する判断に変えた**（2026-09-21、ユーザーの指示）。
+  仕様の初版は `.gitignore` に入れる（追跡しない）としていたが、
+  **GitHubから落としてそのまま開けるほうが配る形として素直**なので追跡する。
+  そのぶん**ビルドし直しの手間が増える**（`npm run build:file` の結果を
+  commit し忘れると古い出力が配られる）ので、`.gitignore` と
+  `docs/architecture.md` にその旨を書いた。
 
 ## 検討したが採らなかった案
 
