@@ -1,3 +1,5 @@
+import type { RefObject } from 'react'
+
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
@@ -9,9 +11,13 @@ type Props = {
   /** 数式の描画エンジンが届いているか。届くまで本文は空（0024）。 */
   ready: boolean
   lang: Lang
+  /** スクロールする要素。Appが位置を測って合わせる（0010）。 */
+  containerRef: RefObject<HTMLDivElement | null>
+  /** スクロールしたことをAppへ伝える（エディタを追わせる。0010）。 */
+  onScrollSync: () => void
 }
 
-export function Preview({ html, stale, ready, lang }: Props) {
+export function Preview({ html, stale, ready, lang, containerRef, onScrollSync }: Props) {
   return (
     <section className="pane pane--preview" aria-label={pick(messages.previewLabel, lang)}>
       <header className="pane__header">
@@ -23,6 +29,8 @@ export function Preview({ html, stale, ready, lang }: Props) {
       {/* html は renderMarkdown 内で DOMPurify を通している。 */}
       <div
         className="preview"
+        ref={containerRef}
+        onScroll={onScrollSync}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>

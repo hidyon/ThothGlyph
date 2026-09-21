@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import type { Ref } from 'react'
+import type { Ref, RefObject } from 'react'
 import type { Match } from '../lib/findMatches'
 import { findMatches, matchAfter, replaceAll, replaceOne, step } from '../lib/findMatches'
 import { highlightHtml } from '../lib/highlightRanges'
@@ -24,6 +24,10 @@ type Props = {
   onReplace: (result: InsertResult) => void
   /** 検索バーを開くときに、いま選択している文字列を初期値にする。 */
   selectedText: () => string
+  /** 行の座標を測るミラーの器（0010）。中身はAppが計測のときに入れる。 */
+  mirrorRef: RefObject<HTMLDivElement | null>
+  /** スクロールしたことをAppへ伝える（プレビューを追わせる。0010）。 */
+  onScrollSync: () => void
 }
 
 export function Editor({
@@ -36,6 +40,8 @@ export function Editor({
   onSelectRange,
   onReplace,
   selectedText,
+  mirrorRef,
+  onScrollSync,
 }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -242,6 +248,11 @@ export function Editor({
       )}
       <div className="editor-wrap">
         {/*
+          行の座標を測るためのミラー（0010）。器だけを置き、中身はAppが
+          スクロールのときに入れる。visibility: hidden なので描かれない。
+        */}
+        <div className="editor-mirror" ref={mirrorRef} aria-hidden="true" />
+        {/*
           一致を塗る層。textareaは中の一部だけ色を付けられず、フォーカスが
           外れていると選択範囲すら描画されない（Chromiumで実測。0043）。
           同じ書式の層を裏に敷いて、一致だけを塗る。読み上げからは隠す。
@@ -263,7 +274,10 @@ export function Editor({
         ref={textareaRef}
         className={`editor${findOpen && matches.length > 0 ? ' editor--highlighting' : ''}`}
         value={value}
-        onScroll={syncScroll}
+        onScroll={() => {
+          syncScroll()
+          onScrollSync()
+        }}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
           /*

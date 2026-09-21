@@ -468,7 +468,8 @@ body {
 }
 
 .editor,
-.editor-highlights {
+.editor-highlights,
+.editor-mirror {
   padding: 16px;
   font-family: var(--mono);
   font-size: 14px;
@@ -505,6 +506,23 @@ body {
   overflow: hidden;
   color: transparent;
   background: var(--bg-editor);
+  pointer-events: none;
+  user-select: none;
+}
+
+/*
+  行の座標を測るためのミラー（0010）。textareaは行のy座標を返さないので、
+  同じ書式の要素を裏に置き、アンカー行に入れた span の offsetTop を読む。
+
+  **描画も配置もしない。** visibility: hidden で描かれず、絶対配置なので
+  他の要素を1pxも押しのけない。中身はReactではなく計測のときに入れる
+  （31kBの文字列を打鍵のたびに描き直さないため）。
+*/
+.editor-mirror {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  visibility: hidden;
   pointer-events: none;
   user-select: none;
 }
