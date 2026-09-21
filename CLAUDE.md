@@ -45,6 +45,7 @@ VSCodeで「Reopen in Container」すれば、Node 22・検証用Chromium・Clau
 | 単体テスト | `npm test`（Vitest。`npm run test:watch` で監視） |
 | Lint | `npm run lint`（oxlint） |
 | UIの実機検証 | `node scripts/verify-ui.mjs` |
+| file:// 向けのビルド | `npm run build:file`（`dist-file/` に出る。追跡しているので変えたらコミット） |
 
 ### 詳しい取り決めはどこにあるか
 
@@ -148,6 +149,9 @@ KaTeXがラテン文字のAを出すので永久に満たせない基準だっ�
 - issueをクローズしたら、`main` へ `--no-ff` でマージする（1 issue = 1マージコミット。
   メッセージは `Merge issue/NNNN-slug: <タイトル>`）。マージ後にブランチを消す。
   マージもユーザーが指示したときだけ行う。
+- **`src/` や `public/` を変えたら、`npm run build:file` の結果（`dist-file/`）を
+  同じコミットに入れる。** 追跡しているので、忘れると古い出力が配られる
+  （理由は [docs/architecture.md](docs/architecture.md) の第8節）。
 - **issueの起票や文書だけの変更は、その場でマージまで済ませる。** 宙に浮かせると
   次の作業ブランチがその上に乗り、ブランチが直列に積み上がる。
 
