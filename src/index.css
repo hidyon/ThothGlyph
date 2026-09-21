@@ -710,6 +710,14 @@ body {
   font-size: 0.9em;
 }
 
+/* 仕切り（0057）は縦帯のときだけ出す。横帯（幅1199px以下）ではパレットが
+   上にあり、幅720px以下は上下分割なので、掴んでも動かす軸がない。 */
+@media (max-width: 1199px) {
+  .pane-divider {
+    display: none;
+  }
+}
+
 /* パレットの見出し（0056）。横帯では出さない。実測で、縦帯では帯の余白に
    載るので高さが増えないが、横帯では30px増えて textarea が幅1199pxで
    621px→591px、幅360pxで194px→179pxに減る（0032で確保したぶんを削る）。 */
@@ -727,7 +735,8 @@ body {
 @media (min-width: 1200px) {
   .app {
     display: grid;
-    grid-template-columns: 180px 1fr;
+    /* パレットの幅は利用者が変えられる（0057）。既定は180px（0054の実測）。 */
+    grid-template-columns: var(--palette-width, 180px) 6px 1fr;
     grid-template-rows: auto 1fr;
   }
 
@@ -746,8 +755,31 @@ body {
   }
 
   .panes {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 2;
+    /* 分け方は App から変数で届く（0057）。ここでだけ当てるので、
+       狭い画面の上下分割は影響を受けない。 */
+    grid-template-columns: var(--pane-columns, 1fr 6px 1fr);
+  }
+
+  /* 領域の境目（0057）。グリッドの列として6pxを占める。 */
+  .pane-divider {
+    display: block;
+    background: var(--border);
+    cursor: col-resize;
+  }
+
+  /* パレット側の仕切りだけ、ツールバーの下の行に置く。`.panes` の中の
+     仕切りにも grid-row を当てると、1行しかない .panes に2行目ができて
+     プレビューが6pxの列へ押し出される（実際に踏んだ）。 */
+  .app > .pane-divider {
+    grid-row: 2;
+  }
+
+  .pane-divider:hover,
+  .pane-divider:focus-visible {
+    background: var(--accent);
+    outline: none;
   }
 
   /* タブと検索欄を縦に積む。display: contents のままだと横に並ぶ。 */

@@ -1,6 +1,8 @@
+import type { CSSProperties } from 'react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
 import { Preview } from './components/Preview'
+import { PaneDivider } from './components/PaneDivider'
 import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
@@ -10,6 +12,16 @@ import type { Lang } from './lib/i18n'
 import { pick } from './lib/i18n'
 import { loadLang, nextLang, saveLang } from './lib/langStorage'
 import { messages } from './lib/messages'
+import type { PaneSizes } from './lib/paneSizes'
+import {
+  DIVIDER,
+  MIN_WINDOW,
+  clampPaneSizes,
+  defaultPaneSizes,
+  loadPaneSizes,
+  paneColumns,
+  savePaneSizes,
+} from './lib/paneSizes'
 import type { Theme } from './lib/themeStorage'
 import { loadTheme, nextTheme, saveTheme } from './lib/themeStorage'
 import type { InsertResult } from './lib/insertSnippet'
@@ -57,6 +69,15 @@ export default function App() {
     restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
   )
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  // 3つの領域の分け方（0057）。テーマ・言語と同じ「保存する設定」で、
+  // 文書の状態（source）とは別に持つ。
+  const [paneSizes, setPaneSizes] = useState<PaneSizes>(loadPaneSizes)
+  // ドラッグを離した時点の値を保存する。pointermoveの購読はドラッグ開始時の
+  // クロージャを掴んだままなので、最新の値はrefから読む。
+  const paneSizesRef = useRef(paneSizes)
+  useEffect(() => {
+    paneSizesRef.current = paneSizes
+  }, [paneSizes])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // まだ保存していない内容。beforeunloadからも読むのでstateではなくrefに置く。
@@ -288,6 +309,24 @@ export default function App() {
     showNotice(pick(messages.savedFile(name), lang))
   }
 
+  /**
+   * 仕切りを動かす（0057）。差分をpxで受け取り、下限は clampPaneSizes に任せる。
+   * 画面の幅が変わっても割合が保たれるよう、ソース側は割合へ戻して持つ。
+   */
+  const moveDivider = (which: 'palette' | 'source', deltaX: number) => {
+    setPaneSizes((current) => {
+      const width = window.innerWidth
+      if (width < MIN_WINDOW) return current
+
+      if (which === 'palette') {
+        return clampPaneSizes({ ...current, palette: current.palette + deltaX }, width)
+      }
+      const rest = width - current.palette - DIVIDER * 2
+      const source = rest * current.sourceRatio + deltaX
+      return clampPaneSizes({ ...current, sourceRatio: source / rest }, width)
+    })
+  }
+
   const handleReset = () => {
     if (!window.confirm(pick(messages.resetConfirm, lang))) return
     setSource(sampleDocument(lang))
@@ -295,7 +334,18 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      style={
+        {
+          ['--palette-width' as string]: `${Math.round(paneSizes.palette)}px`,
+          // インラインで .panes に grid-template-columns を当てると、狭い画面用の
+          // CSS（上下分割）まで上書きしてしまう。変数で渡し、当てるのは
+          // 幅1200px以上のメディアクエリの中だけにする。
+          ['--pane-columns' as string]: paneColumns(paneSizes.sourceRatio),
+        } as CSSProperties
+      }
+    >
       <Toolbar
         source={source}
         saveState={saveState}
@@ -312,6 +362,15 @@ export default function App() {
         lang={lang}
         renderLatex={engine?.renderLatex}
       />
+      <PaneDivider
+        label={pick(messages.paletteDivider, lang)}
+        onMove={(deltaX) => moveDivider('palette', deltaX)}
+        onCommit={() => savePaneSizes(paneSizesRef.current)}
+        onReset={() => {
+          setPaneSizes((current) => ({ ...current, palette: defaultPaneSizes().palette }))
+          savePaneSizes({ ...paneSizesRef.current, palette: defaultPaneSizes().palette })
+        }}
+      />
       <main className="panes">
         <Editor
           value={source}
@@ -323,6 +382,15 @@ export default function App() {
           onSelectRange={handleSelectRange}
           onReplace={handleReplace}
           selectedText={selectedText}
+        />
+        <PaneDivider
+          label={pick(messages.sourceDivider, lang)}
+          onMove={(deltaX) => moveDivider('source', deltaX)}
+          onCommit={() => savePaneSizes(paneSizesRef.current)}
+          onReset={() => {
+            setPaneSizes((current) => ({ ...current, sourceRatio: defaultPaneSizes().sourceRatio }))
+            savePaneSizes({ ...paneSizesRef.current, sourceRatio: defaultPaneSizes().sourceRatio })
+          }}
         />
         <Preview html={html} stale={isPreviewStale} ready={engine !== null} lang={lang} />
       </main>

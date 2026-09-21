@@ -91,6 +91,10 @@ export const messages = {
 
   // パレット
   paletteLabel: t('記号パレット', 'Symbol palette'),
+
+  /** 領域の境目（0057）。読み上げと検証で使う名前。 */
+  paletteDivider: t('パレットとソースの境目', 'Divider between palette and source'),
+  sourceDivider: t('ソースとプレビューの境目', 'Divider between source and preview'),
   formulaTab: t('公式', 'Formulas'),
 
   // パレットの検索

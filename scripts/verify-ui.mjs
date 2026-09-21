@@ -1626,6 +1626,182 @@ section('loading', '読み込みの分割（0024）', async () => {
 
 // ---- 0032: 狭い画面でのパレットの高さ ----
 
+section('panes', '領域の幅の可変（0057）', async () => {
+  const PANES_KEY = 'matheditor:panes:v1'
+  const widths = () =>
+    page.evaluate(() => {
+      const w = (sel) => {
+        const el = document.querySelector(sel)
+        return el === null ? null : Math.round(el.getBoundingClientRect().width)
+      }
+      const graph = document.querySelector('svg.graph')
+      return {
+        palette: w('.palette'),
+        source: w('.pane--editor'),
+        preview: w('.pane--preview'),
+        dividers: [...document.querySelectorAll('.pane-divider')]
+          .map((d) => Math.round(d.getBoundingClientRect().width)),
+        visibleDividers: [...document.querySelectorAll('.pane-divider')]
+          .filter((d) => d.getBoundingClientRect().width > 0).length,
+        graph: graph === null ? null : Math.round(graph.getBoundingClientRect().width),
+        headerH: Math.round(
+          document.querySelector('.pane--editor .pane__header').getBoundingClientRect().height,
+        ),
+        mathOverflow: [...document.querySelectorAll('.preview .katex-display')]
+          .filter((e) => e.scrollWidth > e.clientWidth + 1).length,
+      }
+    })
+
+  /** 仕切りを掴んで dx だけ動かす。離すところまで。 */
+  const drag = async (nth, dx) => {
+    const box = await page.locator('.pane-divider').nth(nth).boundingBox()
+    await page.mouse.move(box.x + 3, box.y + 100)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 3 + dx, box.y + 100, { steps: 12 })
+    await page.mouse.up()
+    await page.waitForTimeout(100)
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+
+  const start = await widths()
+  check(
+    '幅1440pxで仕切りが2本あり、どちらも6px',
+    start.dividers.length === 2 && start.dividers.every((d) => d === 6),
+    start.dividers.join(','),
+  )
+  check(
+    '既定はパレット180px・ソースとプレビューが同じ幅',
+    start.palette === 180 && start.source === start.preview,
+    `${start.palette} / ${start.source} / ${start.preview}`,
+  )
+
+  // 仕切り1: パレットの幅。
+  await drag(0, 100)
+  const widened = await widths()
+  check('仕切り1を右へ100pxドラッグするとパレットが280pxになる', widened.palette === 280, `${widened.palette}px`)
+
+  // 仕切り2: ソースとプレビューの分け方。
+  const beforeSplit = await widths()
+  await drag(1, -100)
+  const split = await widths()
+  check(
+    '仕切り2を左へ100pxドラッグするとソースが100px狭く、プレビューが100px広くなる',
+    Math.abs(beforeSplit.source - split.source - 100) <= 3 &&
+      Math.abs(split.preview - beforeSplit.preview - 100) <= 3,
+    `ソース ${beforeSplit.source}→${split.source} / プレビュー ${beforeSplit.preview}→${split.preview}`,
+  )
+
+  // 保存と復元。
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  const reloaded = await widths()
+  check(
+    '変えた幅がリロード後も残る',
+    reloaded.palette === split.palette && Math.abs(reloaded.source - split.source) <= 3,
+    `${reloaded.palette} / ${reloaded.source} / ${reloaded.preview}`,
+  )
+
+  // 下限。ドラッグしても割らない。
+  await drag(0, -600)
+  const minPalette = await widths()
+  check('パレットは150pxより狭くならない', minPalette.palette === 150, `${minPalette.palette}px`)
+
+  await drag(1, 900)
+  const minPreview = await widths()
+  check('プレビューは360pxより狭くならない', minPreview.preview >= 360, `${minPreview.preview}px`)
+  check(
+    'プレビューが下限のとき、グラフが312px以上で数式がはみ出さない',
+    minPreview.graph >= 312 && minPreview.mathOverflow === 0,
+    `グラフ${minPreview.graph}px / はみ出し${minPreview.mathOverflow}件`,
+  )
+
+  await drag(1, -900)
+  const minSource = await widths()
+  check('ソースは360pxより狭くならない', minSource.source >= 360, `${minSource.source}px`)
+  check(
+    'ソースが下限のとき、見出し行が30pxのまま（ボタンが折り返さない）',
+    minSource.headerH === 30,
+    `${minSource.headerH}px`,
+  )
+
+  // ダブルクリックで既定へ。
+  await page.locator('.pane-divider').first().dblclick()
+  await page.locator('.pane-divider').nth(1).dblclick()
+  await page.waitForTimeout(100)
+  const reset = await widths()
+  check(
+    '仕切りをダブルクリックすると既定（180px・半々）に戻る',
+    reset.palette === 180 && Math.abs(reset.source - reset.preview) <= 2,
+    `${reset.palette} / ${reset.source} / ${reset.preview}`,
+  )
+
+  // キーボード。
+  await page.locator('.pane-divider').first().focus()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await page.waitForTimeout(100)
+  const byKey = await widths()
+  check('仕切りに左右キーで16pxずつ動く', byKey.palette === 180 + 32, `${byKey.palette}px（180+32を期待）`)
+
+  // 狭い画面では出さない。
+  await page.setViewportSize({ width: 1199, height: 800 })
+  await page.waitForTimeout(150)
+  const narrow = await widths()
+  check('幅1199pxでは仕切りが出ない', narrow.visibleDividers === 0, `${narrow.visibleDividers}本`)
+
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.waitForTimeout(150)
+  const phone = await widths()
+  check('幅360pxでも仕切りが出ない', phone.visibleDividers === 0, `${phone.visibleDividers}本`)
+
+  // 狭めてから戻すと、保存した分け方に戻る。
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.waitForTimeout(150)
+  const back = await widths()
+  check(
+    '幅1199pxへ狭めて戻すと、保存した分け方に戻る',
+    back.palette === byKey.palette,
+    `${back.palette}px（狭める前は${byKey.palette}px）`,
+  )
+
+  // 壊れた保存値は既定に落ちる。
+  await page.evaluate((key) => window.localStorage.setItem(key, '{壊れている'), PANES_KEY)
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  const broken = await widths()
+  check('保存値が壊れていても既定で開く', broken.palette === 180, `${broken.palette}px`)
+
+  // 0007と同じ規模の文書でドラッグしても引っかからない。
+  await editor().fill(
+    Array.from({ length: 400 }, (_, i) => `## 節 ${i + 1}\n\n本文 $x^2 + ${i}$ です。\n`).join('\n'),
+  )
+  await page.waitForTimeout(1500)
+  const perDrag = await page.evaluate(async () => {
+    const divider = document.querySelectorAll('.pane-divider')[1]
+    const box = divider.getBoundingClientRect()
+    const started = performance.now()
+    for (let i = 0; i < 20; i += 1) {
+      for (const type of ['pointerdown', 'pointermove', 'pointerup']) {
+        divider.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, clientX: box.x + 3 + i, clientY: box.y + 50, pointerId: 1 }),
+        )
+      }
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    return (performance.now() - started) / 20
+  })
+  check(
+    '400節の文書でも、仕切りの操作1回あたり100ms以内',
+    perDrag <= 100,
+    `${perDrag.toFixed(1)}ms/回`,
+    { timing: true },
+  )
+  await page.screenshot({ path: `${OUT}/panes.png` })
+})
+
 section('placement', 'パレットの置き場所（0054）', async () => {
   /** 画面の主な寸法をまとめて読む。 */
   const layout = () =>
@@ -1674,7 +1850,9 @@ section('placement', 'パレットの置き場所（0054）', async () => {
     `パレット${wide.palette.h}px / ペイン${wide.panes.h}px`,
   )
   check('幅1440pxでtextareaが810px以上', wide.editor.h >= 810, `${wide.editor.h}px（横帯のときは721px）`)
-  check('幅1440pxでプレビューの幅が625px以上', wide.preview.w >= 625, `${wide.preview.w}px（横帯のときは720px）`)
+  // 0057で仕切り2本（各6px）が入り、ソースとプレビューが6pxずつ狭くなった
+  // （630px → 624px）。横帯のときの720pxと比べる意図は変わらない。
+  check('幅1440pxでプレビューの幅が620px以上', wide.preview.w >= 620, `${wide.preview.w}px（横帯のときは720px）`)
   check(
     '幅1440pxでサンプルのグラフが480×320pxのまま（0037の回帰）',
     wide.graph !== null && wide.graph.w === 480 && wide.graph.h === 320,
