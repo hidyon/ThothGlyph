@@ -86,6 +86,11 @@ export default function App() {
   // まだ保存していない内容。beforeunloadからも読むのでstateではなくrefに置く。
   const unsaved = useRef<string | null>(null)
 
+  // 最後に保存した時刻。`pending` のあいだ saveState からは失われるので別に持つ
+  // （SaveState が savedAt を持つのは 'saved' のときだけ）。初回訪問では null。
+  // 打ってすぐ取り消したときに「保存しました hh:mm」へ戻すために要る（0036）。
+  const lastSavedAt = useRef<string | null>(restored?.savedAt ?? null)
+
   // 最後に保存した内容。初期値は復元した内容（初回訪問ならサンプル文書）。
   // 「初回レンダリングか」で判定するとStrictModeの二重マウントで保存が走るため、
   // 内容そのものを比べる。
@@ -152,7 +157,9 @@ export default function App() {
     if (saveDocument(target)) {
       savedSource.current = target
       unsaved.current = null
-      setSaveState({ status: 'saved', savedAt: new Date().toISOString() })
+      const savedAt = new Date().toISOString()
+      lastSavedAt.current = savedAt
+      setSaveState({ status: 'saved', savedAt })
     } else {
       // 失敗した内容はrefに残す。離脱時にもう一度試す余地を残す。
       setSaveState({ status: 'failed' })
@@ -161,7 +168,26 @@ export default function App() {
 
   useEffect(() => {
     // 復元した（または初回表示のサンプル）内容をそのまま保存し直さない。
-    if (source === savedSource.current) return
+    if (source === savedSource.current) {
+      // 打った文字をすぐ取り消すとここへ来る（デバウンスのタイマーは
+      // クリーンアップで消えている）。**戻すものが2つある**（0036）。
+      //
+      // 1. 書き戻し待ち。捨てないと beforeunload の saveNow が
+      //    取り消した編集を保存する（消した文字がリロードで戻る）。
+      // 2. 表示。`保存中…` のまま止まるので、最後に保存した時刻へ戻す。
+      //    一度も保存していなければ何も出さない状態（idle）へ。
+      unsaved.current = null
+      // pending / failed 以外はそのまま返す。マウント直後もここを通るので、
+      // 新しいオブジェクトを入れると意味のない再レンダリングが1回増える。
+      setSaveState((current) =>
+        current.status === 'pending' || current.status === 'failed'
+          ? lastSavedAt.current === null
+            ? { status: 'idle' }
+            : { status: 'saved', savedAt: lastSavedAt.current }
+          : current,
+      )
+      return
+    }
 
     unsaved.current = source
     setSaveState({ status: 'pending' })

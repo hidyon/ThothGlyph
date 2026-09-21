@@ -200,6 +200,21 @@ section('autosave', '自動保存（0001）', async () => {
   check('初回訪問でサンプル文書が表示される', firstVisit.startsWith('# 正規分布と標本平均'))
   check('初回訪問では保存状態を出さない', (await saveStatus()) === '')
 
+  // 保存がない状態で打ってすぐ消すと、空の表示へ戻る（0036の idle の分岐）。
+  // 一度も保存していないので、戻す先は「保存しました」ではなく空。
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type('q')
+  await page.waitForTimeout(120)
+  await page.keyboard.press('Backspace')
+  await page.waitForTimeout(2500)
+  check(
+    '保存がない状態で打ってすぐ消すと表示が空に戻る（0036）',
+    (await saveStatus()) === '',
+    JSON.stringify(await saveStatus()),
+  )
+  check('そのとき内容はサンプルのままである', (await editor().inputValue()) === firstVisit)
+
   // 入力直後は「保存中…」、待つと「保存しました HH:MM」。
   const typed = '\n\n自動保存の検証 $E = mc^2$\n'
   await editor().click()
@@ -247,6 +262,62 @@ section('autosave', '自動保存（0001）', async () => {
   check(
     'デバウンス中にリロードしても内容が残る',
     (await editor().inputValue()) === beforeQuickReload,
+  )
+
+  // 打った文字をすぐ取り消したとき（0036）。デバウンスが終わる前に保存済みの
+  // 内容へ戻すと、以前は「保存中…」が止まり、さらに beforeunload が
+  // 取り消した編集を書き戻していた。
+  await page.waitForFunction(
+    () => document.querySelector('.toolbar__save')?.textContent?.startsWith('保存しました'),
+    null,
+    { timeout: 3000 },
+  )
+  const savedAtBeforeUndo = await saveStatus()
+  const undoBase = await editor().inputValue()
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type('z')
+  await page.waitForTimeout(120)
+  await page.keyboard.press('Backspace')
+  await page.waitForTimeout(2500)
+  check(
+    '打ってすぐ消すと保存中…で止まらず、保存しましたに戻る（0036）',
+    (await saveStatus()) === savedAtBeforeUndo,
+    `${await saveStatus()}（取り消し前は ${savedAtBeforeUndo}）`,
+  )
+  check('取り消した直後の内容が元に戻っている', (await editor().inputValue()) === undoBase)
+
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  check(
+    'その状態でリロードしても消した文字が戻らない（0036）',
+    (await editor().inputValue()) === undoBase,
+    `末尾 ${JSON.stringify((await editor().inputValue()).slice(-6))}`,
+  )
+
+  // 600ms以上待ってから消した場合は、通常どおり保存されて時刻が更新される。
+  const savedBeforeSlowUndo = await saveStatus()
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  await page.keyboard.type('y')
+  await page.waitForFunction(
+    () => document.querySelector('.toolbar__save')?.textContent?.startsWith('保存しました'),
+    null,
+    { timeout: 3000 },
+  )
+  await page.keyboard.press('Backspace')
+  await page.waitForFunction(
+    () => document.querySelector('.toolbar__save')?.textContent?.startsWith('保存しました'),
+    null,
+    { timeout: 3000 },
+  )
+  const afterSlowUndo = await editor().inputValue()
+  await page.reload({ waitUntil: 'networkidle' })
+  await ready()
+  check(
+    '600ms以上待ってから消した場合は取り消し後の内容が保存される',
+    (await editor().inputValue()) === afterSlowUndo && afterSlowUndo === undoBase,
+    `${savedBeforeSlowUndo} → ${await saveStatus()}`,
   )
 
   // 「サンプルに戻す」— キャンセルでは変わらず、OKでサンプルに戻る。
