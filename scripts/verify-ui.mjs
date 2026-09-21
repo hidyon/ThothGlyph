@@ -1369,18 +1369,20 @@ section('search', '記号の検索（0011）', async () => {
   const inTabRow = await search().evaluate((el) => el.parentElement.className)
   check('検索欄がタブと同じ行にある', inTabRow === 'palette__bar', inTabRow)
   const wide = await paletteHeight()
-  check('幅1199pxでパレットの高さが94pxのまま（検索欄で増えない）', wide === 94, `${wide}px`)
+  // 0070で装飾を基本に集めたぶん（8→23件）、94px → 105px になった（0070の仕様に実測つきで記録）。
+  check('幅1199pxでパレットの高さが105pxのまま（検索欄で増えない）', wide === 105, `${wide}px`)
 
   // 折り返しが起きるのは720px前後。仕様では126px以下に収まると見込んだ。
   await page.setViewportSize({ width: 720, height: 800 })
   await page.waitForTimeout(200)
   const medium = await paletteHeight()
-  check('幅720pxでパレットの高さが126px以下', medium <= 126, `${medium}px`)
+  // 0070で装飾を基本に集めたぶん（8→23件）、幅720pxは0032の蓋（141px）に達した。
+  check('幅720pxでパレットの高さが141px以下', medium <= 141, `${medium}px`)
 
   await page.setViewportSize({ width: 600, height: 800 })
   await page.waitForTimeout(200)
   const narrow = await paletteHeight()
-  check('幅600pxでパレットの高さが126px以下', narrow <= 126, `${narrow}px`)
+  check('幅600pxでパレットの高さが141px以下', narrow <= 141, `${narrow}px`)
   check(
     '幅600pxで横スクロールが出ない',
     await page.evaluate(() => {
@@ -1971,7 +1973,7 @@ section('placement', 'パレットの置き場所（0054）', async () => {
   await ready()
   const mid = await layout()
   check('幅1200pxでも縦帯（パレットの幅180px）', mid.palette.w === 180, `${mid.palette.w}px`)
-  check('幅1200pxでtextareaが710px以上', mid.editor.h >= 710, `${mid.editor.h}px（横帯のときは621px）`)
+  check('幅1200pxでtextareaが710px以上', mid.editor.h >= 710, `${mid.editor.h}px（横帯のときは610px）`)
   check(
     '幅1200pxでグラフの幅が450px以上',
     mid.graph !== null && mid.graph.w >= 450,
@@ -1989,13 +1991,14 @@ section('placement', 'パレットの置き場所（0054）', async () => {
   })
   check('幅1199pxではパレットの見出しが出ない（0056）', headerAt1199 === 0 || headerAt1199 === 'なし', String(headerAt1199))
   check(
-    '幅1199pxでは横帯に戻る（パレットが全幅・高さ94px）',
-    narrowSide.palette.w === 1199 && Math.abs(narrowSide.palette.h - 94) <= 2,
+    '幅1199pxでは横帯に戻る（パレットが全幅・高さ105px）',
+    narrowSide.palette.w === 1199 && Math.abs(narrowSide.palette.h - 105) <= 2,
     `${narrowSide.palette.w}×${narrowSide.palette.h}px`,
   )
+  // 0070で装飾を基本に集めたぶん（8→23件）、パレットが11px高くなったぶんtextareaが11px減った（621→610px）。
   check(
-    '幅1199pxのtextareaが横帯のときの高さ（621px±5px）',
-    Math.abs(narrowSide.editor.h - 621) <= 5,
+    '幅1199pxのtextareaが横帯のときの高さ（610px±5px）',
+    Math.abs(narrowSide.editor.h - 610) <= 5,
     `${narrowSide.editor.h}px`,
   )
 
@@ -2069,7 +2072,7 @@ section('tab-icon', 'タブのアイコン（0053）', async () => {
 
   // 3. パレットの高さは現状のまま（0032の蓋を壊していない）。
   const wide = await paletteHeight()
-  check('幅1199px・日本語でパレットが94px（±2px。アイコンで高くなっていない）', Math.abs(wide - 94) <= 2, `${wide}px`)
+  check('幅1199px・日本語でパレットが105px（±2px。アイコンで高くなっていない）', Math.abs(wide - 105) <= 2, `${wide}px`)
 
   // 4. 英語表示でも同じ8つ。記号は言語で変わらない。
   await page.getByRole('button', { name: /言語/ }).click()
@@ -2267,7 +2270,7 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
   await page.setViewportSize({ width: 1199, height: 800 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
-  check('幅1199pxでパレットの高さが94pxのまま', (await paletteHeight()) === 94, `${await paletteHeight()}px`)
+  check('幅1199pxでパレットの高さが105pxのまま', (await paletteHeight()) === 105, `${await paletteHeight()}px`)
 
   await page.setViewportSize({ width: 1199, height: 900 })
   await page.getByRole('tab', { name: '公式', exact: true }).first().click()
@@ -2712,6 +2715,7 @@ section('graph', '関数のグラフ（0037）', async () => {
         height: Math.round(320 * scale),
         tickPx: Math.round(parseFloat(getComputedStyle(tick).fontSize) * scale * 10) / 10,
         paneHeight: Math.round(pane.height),
+        paneWidth: Math.round(pane.width),
         scrollW: document.documentElement.scrollWidth,
         innerW: window.innerWidth,
       }
@@ -2750,10 +2754,39 @@ section('graph', '関数のグラフ（0037）', async () => {
     await page.waitForTimeout(200)
     const box = await graphBox()
     check(
-      `幅${width}pxで図がプレビューのペインに収まり、横スクロールも出ない`,
-      box.height <= box.paneHeight && box.scrollW <= box.innerW,
-      `図 ${box.width}×${box.height}px / ペイン ${box.paneHeight}px / scrollWidth ${box.scrollW}`,
+      `幅${width}pxで図の横幅がペインに収まり、横スクロールも出ない`,
+      box.width <= box.paneWidth && box.scrollW <= box.innerW,
+      `図 ${box.width}×${box.height}px / ペインの幅 ${box.paneWidth}px / scrollWidth ${box.scrollW}`,
     )
+    // 高さは「収まる」を基準にできない（0070）。パレットの高さは選んでいるタブで
+    // 変わり、**記号の多いタブを選ぶと幅540pxでは元から収まっていなかった**
+    // （ギリシャ小文字31件で141px・ペイン264pxに対し図274px）。0070で初期表示の
+    // 基本タブも23件になったので、いちばん低いタブでも収まらなくなった。
+    // 図が縮むのは別issue（0071）。ここでは**いちばん高いパレット（公式タブ）でも
+    // 縦スクロールで図の下端まで届く**ことを見る。
+    await page.getByRole('tab', { name: '公式', exact: true }).first().click()
+    await page.waitForTimeout(200)
+    const reach = await page.evaluate(() => {
+      const svg = document.querySelector('.preview svg.graph')
+      const pane = svg.closest('.pane')
+      const scroller = pane.querySelector('.preview') ?? pane
+      scroller.scrollTop = scroller.scrollHeight
+      const svgBottom = svg.getBoundingClientRect().bottom
+      const paneBottom = pane.getBoundingClientRect().bottom
+      return {
+        paletteH: Math.round(document.querySelector('.palette').getBoundingClientRect().height),
+        paneH: Math.round(pane.getBoundingClientRect().height),
+        svgH: Math.round(svg.getBoundingClientRect().height),
+        reached: svgBottom <= paneBottom + 1,
+      }
+    })
+    check(
+      `幅${width}pxで、いちばん高いパレット（公式タブ）でも縦スクロールで図の下端まで届く`,
+      reach.reached,
+      `パレット${reach.paletteH}px / ペイン${reach.paneH}px / 図の高さ${reach.svgH}px`,
+    )
+    await page.getByRole('tab', { name: '基本', exact: true }).first().click()
+    await page.waitForTimeout(150)
     check(
       `幅${width}pxで目盛りの文字が11px以上ある`,
       box.tickPx >= 11,
@@ -3810,7 +3843,7 @@ section('palette-stats', '統計・確率と集合・論理（0064）', async ()
   // 単体テスト（palette.test.ts）はLaTeXを直接描画しているが、ここでは
   // 「ボタンを押して挿入された文字列がプレビューで描ける」ところまで通す。
   const addedTitles = [
-    '上線（標本平均・補集合）',
+    '上線（標本平均・補集合・線分）',
     '確率', '期待値', '分散', '共分散', '正規分布', '二項分布', 'カイ二乗', '二項係数',
     '和集合', '共通部分', '差集合', '和集合（添字つき）', '共通部分（添字つき）',
     '分布に従う', '条件付き（縦棒）', '独立・垂直', '収束（矢印の上に記号）',
@@ -3967,7 +4000,7 @@ section('palette-stats', '統計・確率と集合・論理（0064）', async ()
   )
   await openTab('基本')
   const basic = await paletteHeight()
-  check('幅1199pxの基本タブ（8件のまま）が94pxのまま', basic === 94, `${basic}px`)
+  check('幅1199pxの基本タブ（0070で23件）が105px', basic === 105, `${basic}px`)
 
   // タブを増やしていないので、検索欄が2行目に落ち始める幅は変わらない。
   const searchRow = await page.evaluate(() => {
@@ -4025,48 +4058,50 @@ section('palette-stats', '統計・確率と集合・論理（0064）', async ()
   )
 })
 
-// ---- 0068: 装飾・書体をパレットに足す ----
+// ---- 0068: 装飾・書体をパレットに足す / 0070: 上飾りを足し、装飾を基本に集める ----
 
-section('palette-decor', '装飾・書体（0068）', async () => {
+section('palette-decor', '装飾・書体（0068・0070）', async () => {
   const paletteHeight = async () => Math.round((await page.locator('.palette').boundingBox()).height)
+  const editorHeight = async () => Math.round((await editor().boundingBox()).height)
   const openTab = (name) => page.getByRole('tab', { name, exact: true }).first().click()
   const items = () => page.locator('.palette__items > .palette__item, .palette__panel > .palette__items > .palette__item')
 
   await resetState()
-  await openTab('括弧・構造')
+  await openTab('基本')
 
-  // 足した11件は既存6件の前に並ぶ。先頭がチルダであることで並びを固定する。
-  const firstTitle = await items().first().getAttribute('title')
-  const before = await editor().inputValue()
-  await items().first().click()
+  // 0070で装飾は `基本` に集めた。2文字以上に掛かる上飾りがあることを見る。
+  const wide = page.locator('.palette__item[title^="角（"]')
+  const wideVisible = (await wide.count()) === 1 && (await wide.isVisible())
+  await wide.click()
   check(
-    '括弧・構造タブの先頭がチルダで、押すと \\tilde{} が入る',
-    firstTitle.startsWith('チルダ（') && (await editor().inputValue()).includes('\\tilde{}'),
-    firstTitle,
+    '基本タブに「角」のボタンがあり、押すと \\widehat{} が入る',
+    wideVisible && (await editor().inputValue()).includes('\\widehat{}'),
+    `${wideVisible ? '見えている' : '見えない'} / ${(await editor().inputValue()).slice(0, 24)}`,
   )
-  void before
 
-  // 0009の回帰。%CURSOR% を持つので選択範囲は消えずに中へ入る。
+  // 0009の回帰。%CURSOR% を持つので選択範囲が中へ入る。
   await resetState()
-  await editor().fill('x + 1')
+  await editor().fill('ABC')
   await editor().click()
   await page.keyboard.press('Control+a')
-  await openTab('括弧・構造')
-  await page.locator('.palette__item[title^="上に載せる（"]').click()
+  await openTab('基本')
+  await page.locator('.palette__item[title^="角（"]').click()
   const wrapped = await editor().inputValue()
-  check(
-    '`x + 1` を選んで「上に載せる」を押すと \\overset{x + 1}{=} になる',
-    wrapped === '\\overset{x + 1}{=}',
-    wrapped,
-  )
+  check('`ABC` を選んで「角」を押すと \\widehat{ABC} になる', wrapped === '\\widehat{ABC}', wrapped)
 
-  // 足した11件すべてを挿入して、どれもKaTeXでエラーにならないことを見る。
-  // **挿入した直後は中身が空**（`\tilde{}`）なので、そこで壊れないことも同時に見ている。
+  // 足した9件（0070）と移した6件（0068→0070）を順に挿入する。
+  // **挿入した直後は中身が空**（`\widehat{}`）なので、そこで壊れないことも見ている。
   await resetState()
   const addedTitles = [
-    'チルダ', '点1つ（時間微分）', '点2つ（2階の時間微分）', '上に載せる（等号の上に根拠）',
-    '下に載せる', '下の波括弧（説明を付ける）', '筆記体（集合・変換）', '白抜き（数の集合）',
-    '立体（単位・演算子）', '太字（ベクトル・行列）', '数式の中の文章',
+    // 0070で足した9件
+    'チェック', 'ブレーブ', 'アキュート', 'グレーブ',
+    '角（2文字以上に掛かる）', '広いチルダ', '幾何のベクトル', '下線', '上の波括弧',
+    // 0068で入れて0070で基本へ移した6件
+    'チルダ', '点1つ（時間微分）', '点2つ（2階の時間微分）',
+    '上に載せる（等号の上に根拠）', '下に載せる', '下の波括弧（説明を付ける）',
+    // 0068の書体5件（括弧・構造に残っている）
+    '筆記体（集合・変換）', '白抜き（数の集合）', '立体（単位・演算子）',
+    '太字（ベクトル・行列）', '数式の中の文章',
   ]
   await editor().fill('$$\n')
   const notFound = []
@@ -4081,16 +4116,15 @@ section('palette-decor', '装飾・書体（0068）', async () => {
   }
   await page.locator('.palette__search').fill('')
   check(
-    '足した記号11件すべてが検索で引ける',
-    notFound.length === 0 && addedTitles.length === 11,
+    '装飾・書体20件すべてが検索で引ける（0070で足した9件・移した6件・書体5件）',
+    notFound.length === 0 && addedTitles.length === 20,
     notFound.length === 0 ? `${addedTitles.length}件` : `引けない: ${notFound.join(' ')}`,
   )
-  // 中身が空のまま（何も書き足さずに）描かせる。
   await editor().fill(`${await editor().inputValue()}\n$$\n`)
   await page.waitForTimeout(500)
   const emptyErrors = await page.locator('.preview .katex-error').count()
   check(
-    '11件を挿入した直後（中身が空のまま）でも katex-error が出ない',
+    '20件を挿入した直後（中身が空のまま）でも katex-error が出ない',
     emptyErrors === 0,
     `${emptyErrors}件`,
   )
@@ -4098,85 +4132,123 @@ section('palette-decor', '装飾・書体（0068）', async () => {
   // 中身を書いた形でも描ける。
   await resetState()
   await editor().fill(
-    '$$\n\\tilde{x} + \\dot{y} + \\ddot{z} + \\overset{a}{=} + \\underset{b}{=} + \\underbrace{x}_{n}\n$$\n' +
-      '$$\n\\mathcal{F}(f) + \\mathbb{N} + \\mathrm{d}x + \\mathbf{v} + \\text{ただし } x > 0\n$$\n',
+    '$$\n\\check{x} + \\breve{y} + \\acute{z} + \\grave{w} + \\widehat{ABC} + \\widetilde{xy}\n$$\n' +
+      '$$\n\\overrightarrow{AB} + \\underline{x} + \\overbrace{a + b}^{n} + \\underbrace{c + d}_{m}\n$$\n' +
+      '$$\n\\tilde{x} + \\dot{y} + \\ddot{z} + \\overset{a}{=} + \\underset{b}{=}\n$$\n',
   )
-  await page.waitForTimeout(600)
+  await page.waitForTimeout(700)
   const filledErrors = await page.locator('.preview .katex-error').count()
   const blocks = await page.locator('.preview .katex-display').count()
   check(
-    '中身を書いた11件がブロック数式2つとして描かれ、katex-error が出ない',
-    filledErrors === 0 && blocks === 2,
+    '中身を書いた装飾がブロック数式3つとして描かれ、katex-error が出ない',
+    filledErrors === 0 && blocks === 3,
     `ブロック${blocks}個 / エラー${filledErrors}件`,
   )
   await page.screenshot({ path: `${OUT}/palette-decor.png` })
 
-  // 0064で入れた \mathcal{N}（正規分布）と今回の \mathcal{F}（筆記体）は用途が違う。
-  // 検索で並んで出ることを固定する（どちらかを消していないことの確認）。
+  // 検索で語から引けること（0070の背景で0件だった語）。
   await resetState()
+  await page.locator('.palette__search').fill('角')
+  const kakuSymbols = await page
+    .locator('.palette__items--results .palette__item')
+    .evaluateAll((els) =>
+      els.filter((el) => !el.classList.contains('palette__item--formula')).map((el) => el.getAttribute('title')),
+    )
+  await page.locator('.palette__items--results .palette__item:not(.palette__item--formula)').first().click()
+  check(
+    '検索欄に「角」と打つと記号が出て、押すと \\widehat{} が入る（0070の前は公式だけ）',
+    kakuSymbols.length > 0 && (await editor().inputValue()).includes('\\widehat{}'),
+    `記号${kakuSymbols.length}件 / ${kakuSymbols[0] ?? 'なし'}`,
+  )
+
+  // 線分は \overline と同じコマンドなので、2件目を置かずtooltipで引けるようにした。
+  await resetState()
+  await page.locator('.palette__search').fill('線分')
+  const segments = await page
+    .locator('.palette__items--results .palette__item')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('title')))
+  check(
+    '検索欄に「線分」と打つと \\overline が1件だけ出る（2か所に置いていない）',
+    segments.length === 1 && segments[0].startsWith('上線（標本平均・補集合・線分）'),
+    segments.join(' / '),
+  )
+
+  // 0064で入れた \mathcal{N}（正規分布）と0068の \mathcal{F}（筆記体）は用途が違う。
   await page.locator('.palette__search').fill('mathcal')
   const calTitles = await page
     .locator('.palette__items--results .palette__item')
     .evaluateAll((els) => els.map((el) => el.getAttribute('title')))
-  // 公式「標準化」も preview に \mathcal{N}(0, 1) を含むので当たる。件数は固定せず、
-  // 記号2件（用途の違う \mathcal が両方残っていること）を見る。
   check(
     '検索欄に mathcal と打つと筆記体と正規分布の両方が出る',
     calTitles.some((t) => t.startsWith('筆記体')) && calTitles.some((t) => t.startsWith('正規分布')),
     calTitles.join(' / '),
   )
-  await page.locator('.palette__search').fill('時間微分')
-  const dotInsert = await (async () => {
-    const was = await editor().inputValue()
-    await page.locator('.palette__items--results .palette__item').first().click()
-    return (await editor().inputValue()) !== was && (await editor().inputValue()).includes('\\dot{}')
-  })()
-  check('検索欄に「時間微分」と打って先頭を押すと \\dot{} が入る', dotInsert)
   await page.locator('.palette__search').fill('')
 
-  // --- 寸法（基本タブを1pxも動かしていないこと） ---
+  // 装飾が移ったので、括弧・構造の先頭は書体（筆記体）になる。
   await resetState()
-  const bandHeight = await paletteHeight()
-  check('幅1440pxでパレットの高さが845pxのまま', bandHeight === 845, `${bandHeight}px`)
   await openTab('括弧・構造')
+  const bracketsFirst = await items().first().getAttribute('title')
+  const bracketsCount = await items().count()
+  check(
+    '括弧・構造の先頭が筆記体で、11件になっている（装飾6件が基本へ移った）',
+    bracketsFirst.startsWith('筆記体') && bracketsCount === 11,
+    `${bracketsCount}件 / 先頭 ${bracketsFirst}`,
+  )
+
+  // --- 寸法（0070で合意した代価のとおりか） ---
+  await resetState()
+  check('幅1440pxでパレットの高さが845pxのまま', (await paletteHeight()) === 845, `${await paletteHeight()}px`)
+  check('幅1440pxでtextareaが815pxのまま（縦帯なので影響を受けない）', (await editorHeight()) === 815, `${await editorHeight()}px`)
   const bandScrolls = await page
     .locator('.palette')
     .evaluate((el) => el.scrollHeight > el.clientHeight)
-  check('幅1440pxの括弧・構造タブ（17件）で縦帯がスクロールしない', !bandScrolls)
+  check('幅1440pxの基本タブ（23件）で縦帯がスクロールしない', !bandScrolls)
 
-  await page.setViewportSize({ width: 1199, height: 900 })
-  await page.goto(URL, { waitUntil: 'networkidle' })
-  await ready()
-  const basic1199 = await paletteHeight()
-  check('幅1199pxで基本タブが94pxのまま（1pxも動いていない）', basic1199 === 94, `${basic1199}px`)
-  await openTab('括弧・構造')
-  const brackets1199 = await paletteHeight()
-  check('幅1199pxの括弧・構造タブが122pxのまま', brackets1199 === 122, `${brackets1199}px`)
+  // 横帯では初期表示のタブ（基本）が高くなる。公式タブは超えない。
+  for (const [w, palette, formulaLimit] of [[1199, 105, 180], [900, 177, 210], [721, 179, 269]]) {
+    await page.setViewportSize({ width: w, height: 900 })
+    await page.goto(URL, { waitUntil: 'networkidle' })
+    await ready()
+    const basic = await paletteHeight()
+    await openTab('公式')
+    const formula = await paletteHeight()
+    check(
+      `幅${w}pxで基本タブが${palette}pxで、公式タブ（${formulaLimit}px）を超えない`,
+      basic === palette && basic < formula,
+      `基本${basic}px / 公式${formula}px`,
+    )
+  }
 
-  // 幅900px・721pxでは伸びる。伸びてもその幅での最大（公式タブ）を超えない。
-  for (const [w, limit] of [[900, 194], [721, 207]]) {
+  // 0068で括弧・構造が伸びた分は元に戻っている。
+  for (const [w, limit] of [[900, 152], [721, 154]]) {
     await page.setViewportSize({ width: w, height: 900 })
     await page.goto(URL, { waitUntil: 'networkidle' })
     await ready()
     await openTab('括弧・構造')
     const brackets = await paletteHeight()
-    await openTab('公式')
-    const formula = await paletteHeight()
     check(
-      `幅${w}pxの括弧・構造タブが${limit}px以下で、公式タブ（${formula}px）を超えない`,
-      brackets <= limit && brackets < formula,
-      `括弧・構造${brackets}px / 公式${formula}px`,
+      `幅${w}pxの括弧・構造が${limit}pxに戻っている（0068では194px・207pxだった）`,
+      brackets === limit,
+      `${brackets}px`,
     )
   }
 
-  // 幅600px。基本タブは動かさない（読み込み中の飛びを作らないための要点）。
+  // 幅600pxは0032の蓋。textareaは323px残る。
   await page.setViewportSize({ width: 600, height: 900 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
-  const basic600 = await paletteHeight()
-  check('幅600pxで基本タブが100pxのまま（読み込み中の飛びを作らない）', basic600 === 100, `${basic600}px`)
+  check('幅600pxでパレットが141px（0032の蓋）', (await paletteHeight()) === 141, `${await paletteHeight()}px`)
+  check('幅600pxでtextareaが323px残る', (await editorHeight()) === 323, `${await editorHeight()}px`)
 
-  // 幅360pxは0032の蓋。
+  // 幅375pxは0032の基準（textarea 150px以上）を保つ。
+  await page.setViewportSize({ width: 375, height: 667 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const phoneEditor = await editorHeight()
+  check('幅375pxでtextareaが207pxのまま（0032の150px以上を保つ）', phoneEditor === 207, `${phoneEditor}px`)
+
+  // 幅360pxは件数で変わらない。
   await page.setViewportSize({ width: 360, height: 780 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
@@ -4192,12 +4264,11 @@ section('palette-decor', '装飾・書体（0068）', async () => {
     `${[...new Set(phoneHeights)].join(',')}px`,
   )
 
-  // 0053で踏んだはみ出しの回帰。幅1199pxでは17件が1行に収まるので、
-  // 2行になる幅721pxで見る。
-  await page.setViewportSize({ width: 721, height: 900 })
+  // 0053で踏んだはみ出しの回帰。基本は23件あるので幅1199pxでも2行になる。
+  await page.setViewportSize({ width: 900, height: 900 })
   await page.goto(URL, { waitUntil: 'networkidle' })
   await ready()
-  await openTab('括弧・構造')
+  await openTab('基本')
   const rows = await page.evaluate(
     () =>
       new Set(
@@ -4209,7 +4280,7 @@ section('palette-decor', '装飾・書体（0068）', async () => {
   const lastWas = await editor().inputValue()
   await items().last().click()
   check(
-    '幅721pxの括弧・構造タブでボタンが2行以上並び、最後の行のボタンが押せる',
+    '幅900pxの基本タブでボタンが2行以上並び、最後の行のボタンが押せる',
     rows >= 2 && (await editor().inputValue()) !== lastWas,
     `${rows}行`,
   )

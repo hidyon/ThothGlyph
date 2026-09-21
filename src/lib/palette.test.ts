@@ -163,8 +163,18 @@ describe('タブのアイコン', () => {
 
 // READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
 describe('READMEに書いた件数', () => {
-  it('記号は7グループ141件', () => {
+  it('記号は7グループ150件', () => {
     expect(paletteGroups).toHaveLength(7)
-    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(141)
+    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(150)
+  })
+
+  // 0070で装飾を `基本` に集めた。飛びが消えるのは件数に依るので
+  // （9〜13件では読み込み中だけ41px飛ぶ）、件数をここで固定する。
+  it('装飾は基本に集まっている（基本23件・括弧・構造11件）', () => {
+    const count = (name: string) =>
+      paletteGroups.find((group) => group.name.ja === name)?.items.length
+
+    expect(count('基本')).toBe(23)
+    expect(count('括弧・構造')).toBe(11)
   })
 })

@@ -52,6 +52,31 @@ export const paletteGroups: PaletteGroup[] = [
       { label: '\\bar{x}', snippet: `\\bar{${CURSOR_TOKEN}}`, title: t('バー', 'Bar') },
       { label: '\\vec{v}', snippet: `\\vec{${CURSOR_TOKEN}}`, title: t('ベクトル', 'Vector') },
       { label: '\\hat{x}', snippet: `\\hat{${CURSOR_TOKEN}}`, title: t('ハット', 'Hat') },
+      // ---- ここから装飾（0070でこのグループに集めた）----
+      // 0068では `括弧・構造` に置いていた。**基本は8件でちょうど1行の端**にいて、
+      // 9〜13件では読み込み中だけ2行になって0032の蓋に達し、KaTeXが届くと戻るため
+      // 41px飛ぶ。0070で23件まで増やしたので、ソース表示もKaTeX描画後も両方が
+      // 蓋に達し、飛びは消えている（幅600pxで141px / 141px）。
+      // **この境目はラベルの文字数で動く。装飾を減らすときは `loading` 区分を流すこと。**
+      //
+      // 並びは「1文字に掛かる → 2文字以上に掛かる → 上下に載せる」。
+      { label: '\\tilde{x}', snippet: `\\tilde{${CURSOR_TOKEN}}`, title: t('チルダ', 'Tilde') },
+      { label: '\\dot{x}', snippet: `\\dot{${CURSOR_TOKEN}}`, title: t('点1つ（時間微分）', 'Dot (time derivative)') },
+      { label: '\\ddot{x}', snippet: `\\ddot{${CURSOR_TOKEN}}`, title: t('点2つ（2階の時間微分）', 'Double dot') },
+      { label: '\\check{x}', snippet: `\\check{${CURSOR_TOKEN}}`, title: t('チェック', 'Check') },
+      { label: '\\breve{x}', snippet: `\\breve{${CURSOR_TOKEN}}`, title: t('ブレーブ', 'Breve') },
+      { label: '\\acute{x}', snippet: `\\acute{${CURSOR_TOKEN}}`, title: t('アキュート', 'Acute') },
+      { label: '\\grave{x}', snippet: `\\grave{${CURSOR_TOKEN}}`, title: t('グレーブ', 'Grave') },
+      // 2文字以上に掛かるもの。\hat \vec では1文字分しか掛からない（0070）。
+      { label: '\\widehat{ABC}', snippet: `\\widehat{${CURSOR_TOKEN}}`, title: t('角（2文字以上に掛かる）', 'Wide hat (angle)') },
+      { label: '\\widetilde{xy}', snippet: `\\widetilde{${CURSOR_TOKEN}}`, title: t('広いチルダ', 'Wide tilde') },
+      { label: '\\overrightarrow{AB}', snippet: `\\overrightarrow{${CURSOR_TOKEN}}`, title: t('幾何のベクトル', 'Vector (geometry)') },
+      { label: '\\underline{x}', snippet: `\\underline{${CURSOR_TOKEN}}`, title: t('下線', 'Underline') },
+      // 上下に載せるもの。
+      { label: '\\overset{a}{=}', snippet: `\\overset{${CURSOR_TOKEN}}{=}`, title: t('上に載せる（等号の上に根拠）', 'Overset') },
+      { label: '\\underset{a}{=}', snippet: `\\underset{${CURSOR_TOKEN}}{=}`, title: t('下に載せる', 'Underset') },
+      { label: '\\overbrace{x}^{a}', snippet: `\\overbrace{${CURSOR_TOKEN}}^{}`, title: t('上の波括弧', 'Overbrace') },
+      { label: '\\underbrace{x}_{a}', snippet: `\\underbrace{${CURSOR_TOKEN}}_{}`, title: t('下の波括弧（説明を付ける）', 'Underbrace') },
     ],
   },
   {
@@ -149,7 +174,9 @@ export const paletteGroups: PaletteGroup[] = [
       {
         label: '\\overline{X}',
         snippet: `\\overline{${CURSOR_TOKEN}}`,
-        title: t('上線（標本平均・補集合）', 'Overline (sample mean, complement)'),
+        // 線分 \overline{AB} も同じコマンド。2か所に置くと検索結果が重複するので、
+        // tooltipに「線分」を足して引けるようにしてある（0070）。
+        title: t('上線（標本平均・補集合・線分）', 'Overline (sample mean, complement, segment)'),
       },
       { label: 'P(A)', snippet: `P(${CURSOR_TOKEN})`, title: t('確率', 'Probability') },
       { label: '\\mathrm{E}[X]', snippet: `\\mathrm{E}[${CURSOR_TOKEN}]`, title: t('期待値', 'Expected value') },
@@ -234,41 +261,10 @@ export const paletteGroups: PaletteGroup[] = [
     name: t('括弧・構造', 'Brackets & structures'),
     icon: '{}',
     items: [
-      // ---- 装飾・書体（0068）----
-      // 名前は `括弧・構造` のままにしてある。`括弧・装飾・構造` へ変えると
-      // 英語表示で横帯の全幅（〜1199px）で検索欄が2行目に落ち、+34px奪うため
-      // （仕様の実測）。探す側は検索で引く前提で、tooltipに使う場面を入れている。
+      // ---- 書体（0068）----
+      // 装飾は0070で `基本` へ移したが、**書体は移していない**。
+      // 「中身を自分で決める入れ物」で、飾りを付けるのとは別の系統。
       //
-      // 装飾の同族（\bar \vec \hat）がある `基本` グループに置けないのは、
-      // **基本が8件でちょうど1行の端**にいるため。1件でも足すと読み込み中だけ
-      // 2行になって0032の蓋に達し、KaTeXが届いたときに41px飛ぶ（0064で踏んだ罠と同じ）。
-      // 飛びを消すには19件まで増やす必要があり、幅900pxで+53pxになる。
-      { label: '\\tilde{x}', snippet: `\\tilde{${CURSOR_TOKEN}}`, title: t('チルダ', 'Tilde') },
-      {
-        label: '\\dot{x}',
-        snippet: `\\dot{${CURSOR_TOKEN}}`,
-        title: t('点1つ（時間微分）', 'Dot (time derivative)'),
-      },
-      {
-        label: '\\ddot{x}',
-        snippet: `\\ddot{${CURSOR_TOKEN}}`,
-        title: t('点2つ（2階の時間微分）', 'Double dot'),
-      },
-      {
-        label: '\\overset{a}{=}',
-        snippet: `\\overset{${CURSOR_TOKEN}}{=}`,
-        title: t('上に載せる（等号の上に根拠）', 'Overset'),
-      },
-      {
-        label: '\\underset{a}{=}',
-        snippet: `\\underset{${CURSOR_TOKEN}}{=}`,
-        title: t('下に載せる', 'Underset'),
-      },
-      {
-        label: '\\underbrace{x}_{a}',
-        snippet: `\\underbrace{${CURSOR_TOKEN}}_{}`,
-        title: t('下の波括弧（説明を付ける）', 'Underbrace'),
-      },
       // 書体は「中身を自分で決める入れ物」。0064で入れた \mathcal{N}（正規分布）や
       // \mathbb{R}（実数全体）は完成した記号で、用途が違うので両方残す。
       // 検索では並んで出るため、tooltipで区別する。

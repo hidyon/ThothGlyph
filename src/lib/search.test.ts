@@ -130,4 +130,41 @@ describe('searchPalette', () => {
       }
     })
   })
+
+  // 0070の上飾り。`\hat` `\vec` は1文字分しか掛からないので、
+  // 2文字以上に掛かるものを引けることが要る。
+  describe('上飾り（0070）', () => {
+    const symbols = (query: string) =>
+      searchPalette(query)
+        .hits.filter((hit) => hit.kind === 'symbol')
+        .map((hit) => (hit.kind === 'symbol' ? hit.item.label : ''))
+
+    it('「角」で \\widehat が引ける（0070の前は公式だけが当たっていた）', () => {
+      expect(symbols('角')).toContain('\\widehat{ABC}')
+    })
+
+    it('「線分」で \\overline が引ける（同じコマンドなので2件目は置いていない）', () => {
+      const hits = symbols('線分')
+
+      expect(hits).toContain('\\overline{X}')
+      expect(hits).toHaveLength(1)
+    })
+
+    it('「geometry」で \\overrightarrow が引ける（表示言語によらない）', () => {
+      expect(symbols('geometry')).toContain('\\overrightarrow{AB}')
+    })
+
+    it('0070で0件だった語が引ける', () => {
+      for (const query of ['widehat', '広いチルダ', 'widetilde', '下線', 'underline', '上の波括弧', 'アキュート']) {
+        expect(searchPalette(query).hits.length, query).toBeGreaterThan(0)
+      }
+    })
+
+    // 括弧・構造から基本へ移した6件。移動で壊れていないことを見る。
+    it('移した6件がそのまま引ける', () => {
+      for (const query of ['チルダ', '時間微分', '上に載せる', '下に載せる', '下の波括弧']) {
+        expect(searchPalette(query).hits.length, query).toBeGreaterThan(0)
+      }
+    })
+  })
 })
