@@ -966,8 +966,8 @@ section('formula', '公式の挿入（0018）', async () => {
   await page.getByRole('tab', { name: '公式' }).click()
   const subTabs = await page.locator('.palette__tabs--sub .palette__tab').allInnerTexts()
   check(
-    '公式タブを押すと12分類の2段目タブが出る',
-    subTabs.length === 12 && subTabs.includes('方程式') && subTabs.includes('ベクトル'),
+    '公式タブを押すと15分類の2段目タブが出る',
+    subTabs.length === 15 && subTabs.includes('方程式') && subTabs.includes('ベクトル'),
     subTabs.join(' / '),
   )
 
@@ -1038,7 +1038,7 @@ section('formula', '公式の挿入（0018）', async () => {
     `${beforeVector} → ${await page.locator('.preview .katex-display').count()}`,
   )
 
-  // 幅600pxで2段目のタブが何行になるか。12分類に増えた影響を測る。
+  // 幅600pxで2段目のタブが何行になるか。15分類に増えた影響を測る。
   await page.setViewportSize({ width: 600, height: 900 })
   await page.waitForTimeout(200)
   const subTabRows = await page
@@ -1114,8 +1114,8 @@ section('i18n', '英語対応（0031）', async () => {
   await page.getByRole('tab', { name: 'Formulas' }).click()
   const subTabs = await page.locator('.palette__tabs--sub .palette__tab').allInnerTexts()
   check(
-    '公式の12分類が英語になる',
-    subTabs.length === 12 && subTabs.includes('Equations') && subTabs.includes('Vectors'),
+    '公式の15分類が英語になる',
+    subTabs.length === 15 && subTabs.includes('Equations') && subTabs.includes('Vectors'),
     subTabs.join(' / '),
   )
   await page.locator('.palette__tabs--sub').getByRole('tab', { name: 'Equations', exact: true }).click()
@@ -2186,8 +2186,8 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
   )
   const formulaHeights = Object.values(phone.formulas)
   check(
-    '幅375pxで、公式の12分類すべてが同じ高さ',
-    new Set(formulaHeights).size === 1 && formulaHeights.length === 12,
+    '幅375pxで、公式の15分類すべてが同じ高さ',
+    new Set(formulaHeights).size === 1 && formulaHeights.length === 15,
     `${formulaHeights.length}分類 / 高さ${[...new Set(formulaHeights)].join(',')}px`,
   )
 
@@ -2244,8 +2244,8 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
     .locator('.palette__tabs--sub > .palette__tab[aria-selected="true"]')
     .innerText()
   check(
-    '横スクロールで最後の分類（極限・不等式）に届き、押すとその公式が出る',
-    lastSub === '極限・不等式' && lastSubSelected === lastSub,
+    '横スクロールで最後の分類（集合と論理）に届き、押すとその公式が出る',
+    lastSub === '集合と論理' && lastSubSelected === lastSub,
     lastSubSelected,
   )
 
@@ -2275,7 +2275,9 @@ section('palette-height', 'パレットの高さ（0032）', async () => {
   const wideScrolls = await page
     .locator('.palette__panel > .palette__items')
     .evaluate((el) => el.scrollHeight > el.clientHeight)
-  check('幅1199pxの公式タブが157px以下のまま', wideFormula <= 157, `${wideFormula}px`)
+  // 0064で分類が12→15に増え、幅1199pxでは2段目のタブが1行→2行になった。
+  // 上限を157px→180pxに上げている（0064の仕様に実測つきで記録した）。
+  check('幅1199pxの公式タブが180px以下のまま', wideFormula <= 180, `${wideFormula}px`)
   check('幅1440pxでは一覧に縦スクロールが出ない', !wideScrolls)
   await page.screenshot({ path: `${OUT}/palette-wide.png` })
 
@@ -3766,6 +3768,261 @@ section('name', '名前の反映（0065）', async () => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.screenshot({ path: `${OUT}/name.png` })
   console.log(`スクリーンショット: ${OUT}/name.png`)
+})
+
+// ---- 0064: 統計・確率と集合・論理をパレットに足す ----
+
+section('palette-stats', '統計・確率と集合・論理（0064）', async () => {
+  const paletteHeight = async () => Math.round((await page.locator('.palette').boundingBox()).height)
+  const openTab = (name) => page.getByRole('tab', { name, exact: true }).first().click()
+  const openSub = (name) =>
+    page.locator('.palette__tabs--sub > .palette__tab', { hasText: name }).first().click()
+  /** 押す前後でソースがどう変わったか。挿入された文字列だけを返す。 */
+  const insertBy = async (clickTarget) => {
+    const before = await editor().inputValue()
+    await clickTarget()
+    const after = await editor().inputValue()
+    return { before, after, changed: after !== before }
+  }
+
+  await resetState()
+
+  // --- 記号（演算子・関係子・基本に足した28件） ---
+  await openTab('演算子')
+  const normal = page.locator('.palette__item[title^="正規分布（"]')
+  const normalVisible = (await normal.count()) === 1 && (await normal.isVisible())
+  const normalInsert = await insertBy(() => normal.click())
+  check(
+    '演算子タブに正規分布のボタンがあり、押すと \\mathcal{N}(, ) が入る',
+    normalVisible && normalInsert.after.includes('\\mathcal{N}(, )'),
+    normalInsert.after.slice(0, 40),
+  )
+
+  await openTab('関係子')
+  const simInsert = await insertBy(() => page.locator('.palette__item[title^="分布に従う（"]').click())
+  check(
+    '関係子タブの「分布に従う」を押すと \\sim が入る',
+    simInsert.after.includes('\\sim'),
+    simInsert.after.slice(0, 40),
+  )
+
+  // 足した28件すべてを順に押して、どれもKaTeXでエラーにならないことを見る。
+  // 単体テスト（palette.test.ts）はLaTeXを直接描画しているが、ここでは
+  // 「ボタンを押して挿入された文字列がプレビューで描ける」ところまで通す。
+  const addedTitles = [
+    '上線（標本平均・補集合）',
+    '確率', '期待値', '分散', '共分散', '正規分布', '二項分布', 'カイ二乗', '二項係数',
+    '和集合', '共通部分', '差集合', '和集合（添字つき）', '共通部分（添字つき）',
+    '分布に従う', '条件付き（縦棒）', '独立・垂直', '収束（矢印の上に記号）',
+    '属さない', '部分集合（等号つき）', '含む', '空集合', '実数全体',
+    'かつ', 'または', '否定', 'ゆえに', 'なぜならば',
+  ]
+  await editor().fill('$$\n')
+  const notFound = []
+  for (const title of addedTitles) {
+    await page.locator('.palette__search').fill(title)
+    const hit = page.locator('.palette__items--results .palette__item').first()
+    if ((await hit.count()) === 0) {
+      notFound.push(title)
+      continue
+    }
+    await hit.click()
+  }
+  await page.locator('.palette__search').fill('')
+  check(
+    `足した記号28件すべてが検索で引ける`,
+    notFound.length === 0 && addedTitles.length === 28,
+    notFound.length === 0 ? `${addedTitles.length}件` : `引けない: ${notFound.join(' ')}`,
+  )
+  await editor().fill(`${await editor().inputValue()}\n$$\n`)
+  await page.waitForTimeout(400)
+  const symbolErrors = await page.locator('.preview .katex-error').count()
+  check(
+    '足した記号28件を1つの式にまとめても katex-error が出ない',
+    symbolErrors === 0,
+    `${symbolErrors}件`,
+  )
+
+  // --- 公式（3分類15件） ---
+  await resetState()
+  await openTab('公式')
+  const subTabs = await page.locator('.palette__tabs--sub > .palette__tab').allInnerTexts()
+  check(
+    '公式の2段目に 確率・期待値・分散・集合と論理 の3分類が増えている',
+    subTabs.length === 15 &&
+      ['確率', '期待値・分散', '集合と論理'].every((name) => subTabs.includes(name)),
+    `${subTabs.length}分類: ${subTabs.slice(-3).join(' / ')}`,
+  )
+
+  await openSub('集合と論理')
+  const blocksBefore = await page.locator('.preview .katex-display').count()
+  await page
+    .locator('.palette__item--formula', { hasText: 'ド・モルガンの法則' })
+    .first()
+    .click()
+  await page.waitForTimeout(400)
+  const blocksAfter = await page.locator('.preview .katex-display').count()
+  check(
+    '「ド・モルガンの法則」を押すとプレビューのブロック数式が1つ増える',
+    blocksAfter === blocksBefore + 1,
+    `${blocksBefore} → ${blocksAfter}`,
+  )
+  check(
+    'ド・モルガンの法則の挿入で katex-error が出ない',
+    (await page.locator('.preview .katex-error').count()) === 0,
+  )
+
+  // 3分類15件すべてを順に挿入して、どれも描けることを見る。
+  await resetState()
+  await openTab('公式')
+  let inserted = 0
+  for (const group of ['確率', '期待値・分散', '集合と論理']) {
+    await openSub(group)
+    const buttons = page.locator('.palette__item--formula')
+    const count = await buttons.count()
+    for (let i = 0; i < count; i += 1) {
+      await buttons.nth(i).click()
+      inserted += 1
+    }
+  }
+  await page.waitForTimeout(600)
+  const formulaErrors = await page.locator('.preview .katex-error').count()
+  check(
+    '足した公式15件すべてを挿入しても katex-error が出ない',
+    inserted === 15 && formulaErrors === 0,
+    `${inserted}件挿入 / エラー${formulaErrors}件`,
+  )
+  await page.screenshot({ path: `${OUT}/palette-stats-formulas.png` })
+
+  // --- 検索で語から引けること（0064の背景で0件だった語） ---
+  await resetState()
+  for (const [query, expected] of [
+    ['正規分布', '\\mathcal{N}'],
+    ['covariance', '\\mathrm{Cov}'],
+  ]) {
+    await page.locator('.palette__search').fill(query)
+    const labels = await page
+      .locator('.palette__items--results .palette__item')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('title')))
+    const hitInsert = await insertBy(() =>
+      page.locator('.palette__items--results .palette__item').first().click(),
+    )
+    check(
+      `検索欄に「${query}」と打つと結果が出て、先頭を押すと ${expected} が入る`,
+      labels.length > 0 && hitInsert.after.includes(expected),
+      `${labels.length}件 / 先頭 ${labels[0] ?? 'なし'}`,
+    )
+    await resetState()
+  }
+
+  // 線形代数はこの仕様の範囲外。引けないままであることを固定する（スコープの記録）。
+  await page.locator('.palette__search').fill('転置')
+  const emptyText = await page.locator('.palette__empty').innerText()
+  check(
+    '検索欄に「転置」と打つと「一致する記号がありません」が出る（線形代数は範囲外）',
+    emptyText.includes('一致する記号がありません'),
+    emptyText,
+  )
+  await page.locator('.palette__search').fill('')
+
+  // --- 寸法（足しても画面を悪くしていないこと） ---
+  await resetState()
+
+  // 幅1440px（縦帯）。帯の高さは変わらず、記号タブではスクロールも出ない。
+  const bandHeight = await paletteHeight()
+  check('幅1440pxでパレットの高さが845pxのまま', bandHeight === 845, `${bandHeight}px`)
+  await openTab('関係子')
+  const bandScrolls = await page
+    .locator('.palette')
+    .evaluate((el) => el.scrollHeight > el.clientHeight)
+  check('幅1440pxの関係子タブ（28件）で縦帯がスクロールしない', !bandScrolls)
+  await openTab('公式')
+  const bandScroll = await page.locator('.palette').evaluate((el) => Math.round(el.scrollHeight))
+  check(
+    '幅1440pxの公式タブの中身が1100px以下（実装前989px）',
+    bandScroll <= 1100,
+    `${bandScroll}px`,
+  )
+  await page.screenshot({ path: `${OUT}/palette-stats-band.png` })
+
+  // 幅1199px（横帯）。既存の最大（ギリシャ小文字31件＝136px）を超えない。
+  await page.setViewportSize({ width: 1199, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await openTab('関係子')
+  const relations = await paletteHeight()
+  await openTab('ギリシャ小文字')
+  const greekLower = await paletteHeight()
+  check(
+    '幅1199pxの関係子タブ（28件）が、ギリシャ小文字（31件）の高さを超えない',
+    relations <= greekLower,
+    `関係子${relations}px / ギリシャ小文字${greekLower}px`,
+  )
+  await openTab('演算子')
+  const operators = await paletteHeight()
+  check(
+    '幅1199pxの演算子タブ（26件）が136px以下',
+    operators <= 136,
+    `${operators}px`,
+  )
+  await openTab('基本')
+  const basic = await paletteHeight()
+  check('幅1199pxの基本タブ（8件のまま）が94pxのまま', basic === 94, `${basic}px`)
+
+  // タブを増やしていないので、検索欄が2行目に落ち始める幅は変わらない。
+  const searchRow = await page.evaluate(() => {
+    const tab = document.querySelector('.palette__bar > .palette__tabs > .palette__tab:last-child')
+    const search = document.querySelector('.palette__search')
+    return Math.abs(tab.getBoundingClientRect().top - search.getBoundingClientRect().top) < 4
+  })
+  check('幅1199pxで検索欄がタブと同じ行に残っている（タブを増やしていない）', searchRow)
+
+  // 幅360px。0032の蓋が効いているので件数では変わらない。
+  await page.setViewportSize({ width: 360, height: 780 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const phoneHeights = []
+  for (const name of await tabLabels('.palette__bar > .palette__tabs > .palette__tab')) {
+    if (name === '公式') continue
+    await openTab(name)
+    phoneHeights.push(await paletteHeight())
+  }
+  // 141pxは日本語表示の値（タブ行が2行）。英語では138px。
+  // どちらも0032の蓋に達しているので、件数を足しても変わらない
+  // （変更前の8タブ全てと同じ値であることを実測で確かめた）。
+  check(
+    '幅360pxで記号のどのタブでもパレットの高さが141px（0032の蓋。英語では138px）',
+    phoneHeights.every((h) => h === 141 || h === 138) && new Set(phoneHeights).size === 1,
+    `${[...new Set(phoneHeights)].join(',')}px`,
+  )
+
+  // 0053で踏んだはみ出しの回帰。2行以上並ぶタブで下の行のボタンが押せること。
+  await page.setViewportSize({ width: 1199, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await openTab('関係子')
+  const rows = await page.evaluate(
+    () =>
+      new Set(
+        [...document.querySelectorAll('.palette__items > .palette__item')].map((el) =>
+          Math.round(el.getBoundingClientRect().top),
+        ),
+      ).size,
+  )
+  const lastRowInsert = await insertBy(() =>
+    page.locator('.palette__items > .palette__item').last().click(),
+  )
+  check(
+    '関係子タブでボタンが2行以上並び、最後の行のボタンが押せる',
+    rows >= 2 && lastRowInsert.changed,
+    `${rows}行`,
+  )
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await resetState()
+  console.log(
+    `スクリーンショット: ${OUT}/palette-stats-formulas.png, ${OUT}/palette-stats-band.png`,
+  )
 })
 
 // ---- 実行 ----

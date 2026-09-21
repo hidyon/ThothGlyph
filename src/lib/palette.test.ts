@@ -163,8 +163,8 @@ describe('タブのアイコン', () => {
 
 // READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
 describe('READMEに書いた件数', () => {
-  it('記号は7グループ102件', () => {
+  it('記号は7グループ130件', () => {
     expect(paletteGroups).toHaveLength(7)
-    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(102)
+    expect(paletteGroups.reduce((total, group) => total + group.items.length, 0)).toBe(130)
   })
 })

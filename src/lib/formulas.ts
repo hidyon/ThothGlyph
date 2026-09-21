@@ -165,6 +165,81 @@ export const formulaGroups: FormulaGroup[] = [
       formula(t('三角不等式', 'Triangle inequality'), '|a + b| \\leq |a| + |b|'),
     ],
   },
+  // ---- ここから0064で足した3分類。既存の12分類は並びも中身も動かしていない。
+  // 1分類を10件に太らせると横帯で1件あたり約60px増えるので、
+  // 5件のまま分類を足すほうを採った（分類ごと約32px。仕様の実測）。
+  {
+    name: t('確率', 'Probability'),
+    formulas: [
+      formula(t('ベイズの定理', "Bayes' theorem"), 'P(A \\mid B) = \\frac{P(B \\mid A)\\, P(A)}{P(B)}'),
+      formula(
+        t('全確率の公式', 'Law of total probability'),
+        'P(B) = \\sum_{i=1}^{n} P(B \\mid A_i)\\, P(A_i)',
+      ),
+      formula(
+        t('独立なときの積', 'Product rule for independent events'),
+        'P(A \\cap B) = P(A)\\, P(B)',
+      ),
+      formula(
+        t('二項分布', 'Binomial distribution'),
+        'P(X = k) = \\binom{n}{k} p^k (1 - p)^{n - k}',
+      ),
+      formula(
+        t('正規分布の確率密度', 'Normal density'),
+        'f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left(-\\frac{(x - \\mu)^2}{2\\sigma^2}\\right)',
+      ),
+    ],
+  },
+  {
+    name: t('期待値・分散', 'Expectation & variance'),
+    formulas: [
+      formula(
+        t('期待値の線形性', 'Linearity of expectation'),
+        '\\mathrm{E}(aX + b) = a\\,\\mathrm{E}(X) + b',
+      ),
+      formula(
+        t('分散の定義', 'Variance'),
+        '\\mathrm{Var}(X) = \\mathrm{E}(X^2) - \\{\\mathrm{E}(X)\\}^2',
+      ),
+      formula(
+        t('共分散', 'Covariance'),
+        '\\mathrm{Cov}(X, Y) = \\mathrm{E}(XY) - \\mathrm{E}(X)\\,\\mathrm{E}(Y)',
+      ),
+      formula(
+        t('相関係数', 'Correlation coefficient'),
+        'r = \\frac{\\mathrm{Cov}(X, Y)}{\\sqrt{\\mathrm{Var}(X)}\\sqrt{\\mathrm{Var}(Y)}}',
+      ),
+      formula(
+        t('標準化', 'Standardization'),
+        'Z = \\frac{X - \\mu}{\\sigma} \\sim \\mathcal{N}(0, 1)',
+      ),
+    ],
+  },
+  {
+    name: t('集合と論理', 'Sets & logic'),
+    formulas: [
+      formula(
+        t('ド・モルガンの法則', "De Morgan's laws"),
+        '\\overline{A \\cup B} = \\overline{A} \\cap \\overline{B}',
+      ),
+      formula(
+        t('包除原理', 'Inclusion-exclusion'),
+        '|A \\cup B| = |A| + |B| - |A \\cap B|',
+      ),
+      formula(
+        t('分配法則', 'Distributive law'),
+        'A \\cap (B \\cup C) = (A \\cap B) \\cup (A \\cap C)',
+      ),
+      formula(
+        t('対偶', 'Contraposition'),
+        '(P \\Rightarrow Q) \\iff (\\neg Q \\Rightarrow \\neg P)',
+      ),
+      formula(
+        t('全称の否定', 'Negation of a quantifier'),
+        '\\neg \\forall x \\, P(x) \\iff \\exists x \\, \\neg P(x)',
+      ),
+    ],
+  },
 ]
 
 /** 全グループを平らにした一覧。テストと検索で使う。 */
