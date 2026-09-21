@@ -79,6 +79,7 @@
 | [0067](0067-palette-linear-algebra.md) | パレットに線形代数の記号と公式がない | open | — |
 | [0068](0068-palette-decorations.md) | パレットに装飾・書体の記号がない | closed | [仕様](../specs/0068-palette-decorations.md) |
 | [0069](0069-flaky-timing-mark.md) | フレークするチェックに `⏱` が付いていない | open | — |
+| [0070](0070-wide-accents.md) | 2文字以上に掛かる上飾りがなく、装飾が2グループに散っている | open | — |
 
 ## 着手順の目安
 
