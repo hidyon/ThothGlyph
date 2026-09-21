@@ -4025,6 +4025,200 @@ section('palette-stats', '統計・確率と集合・論理（0064）', async ()
   )
 })
 
+// ---- 0068: 装飾・書体をパレットに足す ----
+
+section('palette-decor', '装飾・書体（0068）', async () => {
+  const paletteHeight = async () => Math.round((await page.locator('.palette').boundingBox()).height)
+  const openTab = (name) => page.getByRole('tab', { name, exact: true }).first().click()
+  const items = () => page.locator('.palette__items > .palette__item, .palette__panel > .palette__items > .palette__item')
+
+  await resetState()
+  await openTab('括弧・構造')
+
+  // 足した11件は既存6件の前に並ぶ。先頭がチルダであることで並びを固定する。
+  const firstTitle = await items().first().getAttribute('title')
+  const before = await editor().inputValue()
+  await items().first().click()
+  check(
+    '括弧・構造タブの先頭がチルダで、押すと \\tilde{} が入る',
+    firstTitle.startsWith('チルダ（') && (await editor().inputValue()).includes('\\tilde{}'),
+    firstTitle,
+  )
+  void before
+
+  // 0009の回帰。%CURSOR% を持つので選択範囲は消えずに中へ入る。
+  await resetState()
+  await editor().fill('x + 1')
+  await editor().click()
+  await page.keyboard.press('Control+a')
+  await openTab('括弧・構造')
+  await page.locator('.palette__item[title^="上に載せる（"]').click()
+  const wrapped = await editor().inputValue()
+  check(
+    '`x + 1` を選んで「上に載せる」を押すと \\overset{x + 1}{=} になる',
+    wrapped === '\\overset{x + 1}{=}',
+    wrapped,
+  )
+
+  // 足した11件すべてを挿入して、どれもKaTeXでエラーにならないことを見る。
+  // **挿入した直後は中身が空**（`\tilde{}`）なので、そこで壊れないことも同時に見ている。
+  await resetState()
+  const addedTitles = [
+    'チルダ', '点1つ（時間微分）', '点2つ（2階の時間微分）', '上に載せる（等号の上に根拠）',
+    '下に載せる', '下の波括弧（説明を付ける）', '筆記体（集合・変換）', '白抜き（数の集合）',
+    '立体（単位・演算子）', '太字（ベクトル・行列）', '数式の中の文章',
+  ]
+  await editor().fill('$$\n')
+  const notFound = []
+  for (const title of addedTitles) {
+    await page.locator('.palette__search').fill(title)
+    const hit = page.locator('.palette__items--results .palette__item').first()
+    if ((await hit.count()) === 0) {
+      notFound.push(title)
+      continue
+    }
+    await hit.click()
+  }
+  await page.locator('.palette__search').fill('')
+  check(
+    '足した記号11件すべてが検索で引ける',
+    notFound.length === 0 && addedTitles.length === 11,
+    notFound.length === 0 ? `${addedTitles.length}件` : `引けない: ${notFound.join(' ')}`,
+  )
+  // 中身が空のまま（何も書き足さずに）描かせる。
+  await editor().fill(`${await editor().inputValue()}\n$$\n`)
+  await page.waitForTimeout(500)
+  const emptyErrors = await page.locator('.preview .katex-error').count()
+  check(
+    '11件を挿入した直後（中身が空のまま）でも katex-error が出ない',
+    emptyErrors === 0,
+    `${emptyErrors}件`,
+  )
+
+  // 中身を書いた形でも描ける。
+  await resetState()
+  await editor().fill(
+    '$$\n\\tilde{x} + \\dot{y} + \\ddot{z} + \\overset{a}{=} + \\underset{b}{=} + \\underbrace{x}_{n}\n$$\n' +
+      '$$\n\\mathcal{F}(f) + \\mathbb{N} + \\mathrm{d}x + \\mathbf{v} + \\text{ただし } x > 0\n$$\n',
+  )
+  await page.waitForTimeout(600)
+  const filledErrors = await page.locator('.preview .katex-error').count()
+  const blocks = await page.locator('.preview .katex-display').count()
+  check(
+    '中身を書いた11件がブロック数式2つとして描かれ、katex-error が出ない',
+    filledErrors === 0 && blocks === 2,
+    `ブロック${blocks}個 / エラー${filledErrors}件`,
+  )
+  await page.screenshot({ path: `${OUT}/palette-decor.png` })
+
+  // 0064で入れた \mathcal{N}（正規分布）と今回の \mathcal{F}（筆記体）は用途が違う。
+  // 検索で並んで出ることを固定する（どちらかを消していないことの確認）。
+  await resetState()
+  await page.locator('.palette__search').fill('mathcal')
+  const calTitles = await page
+    .locator('.palette__items--results .palette__item')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('title')))
+  // 公式「標準化」も preview に \mathcal{N}(0, 1) を含むので当たる。件数は固定せず、
+  // 記号2件（用途の違う \mathcal が両方残っていること）を見る。
+  check(
+    '検索欄に mathcal と打つと筆記体と正規分布の両方が出る',
+    calTitles.some((t) => t.startsWith('筆記体')) && calTitles.some((t) => t.startsWith('正規分布')),
+    calTitles.join(' / '),
+  )
+  await page.locator('.palette__search').fill('時間微分')
+  const dotInsert = await (async () => {
+    const was = await editor().inputValue()
+    await page.locator('.palette__items--results .palette__item').first().click()
+    return (await editor().inputValue()) !== was && (await editor().inputValue()).includes('\\dot{}')
+  })()
+  check('検索欄に「時間微分」と打って先頭を押すと \\dot{} が入る', dotInsert)
+  await page.locator('.palette__search').fill('')
+
+  // --- 寸法（基本タブを1pxも動かしていないこと） ---
+  await resetState()
+  const bandHeight = await paletteHeight()
+  check('幅1440pxでパレットの高さが845pxのまま', bandHeight === 845, `${bandHeight}px`)
+  await openTab('括弧・構造')
+  const bandScrolls = await page
+    .locator('.palette')
+    .evaluate((el) => el.scrollHeight > el.clientHeight)
+  check('幅1440pxの括弧・構造タブ（17件）で縦帯がスクロールしない', !bandScrolls)
+
+  await page.setViewportSize({ width: 1199, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const basic1199 = await paletteHeight()
+  check('幅1199pxで基本タブが94pxのまま（1pxも動いていない）', basic1199 === 94, `${basic1199}px`)
+  await openTab('括弧・構造')
+  const brackets1199 = await paletteHeight()
+  check('幅1199pxの括弧・構造タブが122pxのまま', brackets1199 === 122, `${brackets1199}px`)
+
+  // 幅900px・721pxでは伸びる。伸びてもその幅での最大（公式タブ）を超えない。
+  for (const [w, limit] of [[900, 194], [721, 207]]) {
+    await page.setViewportSize({ width: w, height: 900 })
+    await page.goto(URL, { waitUntil: 'networkidle' })
+    await ready()
+    await openTab('括弧・構造')
+    const brackets = await paletteHeight()
+    await openTab('公式')
+    const formula = await paletteHeight()
+    check(
+      `幅${w}pxの括弧・構造タブが${limit}px以下で、公式タブ（${formula}px）を超えない`,
+      brackets <= limit && brackets < formula,
+      `括弧・構造${brackets}px / 公式${formula}px`,
+    )
+  }
+
+  // 幅600px。基本タブは動かさない（読み込み中の飛びを作らないための要点）。
+  await page.setViewportSize({ width: 600, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const basic600 = await paletteHeight()
+  check('幅600pxで基本タブが100pxのまま（読み込み中の飛びを作らない）', basic600 === 100, `${basic600}px`)
+
+  // 幅360pxは0032の蓋。
+  await page.setViewportSize({ width: 360, height: 780 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  const phoneHeights = []
+  for (const name of await tabLabels('.palette__bar > .palette__tabs > .palette__tab')) {
+    if (name === '公式') continue
+    await openTab(name)
+    phoneHeights.push(await paletteHeight())
+  }
+  check(
+    '幅360pxで記号のどのタブでもパレットの高さが141px（0032の蓋）',
+    phoneHeights.every((h) => h === 141),
+    `${[...new Set(phoneHeights)].join(',')}px`,
+  )
+
+  // 0053で踏んだはみ出しの回帰。幅1199pxでは17件が1行に収まるので、
+  // 2行になる幅721pxで見る。
+  await page.setViewportSize({ width: 721, height: 900 })
+  await page.goto(URL, { waitUntil: 'networkidle' })
+  await ready()
+  await openTab('括弧・構造')
+  const rows = await page.evaluate(
+    () =>
+      new Set(
+        [...document.querySelectorAll('.palette__items > .palette__item')].map((el) =>
+          Math.round(el.getBoundingClientRect().top),
+        ),
+      ).size,
+  )
+  const lastWas = await editor().inputValue()
+  await items().last().click()
+  check(
+    '幅721pxの括弧・構造タブでボタンが2行以上並び、最後の行のボタンが押せる',
+    rows >= 2 && (await editor().inputValue()) !== lastWas,
+    `${rows}行`,
+  )
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await resetState()
+  console.log(`スクリーンショット: ${OUT}/palette-decor.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)

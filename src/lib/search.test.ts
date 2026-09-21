@@ -102,4 +102,32 @@ describe('searchPalette', () => {
       }
     })
   })
+
+  // 0068の装飾・書体。`基本` ではなく `括弧・構造` に置いたので、
+  // **グループ名からは見つからない**。検索で引けることがそのぶん重要。
+  describe('装飾・書体（0068）', () => {
+    const labels = (query: string) =>
+      searchPalette(query).hits.map((hit) => (hit.kind === 'symbol' ? hit.item.label : hit.formula.name.ja))
+
+    it('「時間微分」で \\dot が引ける（「ドット」とだけ書いていたら引けない）', () => {
+      expect(labels('時間微分')).toContain('\\dot{x}')
+    })
+
+    it('「blackboard」で \\mathbb が引ける（表示言語によらない）', () => {
+      expect(labels('blackboard')).toContain('\\mathbb{N}')
+    })
+
+    it('「mathcal」では筆記体と正規分布の両方が出る（用途が違うので両方残してある）', () => {
+      const hits = labels('mathcal')
+
+      expect(hits).toContain('\\mathcal{F}')
+      expect(hits).toContain('\\mathcal{N}(\\mu, \\sigma^2)')
+    })
+
+    it('0068で0件だった語が引ける', () => {
+      for (const query of ['tilde', 'チルダ', 'overset', '上に載せる', '筆記体', '太字']) {
+        expect(searchPalette(query).hits.length, query).toBeGreaterThan(0)
+      }
+    })
+  })
 })

@@ -234,6 +234,70 @@ export const paletteGroups: PaletteGroup[] = [
     name: t('括弧・構造', 'Brackets & structures'),
     icon: '{}',
     items: [
+      // ---- 装飾・書体（0068）----
+      // 名前は `括弧・構造` のままにしてある。`括弧・装飾・構造` へ変えると
+      // 英語表示で横帯の全幅（〜1199px）で検索欄が2行目に落ち、+34px奪うため
+      // （仕様の実測）。探す側は検索で引く前提で、tooltipに使う場面を入れている。
+      //
+      // 装飾の同族（\bar \vec \hat）がある `基本` グループに置けないのは、
+      // **基本が8件でちょうど1行の端**にいるため。1件でも足すと読み込み中だけ
+      // 2行になって0032の蓋に達し、KaTeXが届いたときに41px飛ぶ（0064で踏んだ罠と同じ）。
+      // 飛びを消すには19件まで増やす必要があり、幅900pxで+53pxになる。
+      { label: '\\tilde{x}', snippet: `\\tilde{${CURSOR_TOKEN}}`, title: t('チルダ', 'Tilde') },
+      {
+        label: '\\dot{x}',
+        snippet: `\\dot{${CURSOR_TOKEN}}`,
+        title: t('点1つ（時間微分）', 'Dot (time derivative)'),
+      },
+      {
+        label: '\\ddot{x}',
+        snippet: `\\ddot{${CURSOR_TOKEN}}`,
+        title: t('点2つ（2階の時間微分）', 'Double dot'),
+      },
+      {
+        label: '\\overset{a}{=}',
+        snippet: `\\overset{${CURSOR_TOKEN}}{=}`,
+        title: t('上に載せる（等号の上に根拠）', 'Overset'),
+      },
+      {
+        label: '\\underset{a}{=}',
+        snippet: `\\underset{${CURSOR_TOKEN}}{=}`,
+        title: t('下に載せる', 'Underset'),
+      },
+      {
+        label: '\\underbrace{x}_{a}',
+        snippet: `\\underbrace{${CURSOR_TOKEN}}_{}`,
+        title: t('下の波括弧（説明を付ける）', 'Underbrace'),
+      },
+      // 書体は「中身を自分で決める入れ物」。0064で入れた \mathcal{N}（正規分布）や
+      // \mathbb{R}（実数全体）は完成した記号で、用途が違うので両方残す。
+      // 検索では並んで出るため、tooltipで区別する。
+      {
+        label: '\\mathcal{F}',
+        snippet: `\\mathcal{${CURSOR_TOKEN}}`,
+        title: t('筆記体（集合・変換）', 'Calligraphic'),
+      },
+      {
+        label: '\\mathbb{N}',
+        snippet: `\\mathbb{${CURSOR_TOKEN}}`,
+        title: t('白抜き（数の集合）', 'Blackboard bold'),
+      },
+      {
+        label: '\\mathrm{d}',
+        snippet: `\\mathrm{${CURSOR_TOKEN}}`,
+        title: t('立体（単位・演算子）', 'Roman (upright)'),
+      },
+      {
+        label: '\\mathbf{v}',
+        snippet: `\\mathbf{${CURSOR_TOKEN}}`,
+        title: t('太字（ベクトル・行列）', 'Bold'),
+      },
+      {
+        label: '\\text{文字}',
+        snippet: `\\text{${CURSOR_TOKEN}}`,
+        title: t('数式の中の文章', 'Text in math'),
+      },
+      // ---- ここから0068より前からある6件 ----
       {
         label: '\\left( x \\right)',
         snippet: `\\left( ${CURSOR_TOKEN} \\right)`,
