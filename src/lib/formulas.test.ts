@@ -9,9 +9,9 @@ import { renderMarkdown } from './renderMarkdown'
 const inserted = (snippet: string) => snippet.replaceAll(CURSOR_TOKEN, '')
 
 describe('formulaGroups', () => {
-  it('12分類・60件ある', () => {
-    expect(formulaGroups).toHaveLength(12)
-    expect(allFormulas).toHaveLength(60)
+  it('15分類・75件ある', () => {
+    expect(formulaGroups).toHaveLength(15)
+    expect(allFormulas).toHaveLength(75)
   })
 
   it('各分類が5件ずつ持つ', () => {
@@ -86,8 +86,8 @@ describe('公式のLaTeX', () => {
 
 // READMEに書いた件数（0035）。数が変わったらここが落ちるので、README側も直す。
 describe('READMEに書いた件数', () => {
-  it('公式は12分類60件', () => {
-    expect(formulaGroups).toHaveLength(12)
-    expect(allFormulas).toHaveLength(60)
+  it('公式は15分類75件', () => {
+    expect(formulaGroups).toHaveLength(15)
+    expect(allFormulas).toHaveLength(75)
   })
 })

@@ -137,6 +137,54 @@ export const paletteGroups: PaletteGroup[] = [
       { label: '\\times', snippet: '\\times ', title: t('乗算', 'Multiplication') },
       { label: '\\div', snippet: '\\div ', title: t('除算', 'Division') },
       { label: '\\cdot', snippet: '\\cdot ', title: t('ドット積', 'Dot product') },
+      // ---- 統計・確率（0064）----
+      // 分布名（\mathcal{N} など）は厳密には演算子ではないが、P・E・Var・Cov と
+      // 並べたほうが探す側の手数が少ない。タブを増やすと検索欄が2行目に落ちるため
+      // 新しいタブは作らない（仕様の実測）。
+      //
+      // \overline{X} を装飾のある「基本」ではなくここに置いたのは、**基本タブの
+      // 9件目にすると読み込み中だけパレットが41px高くなる**ため（ラベルのソース
+      // 表示は文字数が多く、幅600pxで1行増える。0024の「読み込み前後で飛ばない」が
+      // 落ちた）。標本平均・補集合として足した記号なので、統計の側にあって困らない。
+      {
+        label: '\\overline{X}',
+        snippet: `\\overline{${CURSOR_TOKEN}}`,
+        title: t('上線（標本平均・補集合）', 'Overline (sample mean, complement)'),
+      },
+      { label: 'P(A)', snippet: `P(${CURSOR_TOKEN})`, title: t('確率', 'Probability') },
+      { label: '\\mathrm{E}[X]', snippet: `\\mathrm{E}[${CURSOR_TOKEN}]`, title: t('期待値', 'Expected value') },
+      { label: '\\mathrm{Var}(X)', snippet: `\\mathrm{Var}(${CURSOR_TOKEN})`, title: t('分散', 'Variance') },
+      {
+        label: '\\mathrm{Cov}(X, Y)',
+        snippet: `\\mathrm{Cov}(${CURSOR_TOKEN}, )`,
+        title: t('共分散', 'Covariance'),
+      },
+      {
+        label: '\\mathcal{N}(\\mu, \\sigma^2)',
+        snippet: `\\mathcal{N}(${CURSOR_TOKEN}, )`,
+        title: t('正規分布', 'Normal distribution'),
+      },
+      {
+        label: '\\mathrm{Bin}(n, p)',
+        snippet: `\\mathrm{Bin}(${CURSOR_TOKEN}, )`,
+        title: t('二項分布', 'Binomial distribution'),
+      },
+      { label: '\\chi^2', snippet: '\\chi^2 ', title: t('カイ二乗', 'Chi-squared') },
+      { label: '\\binom{n}{k}', snippet: `\\binom{${CURSOR_TOKEN}}{}`, title: t('二項係数', 'Binomial coefficient') },
+      // ---- 集合（0064）----
+      { label: '\\cup', snippet: '\\cup ', title: t('和集合', 'Union') },
+      { label: '\\cap', snippet: '\\cap ', title: t('共通部分', 'Intersection') },
+      { label: '\\setminus', snippet: '\\setminus ', title: t('差集合', 'Set difference') },
+      {
+        label: '\\bigcup_{i=1}^{n}',
+        snippet: `\\bigcup_{${CURSOR_TOKEN}}^{}`,
+        title: t('和集合（添字つき）', 'Union (indexed)'),
+      },
+      {
+        label: '\\bigcap_{i=1}^{n}',
+        snippet: `\\bigcap_{${CURSOR_TOKEN}}^{}`,
+        title: t('共通部分（添字つき）', 'Intersection (indexed)'),
+      },
     ],
   },
   {
@@ -157,6 +205,29 @@ export const paletteGroups: PaletteGroup[] = [
       { label: '\\infty', snippet: '\\infty ', title: t('無限大', 'Infinity') },
       { label: '\\forall', snippet: '\\forall ', title: t('全称', 'For all') },
       { label: '\\exists', snippet: '\\exists ', title: t('存在', 'There exists') },
+      // ---- 統計・確率（0064）----
+      // tooltipは記号の呼び名ではなく「使う場面の名前」にする。検索（0011）が
+      // 照合するのは label と title だけなので、\sim を「チルダ」と書くと
+      // 「分布に従う」で引けない。
+      { label: '\\sim', snippet: '\\sim ', title: t('分布に従う', 'Distributed as') },
+      { label: '\\mid', snippet: '\\mid ', title: t('条件付き（縦棒）', 'Conditional (mid)') },
+      { label: '\\perp', snippet: '\\perp ', title: t('独立・垂直', 'Independent, perpendicular') },
+      {
+        label: '\\xrightarrow{d}',
+        snippet: `\\xrightarrow{${CURSOR_TOKEN}}`,
+        title: t('収束（矢印の上に記号）', 'Convergence (labeled arrow)'),
+      },
+      // ---- 集合・論理（0064）----
+      { label: '\\notin', snippet: '\\notin ', title: t('属さない', 'Not an element of') },
+      { label: '\\subseteq', snippet: '\\subseteq ', title: t('部分集合（等号つき）', 'Subset or equal') },
+      { label: '\\supset', snippet: '\\supset ', title: t('含む', 'Superset') },
+      { label: '\\emptyset', snippet: '\\emptyset ', title: t('空集合', 'Empty set') },
+      { label: '\\mathbb{R}', snippet: '\\mathbb{R} ', title: t('実数全体', 'Real numbers') },
+      { label: '\\land', snippet: '\\land ', title: t('かつ', 'Logical and') },
+      { label: '\\lor', snippet: '\\lor ', title: t('または', 'Logical or') },
+      { label: '\\neg', snippet: '\\neg ', title: t('否定', 'Negation') },
+      { label: '\\therefore', snippet: '\\therefore ', title: t('ゆえに', 'Therefore') },
+      { label: '\\because', snippet: '\\because ', title: t('なぜならば', 'Because') },
     ],
   },
   {
