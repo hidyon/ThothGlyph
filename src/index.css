@@ -1244,3 +1244,14 @@ body {
 .personal-snippets__insert:hover {
   background: var(--accent-soft);
 }
+
+.personal-snippets__backup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.personal-snippets__file {
+  display: none;
+}

@@ -126,6 +126,18 @@ export const messages = {
   ),
   personalDeleteConfirm: (name: string) =>
     t('「' + name + '」を削除します。よろしいですか？', 'Delete “' + name + '”?'),
+  personalExport: t('バックアップを書き出す', 'Export backup'),
+  personalImport: t('バックアップを読み込む', 'Import backup'),
+  personalExported: t('自分用スニペットをバックアップしました', 'Backed up personal snippets'),
+  personalImported: t('自分用スニペットを復元しました', 'Restored personal snippets'),
+  personalImportInvalid: t(
+    'スニペットのバックアップとして読み込めません',
+    'Could not read this as a personal snippets backup',
+  ),
+  personalImportConfirm: t(
+    '現在の自分用スニペットをバックアップの内容で置き換えます。よろしいですか？',
+    'Replace your current personal snippets with this backup?',
+  ),
 
   // パレットの検索
   searchLabel: t('記号を検索', 'Search symbols'),

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadPersonalSnippets, savePersonalSnippets } from './personalSnippets'
+import {
+  createPersonalSnippetsBackup,
+  loadPersonalSnippets,
+  readPersonalSnippetsBackup,
+  savePersonalSnippets,
+} from './personalSnippets'
 
 const KEY = 'thothglyph:personal-snippets:v1'
 
@@ -21,6 +26,27 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+describe('personal snippets backup', () => {
+  const snippets = [{ id: 'proof', name: '証明', body: '> 証明\n> %CURSOR%' }]
+
+  it('版番号と全項目をJSONとして書き出す', () => {
+    expect(JSON.parse(createPersonalSnippetsBackup(snippets))).toEqual({ version: 1, snippets })
+  })
+
+  it('空の一覧を含めてバックアップを読み戻せる', () => {
+    expect(readPersonalSnippetsBackup(createPersonalSnippetsBackup([]))).toEqual([])
+    expect(readPersonalSnippetsBackup(createPersonalSnippetsBackup(snippets))).toEqual(snippets)
+  })
+
+  it('壊れた値、不正な項目、版違いを拒否する', () => {
+    expect(readPersonalSnippetsBackup('{')).toBeNull()
+    expect(readPersonalSnippetsBackup(JSON.stringify({ version: 2, snippets }))).toBeNull()
+    expect(
+      readPersonalSnippetsBackup(JSON.stringify({ version: 1, snippets: [{ id: 'a', name: '', body: 'x' }] })),
+    ).toBeNull()
+  })
 })
 
 describe('personal snippets storage', () => {
