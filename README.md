@@ -64,7 +64,6 @@ $$ {#eq-pythagoras}
 付けていない式には番号が出ない。
 
 この綴りは [Quarto](https://quarto.org/docs/authoring/cross-references.html) と同じ。
-古い書き方（`\tag{名前}` と `[(1)](#eq-名前)`）も読めるが、新しく書くならこちらを使う。
 
 関数のグラフは、コードブロックの言語名を `graph` にして書く。
 

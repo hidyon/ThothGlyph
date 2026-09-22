@@ -94,6 +94,7 @@
 | [0082](0082-bake-equation-numbers.md) | 持ち出した文書では式の番号が合っていない | open | — |
 | [0083](0083-crossref-dialect.md) | 式のラベルと参照を既存の方言で書けるようにする | closed | [仕様](../specs/0083-crossref-dialect.md) |
 | [0084](0084-readme-nonstandard.md) | Markdown標準ではない機能がREADMEから見分けられない | closed | [仕様](../specs/0084-readme-nonstandard.md) |
+| [0085](0085-drop-old-equation-notation.md) | 式の番号と参照の古い書き方を落とす | open | — |
 
 ## 着手順の目安
 
