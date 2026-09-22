@@ -35,6 +35,8 @@ import { contentFor, fileNameFor, isEmptySource } from './lib/downloadName'
 import type { Engine } from './lib/previewEngine'
 import { loadEngine } from './lib/previewEngine'
 import { sampleDocument } from './sampleDocument'
+import { loadPersonalSnippets, savePersonalSnippets } from './lib/personalSnippets'
+import type { PersonalSnippet } from './lib/personalSnippets'
 
 /** 入力が止まってから保存するまでの待ち時間。localStorageは同期APIなので1文字ごとには書かない。 */
 const SAVE_DELAY_MS = 600
@@ -96,6 +98,7 @@ export default function App() {
     paneSizesRef.current = paneSizes
   }, [paneSizes])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [personalSnippets, setPersonalSnippets] = useState<PersonalSnippet[]>(loadPersonalSnippets)
 
   // まだ保存していない内容。beforeunloadからも読むのでstateではなくrefに置く。
   const unsaved = useRef<string | null>(null)
@@ -459,6 +462,37 @@ export default function App() {
     noticeTimer.current = window.setTimeout(() => setNotice(''), 3000)
   }, [])
 
+  const handleSavePersonalSnippet = (name: string, body: string, id?: string) => {
+    const nextItem: PersonalSnippet = {
+      id: id ?? crypto.randomUUID(),
+      name: name.trim(),
+      body,
+    }
+    const next = id === undefined
+      ? [...personalSnippets, nextItem]
+      : personalSnippets.map((item) => (item.id === id ? nextItem : item))
+
+    if (!savePersonalSnippets(next)) {
+      showNotice(pick(messages.personalSaveFailed, lang))
+      return false
+    }
+
+    setPersonalSnippets(next)
+    showNotice(pick(messages.personalSaved, lang))
+    return true
+  }
+
+  const handleDeletePersonalSnippet = (id: string) => {
+    const next = personalSnippets.filter((item) => item.id !== id)
+    if (!savePersonalSnippets(next)) {
+      showNotice(pick(messages.personalSaveFailed, lang))
+      return false
+    }
+
+    setPersonalSnippets(next)
+    return true
+  }
+
   const handleOpenFiles = async (files: FileList | null) => {
     if (files === null || files.length === 0) return
     if (files.length > 1) {
@@ -566,6 +600,10 @@ export default function App() {
       <SymbolPalette
         onInsert={handleInsert}
         onFocusEditor={() => textareaRef.current?.focus()}
+        snippets={personalSnippets}
+        selectedText={selectedText}
+        onSaveSnippet={handleSavePersonalSnippet}
+        onDeleteSnippet={handleDeletePersonalSnippet}
         lang={lang}
         renderLatex={engine?.renderLatex}
       />

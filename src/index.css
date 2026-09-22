@@ -1143,3 +1143,104 @@ body {
     border-radius: 0;
   }
 }
+
+/* ---- 自分用スニペット ---- */
+
+.personal-snippets {
+  padding: 10px 12px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.personal-snippets__save-selection {
+  min-height: 34px;
+}
+
+.personal-snippets__empty,
+.personal-snippets__error {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.personal-snippets__empty {
+  color: var(--text-muted);
+}
+
+.personal-snippets__error {
+  color: var(--danger);
+}
+
+.personal-snippets__form {
+  display: grid;
+  gap: 8px;
+  max-width: 480px;
+  margin-top: 10px;
+}
+
+.personal-snippets__form label {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.personal-snippets__form input,
+.personal-snippets__form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.personal-snippets__form textarea {
+  resize: vertical;
+}
+
+.personal-snippets__actions,
+.personal-snippets__item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personal-snippets__list {
+  display: grid;
+  gap: 6px;
+  max-width: 640px;
+  padding: 0;
+  margin: 10px 0 0;
+  list-style: none;
+}
+
+.personal-snippets__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.personal-snippets__insert {
+  min-width: 0;
+  margin-right: auto;
+  padding: 4px 6px;
+  overflow: hidden;
+  font: inherit;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+}
+
+.personal-snippets__insert:hover {
+  background: var(--accent-soft);
+}

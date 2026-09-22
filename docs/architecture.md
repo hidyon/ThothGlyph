@@ -393,6 +393,12 @@ localStorageに1件だけ持つ。
   読み書きはすべて `try/catch` で囲み、**例外を呼び出し側に出さない**。
   `saveDocument` は成否を `boolean` で返す。
 
+### 自分用スニペットの保存（`lib/personalSnippets.ts`）
+
+文書とは別に `thothglyph:personal-snippets:v1` へ配列で保存する。各項目は安定した `id`、空でない `name`、空でない `body` を持つ。壊れたJSONや不正な項目は読み込み時に捨て、localStorageの例外は呼び出し側へ出さない。
+
+`App.tsx` が一覧を持ち、`SymbolPalette` は一時的な編集フォームだけを持つ。挿入は `App.tsx` の既存 `handleInsert` を通すため、Undoと選択範囲の規則を共有する。
+
 ### テーマの保存
 
 同じくlocalStorageに1件。キーは `thothglyph:theme:v1`、値は
