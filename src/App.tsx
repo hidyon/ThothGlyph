@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from './components/Editor'
+import { GuidePanel } from './components/GuidePanel'
 import { Preview } from './components/Preview'
 import { PaneDivider } from './components/PaneDivider'
 import { SymbolPalette } from './components/SymbolPalette'
@@ -139,6 +140,17 @@ export default function App() {
     // 保存に失敗しても切り替え自体は効く。次回開いたときに戻るだけ。
     saveTheme(next)
   }
+
+  /**
+   * 算式記載ガイド（0079）。開いている間も編集中の文書・カーソル・選択・保存には
+   * 触らない。閉じたらガイドボタンへフォーカスを戻す。
+   */
+  const [guideOpen, setGuideOpen] = useState(false)
+  const guideButtonRef = useRef<HTMLButtonElement>(null)
+  const closeGuide = useCallback(() => {
+    setGuideOpen(false)
+    guideButtonRef.current?.focus()
+  }, [])
 
   // 数式の描画エンジンは別チャンクなので、届くまでは null（0024）。
   // 届かなくてもエディタは使えたままにする（書いたものを失わせない）ので、
@@ -546,8 +558,11 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         lang={lang}
         onToggleLang={handleToggleLang}
+        onOpenGuide={() => setGuideOpen(true)}
+        guideButtonRef={guideButtonRef}
         notice={notice}
       />
+      {guideOpen && <GuidePanel lang={lang} engine={engine} onClose={closeGuide} />}
       <SymbolPalette
         onInsert={handleInsert}
         onFocusEditor={() => textareaRef.current?.focus()}

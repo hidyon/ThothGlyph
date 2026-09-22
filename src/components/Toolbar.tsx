@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { RefObject } from 'react'
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { langLabel } from '../lib/langStorage'
@@ -20,6 +21,10 @@ type Props = {
   onToggleTheme: () => void
   lang: Lang
   onToggleLang: () => void
+  /** 算式記載ガイドを開く（0079）。 */
+  onOpenGuide: () => void
+  /** ガイドを閉じたときにフォーカスを戻す先（0079）。 */
+  guideButtonRef: RefObject<HTMLButtonElement | null>
   /** ファイルの読み込みの結果（0012）。コピーの結果と同じ枠に出す。 */
   notice: string
 }
@@ -58,6 +63,8 @@ export function Toolbar({
   onToggleTheme,
   lang,
   onToggleLang,
+  onOpenGuide,
+  guideButtonRef,
   notice,
 }: Props) {
   const [copied, setCopied] = useState(false)
@@ -122,6 +129,21 @@ export function Toolbar({
           {/* 狭い画面では「テーマ:」を省いて状態だけ出す。 */}
           <span className="button__label">{pick(messages.themePrefix, lang)}</span>
           {themeLabel(theme, lang)}
+        </button>
+        {/*
+          ガイド（0079）。幅480px以下では `?` だけにする。文言のまま足すと、
+          英語表示・幅360px・保存状態ありで13px溢れた（実測）。
+        */}
+        <button
+          type="button"
+          className="button button--quiet button--guide"
+          onClick={onOpenGuide}
+          ref={guideButtonRef}
+          title={pick(messages.guideTitle, lang)}
+          aria-label={pick(messages.guide, lang)}
+        >
+          <span className="button__wide">{pick(messages.guide, lang)}</span>
+          <span className="button__narrow">{pick(messages.guideShort, lang)}</span>
         </button>
         {/*
           幅480px以下では長い文言が画面から溢れるので、短いほうへ差し替える（0033）。

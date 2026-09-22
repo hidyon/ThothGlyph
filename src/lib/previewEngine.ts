@@ -12,6 +12,8 @@ import type { Lang } from './i18n'
 export type Engine = {
   renderMarkdown: (source: string, lang: Lang) => string
   renderLatex: (latex: string) => string
+  /** 算式記載ガイドの全文（0079）。964件の表を含むので遅延側に置いてある。 */
+  guideDocument: (lang: Lang) => string
 }
 
 // 呼び出し側が複数あっても取得は1回だけ。失敗したPromiseは捨てて、

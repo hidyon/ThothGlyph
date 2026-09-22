@@ -548,32 +548,32 @@ body {
 
 /* ---- プレビュー内のMarkdown ---- */
 
-.preview > :first-child {
+:is(.preview, .guide__body) > :first-child {
   margin-top: 0;
 }
 
-.preview h1,
-.preview h2,
-.preview h3 {
+:is(.preview, .guide__body) h1,
+:is(.preview, .guide__body) h2,
+:is(.preview, .guide__body) h3 {
   line-height: 1.35;
   margin: 1.6em 0 0.6em;
 }
 
-.preview h1 {
+:is(.preview, .guide__body) h1 {
   font-size: 1.7em;
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border);
 }
 
-.preview h2 {
+:is(.preview, .guide__body) h2 {
   font-size: 1.35em;
 }
 
-.preview h3 {
+:is(.preview, .guide__body) h3 {
   font-size: 1.1em;
 }
 
-.preview code {
+:is(.preview, .guide__body) code {
   padding: 0.15em 0.4em;
   font-family: var(--mono);
   font-size: 0.88em;
@@ -581,42 +581,42 @@ body {
   border-radius: 4px;
 }
 
-.preview pre {
+:is(.preview, .guide__body) pre {
   padding: 12px 14px;
   overflow-x: auto;
   background: var(--bg-muted);
   border-radius: 8px;
 }
 
-.preview pre code {
+:is(.preview, .guide__body) pre code {
   padding: 0;
   background: none;
 }
 
-.preview blockquote {
+:is(.preview, .guide__body) blockquote {
   margin: 1em 0;
   padding: 0.2em 1em;
   color: var(--text-muted);
   border-left: 3px solid var(--border);
 }
 
-.preview table {
+:is(.preview, .guide__body) table {
   border-collapse: collapse;
 }
 
-.preview th,
-.preview td {
+:is(.preview, .guide__body) th,
+:is(.preview, .guide__body) td {
   padding: 6px 12px;
   border: 1px solid var(--border);
 }
 
 /* 壊れた数式の赤。KaTeXが style 属性で色を付けるので !important で上書きする。 */
-.preview .katex-error {
+:is(.preview, .guide__body) .katex-error {
   color: var(--math-error) !important;
 }
 
 /* 長い数式がはみ出してもページ全体を横スクロールさせない。 */
-.preview .katex-display {
+:is(.preview, .guide__body) .katex-display {
   margin: 1.2em 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -639,7 +639,7 @@ body {
 }
 
 /* ブロック数式のラッパ。inline のままだと輪郭が行ボックスに沿って引かれる。 */
-.preview .math-anchor--block {
+:is(.preview, .guide__body) .math-anchor--block {
   display: block;
 }
 
@@ -649,19 +649,19 @@ body {
   KaTeXの \tag に描かせると mtable width:100% になり、幅360pxで式と番号が
   重なって読めなくなる（実測）。
 */
-.preview .math-anchor--numbered {
+:is(.preview, .guide__body) .math-anchor--numbered {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
-.preview .math-anchor--numbered .katex-display {
+:is(.preview, .guide__body) .math-anchor--numbered .katex-display {
   flex: 1;
   /* これが無いと flex の子は中身より縮まず、番号を押し出す。 */
   min-width: 0;
 }
 
-.preview .eq-number {
+:is(.preview, .guide__body) .eq-number {
   flex-shrink: 0;
 }
 
@@ -917,8 +917,23 @@ body {
   }
 
   .toolbar__actions {
-    /* ボタンが4つ（言語・テーマ・サンプル・コピー）並ぶので、狭い画面では間隔を詰める。 */
-    gap: 8px;
+    /* ボタンが5つ（言語・テーマ・ガイド・サンプル・コピー）並ぶので、狭い画面では
+       間隔を詰める。0079でガイドが増えたぶん8px→6px（英語表示・幅540pxで3px
+       溢れた。実測）。 */
+    gap: 6px;
+  }
+
+  /*
+    ガイド（0079）だけは幅720px以下で記号にする。文言のままだと幅540pxで
+    ツールバーが24px溢れた（graph区分の実測）。他のボタンの短縮は480px以下
+    （0033）のままにしてある。ここを動かすと600pxの見た目が変わる。
+  */
+  .button--guide .button__wide {
+    display: none;
+  }
+
+  .button--guide .button__narrow {
+    display: inline;
   }
 
   .toolbar__save {
@@ -1034,12 +1049,97 @@ body {
     幅360pxで2px溢れた。保存状態は消さずに（書いたものが残っているかの表示は
     狭い画面でも要る）、間隔とボタンの左右のpaddingを詰めて幅を作る。
     高さ（34px）は変えないので、textareaのぶんは減らない。
+
+    0079でガイドボタン（`?` だけで24.9px）を足したぶん、さらに詰めた
+    （gap 6→4px・padding 10→8px）。詰めずに足すと英語表示・幅360px・
+    保存状態ありで13px溢れる（実測）。
   */
   .toolbar__actions {
-    gap: 6px;
+    gap: 4px;
   }
 
   .button {
-    padding: 7px 10px;
+    padding: 7px 8px;
+  }
+}
+
+/* ---- 算式記載ガイド（0079） ---- */
+
+/*
+  画面に重ねて開く。編集の画面には触らないので、パレット・ソース・プレビューの
+  寸法（0032・0054・0057）は変わらない。
+*/
+.guide {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  padding: 24px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.guide__panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.guide__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.guide__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.guide__loading {
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+/*
+  本文の体裁はプレビューと共有する（同じ renderMarkdown の出力なので、
+  字面を二重に持たない）。共有は `:is(.preview, .guide__body)` で書いてある。
+  **クラス名まで共有しない**のは、`.preview` を選ぶ検証やコードが、
+  ガイドを開いている間に別の要素を掴むため（実測で幅が624→958pxになった）。
+*/
+.guide__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 48px;
+  line-height: 1.75;
+}
+
+/* 表が広いので横だけスクロールさせ、画面には横スクロールを出さない。 */
+.guide__body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 720px) {
+  /* 狭い画面では全面に開く。余白に逃がすぶんの幅がない。 */
+  .guide {
+    padding: 0;
+  }
+
+  .guide__panel {
+    border: none;
+    border-radius: 0;
   }
 }
