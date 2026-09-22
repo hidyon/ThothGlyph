@@ -91,6 +91,7 @@
 | [0079](0079-notation-guide.md) | 書ける記法とコマンドを、編集中に調べられない | closed | [仕様](../specs/0079-notation-guide.md) |
 | [0080](0080-guide-search.md) | 算式記載ガイドの中を探せない | open | — |
 | [0081](0081-load-headroom.md) | スロットルなしの初期表示が基準250msに収まらない | open | — |
+| [0082](0082-bake-equation-numbers.md) | 持ち出した文書では式の番号が合っていない | open | — |
 
 ## 着手順の目安
 
