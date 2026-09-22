@@ -4,6 +4,8 @@ import { guideCommands, guideEnvironments } from './guideCommands'
 import { buildCommandTable, guideCategories } from './guideTable'
 
 describe('コマンド一覧のデータ', () => {
+  // 954件はREADMEにも書いてある（0035と同じ形）。数が変わったらここが落ちるので、
+  // README側の「算式記載ガイド」の行も直すこと。
   it('954件のコマンドと33件の環境を持つ', () => {
     expect(guideCommands).toHaveLength(954)
     expect(guideEnvironments).toHaveLength(33)
