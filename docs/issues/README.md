@@ -87,6 +87,7 @@
 | [0075](0075-lint-dist-file.md) | lintがビルド出力を見て1538件の警告を出す | open | — |
 | [0076](0076-block-math-perf.md) | ブロック数式の多い文書で入力が基準の50msを超える | open | — |
 | [0077](0077-palette-tag.md) | パレットから式の番号（`\tag`）を入れられない | open | — |
+| [0078](0078-sample-equation-numbers.md) | サンプル文書に式の番号と参照が出てこない | in-progress | [仕様](../specs/0078-sample-equation-numbers.md) |
 
 ## 着手順の目安
 
