@@ -100,7 +100,8 @@ const state = await page.evaluate(() => {
 })
 
 check('エディタが出る', state.editor)
-check('プレビューに数式が16個描かれる', state.katex === 16, `${state.katex}個`)
+// 0078で参照の文を足したぶん、サンプルの数式は16個から17個になった。
+check('プレビューに数式が17個描かれる', state.katex === 17, `${state.katex}個`)
 check('プレビューにグラフが1つ描かれる', state.graph === 1, `${state.graph}個`)
 check('パレットのボタンが出る', state.palette > 0, `${state.palette}件（基本タブ）`)
 check(

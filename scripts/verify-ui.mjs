@@ -188,6 +188,64 @@ section('initial', '初期表示', async () => {
     (await page.locator('.preview .graph-error').count()) === 0,
   )
 
+  // サンプル文書の式の番号と参照（0078）。記法の手本はここにしかない。
+  const sampleNumbers = await page.evaluate(() =>
+    [...document.querySelectorAll('.preview .eq-number')].map((el) => el.textContent),
+  )
+  check(
+    '初回訪問のサンプルに番号が2つ出て (1) (2) の順になる',
+    JSON.stringify(sampleNumbers) === '["(1)","(2)"]',
+    JSON.stringify(sampleNumbers),
+  )
+  const sampleRefs = await page.evaluate(() =>
+    [...document.querySelectorAll('.preview a[href^="#eq-"]')].map((a) => ({
+      href: a.getAttribute('href'),
+      text: a.textContent,
+    })),
+  )
+  check(
+    'サンプルの参照2つが現在の番号を指す',
+    JSON.stringify(sampleRefs) ===
+      '[{"href":"#eq-1","text":"(1)"},{"href":"#eq-2","text":"(2)"}]',
+    JSON.stringify(sampleRefs),
+  )
+
+  // 参照をたどれること（サンプルの中で完結して確かめられる）。
+  await page.locator('.preview a[href="#eq-2"]').scrollIntoViewIfNeeded()
+  await page.waitForTimeout(200)
+  await page.locator('.preview a[href="#eq-2"]').click()
+  await page.waitForTimeout(300)
+  check(
+    'サンプルの参照を押すと飛び先の式に印が出る',
+    (await page.locator('.preview .math-anchor--active').count()) === 1,
+  )
+
+  // 幅360pxでも式と番号が重ならず、横スクロールも増えない。
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.waitForTimeout(300)
+  const narrowSample = await page.evaluate(() => {
+    const wrap = document.querySelector('.math-anchor--numbered')
+    const math = wrap.querySelector('.katex-display')
+    const num = wrap.querySelector('.eq-number')
+    return {
+      gap: Math.round(num.getBoundingClientRect().left - math.getBoundingClientRect().right),
+      docScroll: document.documentElement.scrollWidth,
+      docClient: document.documentElement.clientWidth,
+    }
+  })
+  check(
+    '幅360pxのサンプルで式と番号が重ならない',
+    narrowSample.gap >= 0,
+    `間隔 ${narrowSample.gap}px`,
+  )
+  check(
+    '幅360pxのサンプルで横スクロールが出ない',
+    narrowSample.docScroll <= narrowSample.docClient,
+    `${narrowSample.docScroll} / ${narrowSample.docClient}`,
+  )
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.waitForTimeout(200)
+
   await page.screenshot({ path: `${OUT}/initial.png` })
   console.log(`スクリーンショット: ${OUT}/initial.png`)
 })
@@ -4418,8 +4476,9 @@ section('math-click', 'プレビューからの編集（0020）', async () => {
   // 2つめのブロック数式（標本平均の式）。
   const blocks = page.locator('.preview .math-anchor--block')
   await blocks.nth(1).click()
+  // サンプルの2つ目のブロック数式。0078で `\tag{標本平均}` が付いた。
   const blockLatex =
-    '\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}'
+    '\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n} \\tag{標本平均}'
   check(
     'ブロック数式をクリックすると中身だけが選ばれる（$$と改行を含まない）',
     (await selected()) === blockLatex,
