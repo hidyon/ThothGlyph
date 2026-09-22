@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import type { RefObject } from 'react'
 
 import type { Lang } from '../lib/i18n'
@@ -15,9 +16,53 @@ type Props = {
   containerRef: RefObject<HTMLDivElement | null>
   /** スクロールしたことをAppへ伝える（エディタを追わせる。0010）。 */
   onScrollSync: () => void
+  /** 数式をクリックしたことをAppへ伝える。範囲は元ソースの中身（0020）。 */
+  onMathClick: (range: { start: number; end: number }) => void
+  /** いま選ばれている数式。印を付ける先（0020）。 */
+  activeMath: { start: number; end: number } | null
 }
 
-export function Preview({ html, stale, ready, lang, containerRef, onScrollSync }: Props) {
+export function Preview({
+  html,
+  stale,
+  ready,
+  lang,
+  containerRef,
+  onScrollSync,
+  onMathClick,
+  activeMath,
+}: Props) {
+  /*
+    選んだ数式の印（0020）。HTMLは文字列で流し込むので、印はレンダリングの
+    たびに当て直す。`html` を依存に入れているのは、描き直しで class が
+    消えるため（消えたままにすると、印が出ているのに要素が別物になる）。
+  */
+  useEffect(() => {
+    const root = containerRef.current
+    if (root === null) return
+
+    for (const marked of root.querySelectorAll('.math-anchor--active')) {
+      marked.classList.remove('math-anchor--active')
+    }
+    if (activeMath === null) return
+
+    root
+      .querySelector(`.math-anchor[data-math-start="${activeMath.start}"]`)
+      ?.classList.add('math-anchor--active')
+  }, [activeMath, html, containerRef])
+
+  /** クリックが数式の上なら、その中身の範囲をAppへ渡す。本文の上なら何もしない。 */
+  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (event.target as Element).closest?.('.math-anchor')
+    if (!(anchor instanceof HTMLElement)) return
+
+    const start = Number(anchor.dataset.mathStart)
+    const end = Number(anchor.dataset.mathEnd)
+    if (!Number.isInteger(start) || !Number.isInteger(end)) return
+
+    onMathClick({ start, end })
+  }
+
   return (
     <section className="pane pane--preview" aria-label={pick(messages.previewLabel, lang)}>
       <header className="pane__header">
@@ -31,6 +76,7 @@ export function Preview({ html, stale, ready, lang, containerRef, onScrollSync }
         className="preview"
         ref={containerRef}
         onScroll={onScrollSync}
+        onClick={handleClick}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>

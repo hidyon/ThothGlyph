@@ -308,3 +308,62 @@ describe('renderMarkdown の data-line（0010）', () => {
     expect(html).toContain('href="https://example.com"')
   })
 })
+
+/** ラッパから読める中身の範囲（0020）。n番目の数式。 */
+const anchorRange = (html: string, n = 0): { start: number; end: number } | null => {
+  const found = [...html.matchAll(/data-math-start="(\d+)" data-math-end="(\d+)"/g)]
+  const match = found[n]
+  return match === undefined
+    ? null
+    : { start: Number(match[1]), end: Number(match[2]) }
+}
+
+describe('数式の位置（0020）', () => {
+  it('インライン数式を .math-anchor で包み、中身の範囲を持たせる', () => {
+    const source = 'あ $x+1$ い'
+    const html = renderMarkdown(source)
+
+    expect(html).toContain('<span class="math-anchor" data-math-start="3" data-math-end="6">')
+    // 範囲を切り出すと、KaTeXに渡したLaTeXそのものになる。
+    expect(source.slice(3, 6)).toBe('x+1')
+  })
+
+  it('ブロック数式の範囲はデリミタと改行を含まない', () => {
+    const source = '$$\nf(x)=1\n$$'
+    const range = anchorRange(renderMarkdown(source))
+
+    expect(range).toEqual({ start: 3, end: 9 })
+    expect(source.slice(3, 9)).toBe('f(x)=1')
+  })
+
+  it('デリミタの内側の空白を範囲に含めない', () => {
+    // インラインの `$ x $` は数式にならないので、空白の詰めはブロックで見る。
+    const source = '$$ x $$'
+    const range = anchorRange(renderMarkdown(source))
+
+    expect(range).toEqual({ start: 3, end: 4 })
+    expect(source.slice(3, 4)).toBe('x')
+  })
+
+  it('コードブロックの中の $x$ には付かない（0006の回帰）', () => {
+    const html = renderMarkdown('```\n$x$\n```')
+
+    expect(html).not.toContain('math-anchor')
+  })
+
+  it('同じ式が2箇所にあっても別の位置を持つ（キャッシュに位置が混ざらない）', () => {
+    const html = renderMarkdown('$x$ と $x$')
+
+    expect(anchorRange(html, 0)).toEqual({ start: 1, end: 2 })
+    expect(anchorRange(html, 1)).toEqual({ start: 7, end: 8 })
+  })
+
+  it('キャッシュの有無で出力が変わらない', () => {
+    const source = '$x+1$ と $$\ny=2\n$$'
+    clearFormulaCache()
+    const first = renderMarkdown(source)
+    const second = renderMarkdown(source)
+
+    expect(second).toBe(first)
+  })
+})

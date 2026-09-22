@@ -68,6 +68,19 @@ export default function App() {
   // 初回訪問のサンプルは、そのとき決まった言語のものを1度だけ選ぶ。以降は
   // 言語を切り替えても差し替えない（利用者が書いたものを消さないため）。
   const [source, setSource] = useState(restored?.source ?? sampleDocument(lang))
+
+  // プレビューで選んだ数式（0020）。印を出す先で、文書の内容ではないので保存しない。
+  const [activeMath, setActiveMath] = useState<Match | null>(null)
+
+  /**
+   * ソースを差し替える唯一の入口。**印はここで消す**（0020）。
+   * 編集すると数式の位置がずれ、印がどこを指していたのかが意味を失う。
+   * 残すと、別の式へ印が移ったように見える。
+   */
+  const updateSource = useCallback((next: string) => {
+    setSource(next)
+    setActiveMath(null)
+  }, [])
   const [saveState, setSaveState] = useState<SaveState>(
     restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
   )
@@ -343,13 +356,33 @@ export default function App() {
     }
 
     // 退避経路。Undoは効かなくなるが、挿入自体は動かす（0021）。
-    setSource(result.text)
+    updateSource(result.text)
 
     // setStateの反映後にカーソルを復元する。
     requestAnimationFrame(() => {
       textarea?.focus()
       textarea?.setSelectionRange(result.cursor, result.cursor)
     })
+  }
+
+  /**
+   * 選んだ位置が見えていなければ、そこまでtextareaを寄せる。
+   *
+   * **見えているときは動かさない。** 動かすと0010の同期でプレビューも動き、
+   * いま見ていた場所が画面から逃げる（0020でプレビューから選ぶようになり、
+   * これが目に見える形で効くようになった）。
+   */
+  const scrollToOffset = (textarea: HTMLTextAreaElement, offset: number) => {
+    const line = source.slice(0, offset).split('\n').length - 1
+    const lineHeight = Number.parseFloat(getComputedStyle(textarea).lineHeight)
+    if (!Number.isFinite(lineHeight)) return
+
+    const top = line * lineHeight
+    const view = textarea.clientHeight
+    // 見えている範囲に無いときだけ動かす。2行ぶん上に余白を残す。
+    if (top < textarea.scrollTop || top > textarea.scrollTop + view - lineHeight) {
+      textarea.scrollTop = Math.max(0, top - lineHeight * 2)
+    }
   }
 
   /**
@@ -364,17 +397,24 @@ export default function App() {
     if (textarea === null) return
 
     textarea.setSelectionRange(start, end)
+    scrollToOffset(textarea, start)
+  }
 
-    const line = source.slice(0, start).split('\n').length - 1
-    const lineHeight = Number.parseFloat(getComputedStyle(textarea).lineHeight)
-    if (!Number.isFinite(lineHeight)) return
+  /**
+   * プレビューの数式をクリックしたとき、ソースのその中身を選ぶ（0020）。
+   *
+   * **ここではフォーカスを奪う。** 0043の検索と違って打ち込む先を横取り
+   * しないうえ、フォーカスが無いとChromiumは選択を描画せず、選ばれたことが
+   * 画面で分からない（0043はそのために塗る層を足した）。
+   */
+  const handleMathClick = (range: Match) => {
+    const textarea = textareaRef.current
+    if (textarea === null) return
 
-    const top = line * lineHeight
-    const view = textarea.clientHeight
-    // 見えている範囲に無いときだけ動かす。2行ぶん上に余白を残す。
-    if (top < textarea.scrollTop || top > textarea.scrollTop + view - lineHeight) {
-      textarea.scrollTop = Math.max(0, top - lineHeight * 2)
-    }
+    textarea.focus()
+    textarea.setSelectionRange(range.start, range.end)
+    scrollToOffset(textarea, range.start)
+    setActiveMath(range)
   }
 
   /** 置換。挿入と同じ経路を通すので、Undoは自動で効く（0021・0043）。 */
@@ -384,7 +424,7 @@ export default function App() {
     if (textarea !== null && insertIntoTextarea(textarea, result)) return
 
     // 退避経路（0021と同じ）。Undoは効かなくなるが、置換自体は動かす。
-    setSource(result.text)
+    updateSource(result.text)
     requestAnimationFrame(() => {
       textarea?.focus()
       textarea?.setSelectionRange(result.cursor, result.cursor)
@@ -434,7 +474,7 @@ export default function App() {
       return
     }
 
-    setSource(normalizeText(text))
+    updateSource(normalizeText(text))
     showNotice(pick(messages.opened(file.name), lang))
     textareaRef.current?.focus()
   }
@@ -481,7 +521,7 @@ export default function App() {
 
   const handleReset = () => {
     if (!window.confirm(pick(messages.resetConfirm, lang))) return
-    setSource(sampleDocument(lang))
+    updateSource(sampleDocument(lang))
     textareaRef.current?.focus()
   }
 
@@ -526,7 +566,7 @@ export default function App() {
       <main className="panes">
         <Editor
           value={source}
-          onChange={setSource}
+          onChange={updateSource}
           textareaRef={textareaRef}
           lang={lang}
           onOpenFiles={handleOpenFiles}
@@ -553,6 +593,8 @@ export default function App() {
           lang={lang}
           containerRef={previewRef}
           onScrollSync={() => handleScrollSync('preview')}
+          onMathClick={handleMathClick}
+          activeMath={activeMath}
         />
       </main>
     </div>

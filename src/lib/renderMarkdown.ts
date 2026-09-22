@@ -17,7 +17,13 @@ import { renderGraph } from './renderGraph'
  * そのまま通すと壊れるため。
  */
 
-type Formula = { latex: string; displayMode: boolean }
+type Formula = {
+  latex: string
+  displayMode: boolean
+  /** 元ソース上の「中身の範囲」。`source.slice(start, end)` が latex に一致する（0020）。 */
+  start: number
+  end: number
+}
 
 const PLACEHOLDER_PREFIX = '%%MATHEDITOR_MATH_'
 const PLACEHOLDER_SUFFIX = '%%'
@@ -173,11 +179,25 @@ function extractBlocks(source: string): {
       if (start > last) kept(segment.text.slice(last, start))
 
       const isBlock = match[1] !== undefined
-      const latex = (isBlock ? match[1] : match[2]).trim()
+      const raw = isBlock ? match[1] : match[2]
+      const latex = raw.trim()
       // 中身が空の $$ $$ は数式にしない。文字として残す。
       if (latex.length === 0) kept(match[0])
       else {
-        const index = formulas.push({ latex, displayMode: isBlock }) - 1
+        /*
+          プレビューから元ソースの位置を指すため、中身の範囲を控える（0020）。
+          `original` はこの時点で match の開始位置（直前の kept で進んでいる）。
+          そこからデリミタのぶん内側へ入り、trim で落ちた空白のぶんを詰める。
+        */
+        const contentStart =
+          original + (isBlock ? 2 : 1) + (raw.length - raw.trimStart().length)
+        const index =
+          formulas.push({
+            latex,
+            displayMode: isBlock,
+            start: contentStart,
+            end: contentStart + latex.length,
+          }) - 1
         replaced(placeholderFor(index), match[0].length)
       }
 
@@ -252,11 +272,30 @@ function renderFormulaUncached({ latex, displayMode }: Formula): string {
   })
 }
 
-/** サニタイズ後のHTMLに残ったプレースホルダを、描画した数式に差し戻す。 */
+/**
+ * サニタイズ後のHTMLに残ったプレースホルダを、描画した数式に差し戻す。
+ *
+ * 出力は `.math-anchor` で包み、元ソース上の位置を持たせる（0020）。
+ * **包むのはキャッシュの外側**なので、同じLaTeXが別の位置にあっても
+ * キャッシュはこれまでどおり効く。属性に入るのは自前で数えた整数2つだけで、
+ * 利用者の入力は入らない（サニタイズを迂回する経路を広げない）。
+ */
+function anchorClass({ displayMode }: Formula): string {
+  /*
+    ブロック数式のラッパは block にする。中の .katex-display は中央寄せの
+    ブロックなので、inline のまま包むと輪郭が行ボックスに沿って引かれ、
+    式とずれた位置に出る。
+  */
+  return displayMode ? 'math-anchor math-anchor--block' : 'math-anchor'
+}
+
 function restoreFormulas(html: string, formulas: Formula[]): string {
   return formulas.reduce(
     (acc, formula, index) =>
-      acc.replaceAll(placeholderFor(index), renderFormula(formula)),
+      acc.replaceAll(
+        placeholderFor(index),
+        `<span class="${anchorClass(formula)}" data-math-start="${formula.start}" data-math-end="${formula.end}">${renderFormula(formula)}</span>`,
+      ),
     html,
   )
 }
