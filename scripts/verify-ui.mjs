@@ -4670,7 +4670,7 @@ section('math-click', 'プレビューからの編集（0020）', async () => {
 
 // ---- 0044: 式に番号を振って参照する ----
 
-section('eq-number', '式の番号と参照（0044）', async () => {
+section('eq-number', '式の番号と参照（0044・0083・0085）', async () => {
   await resetState()
 
   // 長い式（幅360pxでプレビューに収まらない）と、番号・参照を1つずつ持つ文書。
@@ -4686,21 +4686,21 @@ section('eq-number', '式の番号と参照（0044）', async () => {
     '# 番号の確認',
     '',
     '$$',
-    `${longMath} \\tag{sum}`,
-    '$$',
+    longMath,
+    '$$ {#eq-sum}',
     '',
     filler,
-    '式 [(1)](#eq-sum) と [(1)](#eq-typo) を見る。',
+    '式 @eq-sum と @eq-typo を見る。',
     '',
     '$$',
     'y = 2',
     '$$',
     '',
     '$$',
-    'z = 3 \\tag{密度}',
-    '$$',
+    'z = 3',
+    '$$ {#eq-density}',
     '',
-    '式 [(2)](#eq-密度) も見る。',
+    '式 @eq-density も見る。',
     '',
   ].join('\n')
 
@@ -4744,14 +4744,15 @@ section('eq-number', '式の番号と参照（0044）', async () => {
     JSON.stringify((await refs())[0]),
   )
   check(
-    '日本語のラベルでも引ける',
-    JSON.stringify((await refs())[2]) === '{"href":"#eq-2","text":"(2)"}',
-    JSON.stringify((await refs())[2]),
+    '2つ目のラベルへの参照が (2) になる',
+    JSON.stringify((await refs())[1]) === '{"href":"#eq-2","text":"(2)"}',
+    JSON.stringify((await refs())[1]),
   )
   check(
-    '採番されていないラベルへの参照は書き換わらない',
-    (await refs())[1].href === '#eq-typo',
-    JSON.stringify((await refs())[1]),
+    '採番されていないラベルはリンクにならず文字のまま残る（0083）',
+    (await refs()).length === 2 &&
+      (await page.locator('.preview').innerText()).includes('@eq-typo'),
+    JSON.stringify(await refs()),
   )
   // 番号付きの式が見える位置で撮る（この文書は参照を離すために長い）。
   await page.evaluate(() => {
@@ -4765,7 +4766,7 @@ section('eq-number', '式の番号と参照（0044）', async () => {
     置換文字列は**関数で渡す**。`String.replace` は置換文字列の中の `$$` を
     `$` 1つに潰すので、そのまま渡すとブロック数式が壊れる（ここで踏んだ）。
   */
-  const inserted = ['$$', 'a = 0 \\tag{first}', '$$', ''].join('\n')
+  const inserted = ['$$', 'a = 0', '$$ {#eq-first}', ''].join('\n')
   await fill(
     doc.replace('# 番号の確認\n', () => `# 番号の確認\n\n${inserted}`),
     4,
@@ -4835,25 +4836,11 @@ section('eq-number', '式の番号と参照（0044）', async () => {
   )
 
   /*
-    飛び先の無い参照は何も起こさない。**先に画面へ入れてから**測る。
-    見えていないリンクを押すとPlaywrightがクリックのために自分でスクロールし、
-    その移動を「参照が動かした」と取り違える（ここで踏んだ）。
+    0085の前は、採番されていない参照（`[(1)](#eq-typo)`）がリンクとして残り、
+    押しても動かないことをここで見ていた。**0083以降 `@eq-typo` はリンクに
+    ならない**ので、飛び先の無いリンクの確認は下の「古い書き方を落としたこと」
+    （`[(1)](#eq-old)`）へ移した。
   */
-  const dead = page.locator('.preview a[href="#eq-typo"]')
-  await dead.scrollIntoViewIfNeeded()
-  await page.waitForTimeout(300)
-  const scrollBeforeDead = await page.evaluate(() => document.querySelector('.preview').scrollTop)
-  await dead.click()
-  await page.waitForTimeout(300)
-  const afterDead = await page.evaluate(() => ({
-    scrollTop: document.querySelector('.preview').scrollTop,
-    url: location.href,
-  }))
-  check(
-    '採番されていない参照を押しても動かない',
-    afterDead.scrollTop === scrollBeforeDead && !afterDead.url.includes('#'),
-    `${scrollBeforeDead} → ${afterDead.scrollTop}`,
-  )
 
   // 番号付きの式も0020のとおりクリックでソースを選べる（番号の上でも同じ）。
   await fill(doc)
@@ -4864,7 +4851,7 @@ section('eq-number', '式の番号と参照（0044）', async () => {
   })
   check(
     '番号付きの式をクリックするとソースの中身が選ばれる（\\tag を含む）',
-    selectedMath === `${longMath} \\tag{sum}`,
+    selectedMath === longMath,
     JSON.stringify(selectedMath.slice(-12)),
   )
   await page.locator('#eq-1 .eq-number').click()
@@ -4961,7 +4948,7 @@ section('eq-number', '式の番号と参照（0044）', async () => {
   */
   const longDoc = Array.from({ length: 400 }, (_, i) =>
     i % 16 === 0
-      ? `## 節 ${i}\n\n$$\n\\int_0^1 x^{${i}} dx \\tag{e${i}}\n$$\n\n式 [(1)](#eq-e${i}) を見る。\n`
+      ? `## 節 ${i}\n\n$$\n\\int_0^1 x^{${i}} dx\n$$ {#eq-e${i}}\n\n式 @eq-e${i} を見る。\n`
       : `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
   ).join('\n')
   await editor().fill(longDoc)
@@ -5057,19 +5044,75 @@ section('eq-number', '式の番号と参照（0044）', async () => {
   )
   check('@eq-… の参照でURLにハッシュが付かない', afterAtRef.hash === '', afterAtRef.hash)
 
-  // 旧記法と混ざっても文書順に振られる（読める形を残す約束）。
+  // ---- 古い書き方を落としたこと（0085） ----
+
   await fill(
     ['$$', 'x = 1 \\tag{old}', '$$', '', '$$', 'y = 2', '$$ {#eq-new}', '', '[(1)](#eq-old) と @eq-new。', ''].join('\n'),
     2,
   )
-  const mixed = await numbers()
-  const mixedRefs = await refs()
-  check('旧記法と新記法が混ざっても上から (1) (2) になる', JSON.stringify(mixed) === '["(1)","(2)"]', JSON.stringify(mixed))
+  const dropped = await numbers()
+  const droppedRefs = await refs()
   check(
-    '旧記法の参照と新記法の参照が両方それぞれの番号を指す',
-    JSON.stringify(mixedRefs.map((r) => `${r.text}${r.href}`)) === '["(1)#eq-1","(2)#eq-2"]',
-    JSON.stringify(mixedRefs),
+    '\\tag を書いた式には番号が付かず、{#eq-…} の式だけが (1) になる（0085）',
+    JSON.stringify(dropped) === '["(1)"]',
+    JSON.stringify(dropped),
   )
+  check(
+    '[(1)](#eq-名前) はただのリンクになり、数字も飛び先も書き換わらない（0085）',
+    droppedRefs.some((r) => r.href === '#eq-old' && r.text === '(1)'),
+    JSON.stringify(droppedRefs),
+  )
+  const droppedText = await page.locator('.preview').innerText()
+  check(
+    '\\tag の名前はKaTeXが描くので式の右に残る（0085）',
+    droppedText.includes('old'),
+    droppedText.split('\n').slice(0, 3).join(' / '),
+  )
+  // 押しても飛び先が無いので何も起きない（0044の followRef のまま）。
+  const beforeDropped = await page.evaluate(
+    () => document.querySelector('.pane--preview .preview').scrollTop,
+  )
+  await page.locator('.preview a[href="#eq-old"]').click()
+  await page.waitForTimeout(300)
+  const afterDropped = await page.evaluate(() => ({
+    scroll: document.querySelector('.pane--preview .preview').scrollTop,
+    hash: location.hash,
+  }))
+  check(
+    '飛び先の無いリンクを押しても動かず、URLも変わらない（0085）',
+    afterDropped.scroll === beforeDropped && afterDropped.hash === '',
+    `${beforeDropped} → ${afterDropped.scroll} / ${afterDropped.hash || 'ハッシュなし'}`,
+  )
+
+  // 幅360pxでの見え方を記録する。**重なっても直さない**（落とした記法なので、
+  // KaTeXの \tag がどう見えるかを残すだけ。0044は外すことで避けていた）。
+  await page.setViewportSize({ width: 360, height: 667 })
+  await page.waitForTimeout(300)
+  const tagLayout = await page.evaluate(() => {
+    const display = document.querySelector('.preview .katex-display')
+    const tag = display?.querySelector('.katex-tag')
+    // \tag の左にある式の本体（mtable の中央のセル）。重なりはこことの差で見る。
+    const body = display?.querySelector('.katex-html > .base, .katex-html')
+    if (!display || !tag) return null
+    const d = display.getBoundingClientRect()
+    const t = tag.getBoundingClientRect()
+    const b = body?.getBoundingClientRect()
+    return {
+      display: Math.round(d.width),
+      tagLeft: Math.round(t.left - d.left),
+      tagWidth: Math.round(t.width),
+      // 式の右端と番号の左端の差。負なら重なっている。
+      gap: b === undefined ? null : Math.round(t.left - b.right),
+      pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    }
+  })
+  check(
+    '幅360pxで \\tag を書いた式の見え方を記録する（0085。重なりは直さない）',
+    tagLayout !== null,
+    JSON.stringify(tagLayout),
+  )
+  await page.screenshot({ path: `${OUT}/eq-number-dropped-tag.png` })
+  await page.setViewportSize({ width: 1440, height: 900 })
 
   // サンプル文書（初期表示）が新記法で書かれていること。
   await resetState()
@@ -5086,7 +5129,9 @@ section('eq-number', '式の番号と参照（0044）', async () => {
   )
 
   await resetState()
-  console.log(`スクリーンショット: ${OUT}/eq-number.png, ${OUT}/eq-number-narrow.png`)
+  console.log(
+    `スクリーンショット: ${OUT}/eq-number.png, ${OUT}/eq-number-narrow.png, ${OUT}/eq-number-dropped-tag.png`,
+  )
 })
 
 // ---- 算式記載ガイド（0079） ----

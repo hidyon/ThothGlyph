@@ -18,22 +18,21 @@ import { renderGraph } from './renderGraph'
  */
 
 type Formula = {
-  /** KaTeXへ渡すLaTeX。採番する式では `\tag{…}` を外してある（0044）。 */
+  /** KaTeXへ渡すLaTeX。**加工しない**（0085で `\tag` を外すのをやめた）。 */
   latex: string
   displayMode: boolean
-  /** 元ソース上の「中身の範囲」。0020。`\tag` を外しても範囲は元のまま。 */
+  /** 元ソース上の「中身の範囲」。0020。 */
   start: number
   end: number
-  /** `\tag{…}` のラベル。採番しない式では null（0044）。 */
+  /** `{#eq-…}` のラベル（0083）。付いていない式では null。 */
   label: string | null
 }
 
-/** 本文からの参照（`[(1)](#eq-ラベル)`）。差し戻すときに番号を引く（0044）。 */
 /**
- * 本文からの参照。`text` が null のものは方言の `@eq-…`（0083）で、
- * 番号そのもの（`(1)`）として描く。旧記法（`[(1)](#eq-…)`）は書いた文字列を持つ。
+ * 本文からの参照（`@eq-ラベル`。0083）。差し戻すときに番号を引く。
+ * 0085で旧記法（`[(1)](#eq-…)`）を落としたので、持つのはラベルだけ。
  */
-type Reference = { text: string | null; label: string }
+type Reference = { label: string }
 
 const PLACEHOLDER_PREFIX = '%%MATHEDITOR_MATH_'
 const PLACEHOLDER_SUFFIX = '%%'
@@ -50,13 +49,6 @@ const REF_PLACEHOLDER_PREFIX = '%%MATHEDITOR_REF_'
 
 const refPlaceholderFor = (index: number) =>
   `${REF_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`
-
-/*
-  採番の印（0044）。中身がラベルで、`{}` と改行は含まない。
-  **2つ以上あるものは採番しない。** KaTeXが `Multiple \tag` で断るので、
-  外して黙って1つにすると誤りが見えなくなる（実測）。
-*/
-const TAG_PATTERN = /\\tag\{([^{}\n]*)\}/g
 
 // 情報文字列が graph ちょうどのフェンスだけをグラフにする（```graphql は対象外）。
 const GRAPH_FENCE = /^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/
@@ -75,20 +67,15 @@ const MATH_PATTERN = /\$\$([\s\S]+?)\$\$(?:[ \t]*\{#(eq-[a-z0-9_-]+)\})?|(?<![\\
   別々に走査すると、2回目は「1回目の退避後の位置」しか分からず、
   元ソースの位置（0010の行番号・0020の数式の範囲）へ引き直せない。
 
-  グループは 1:ブロック数式 2:ラベル（0083） 3:インライン数式
-  4:参照の文字列 5:参照のラベル 6:方言の参照のラベル（0083）。
+  グループは 1:ブロック数式 2:ラベル（0083） 3:インライン数式 4:参照のラベル（0083）。
 */
-const REF_PATTERN = /\[([^\]\n]*)\]\(#eq-([^)\s]*)\)/
 /*
-  方言の参照（0083）。`@eq-density` の形で、ラベルは ASCII 小文字だけ。
+  参照（0083）。`@eq-density` の形で、ラベルは ASCII 小文字だけ。
   日本語を許すと `@eq-密度より` のように**ラベルの終わりが判定できない**。
   前が英数字・`_`・`@` のときは参照とみなさない（メールアドレスを巻き込まない）。
 */
 const AT_REF_PATTERN = /(?<![\w@])@(eq-[a-z0-9_-]+)/
-const MASK_PATTERN = new RegExp(
-  `${MATH_PATTERN.source}|${REF_PATTERN.source}|${AT_REF_PATTERN.source}`,
-  'g',
-)
+const MASK_PATTERN = new RegExp(`${MATH_PATTERN.source}|${AT_REF_PATTERN.source}`, 'g')
 
 type Segment = { text: string; isCode: boolean }
 
@@ -226,18 +213,10 @@ function extractBlocks(source: string): {
       const start = match.index
       if (start > last) kept(segment.text.slice(last, start))
 
-      // 参照リンク（0044）。番号は文書を最後まで見ないと決まらないので、
-      // ここでは中身を控えるだけにして、差し戻しのときに引く。
-      if (match[5] !== undefined) {
-        const index = refs.push({ text: match[4] ?? '', label: match[5] }) - 1
-        replaced(refPlaceholderFor(index), match[0].length)
-        last = start + match[0].length
-        continue
-      }
-
-      // 方言の参照（0083）。`@eq-density` はラベルだけを持ち、文字列は持たない。
-      if (match[6] !== undefined) {
-        const index = refs.push({ text: null, label: match[6] }) - 1
+      // 参照（0083）。番号は文書を最後まで見ないと決まらないので、
+      // ここではラベルを控えるだけにして、差し戻しのときに引く。
+      if (match[4] !== undefined) {
+        const index = refs.push({ label: match[4] }) - 1
         replaced(refPlaceholderFor(index), match[0].length)
         last = start + match[0].length
         continue
@@ -256,16 +235,14 @@ function extractBlocks(source: string): {
         */
         const contentStart =
           original + (isBlock ? 2 : 1) + (raw.length - raw.trimStart().length)
-        const tagged = taggedFormula(latex, isBlock)
         /*
-          ラベルは `{#eq-…}`（0083）を優先し、無ければ `\tag{…}`（0044）を見る。
-          両方あるときに `{#eq-…}` を採るのは、こちらが「参照のための名前」を
-          書く場所だと決めたため。`\tag` は0044どおりLaTeXから外れる。
+          ラベルは `{#eq-…}`（0083）だけ。0085で `\tag{…}` を印として見るのを
+          やめたので、**LaTeXは加工せずKaTeXへ渡す**（`\tag` はKaTeXが描く）。
         */
         const index =
           formulas.push({
-            ...tagged,
-            label: match[2] ?? tagged.label,
+            latex,
+            label: match[2] ?? null,
             displayMode: isBlock,
             start: contentStart,
             end: contentStart + latex.length,
@@ -280,30 +257,6 @@ function extractBlocks(source: string): {
   }
 
   return { masked: parts.join(''), formulas, graphs, refs, offsets }
-}
-
-/**
- * 採番の印（`\tag{ラベル}`）を見て、ラベルとKaTeXへ渡すLaTeXを決める（0044）。
- *
- * 採番する式では `\tag{…}` を**外して**渡し、番号はHTMLの要素として式の右に出す。
- * KaTeXの `\tag` は `mtable width="100%"` を作るので、幅が足りないと式と番号が
- * 重なる（幅360pxで実測）。外しておけば、狭いときに式のほうを横スクロールできる。
- *
- * 次のものは**印とみなさない**。LaTeXも加工せず、KaTeXの見せ方に任せる。
- * - インライン数式（KaTeXが `\tag works only in display equations` を返す）
- * - `\tag` が2つ以上（KaTeXが `Multiple \tag` を返す。黙って直すと誤りが見えない）
- * - 中身が空の `\tag{}`（指す名前がない）
- */
-function taggedFormula(latex: string, isBlock: boolean): { latex: string; label: string | null } {
-  if (!isBlock) return { latex, label: null }
-
-  const tags = [...latex.matchAll(TAG_PATTERN)]
-  if (tags.length !== 1) return { latex, label: null }
-
-  const label = tags[0][1].trim()
-  if (label === '') return { latex, label: null }
-
-  return { latex: latex.replace(TAG_PATTERN, '').trim(), label }
 }
 
 /**
@@ -470,28 +423,18 @@ function restoreRefs(html: string, refs: Reference[], byLabel: Map<string, numbe
   })
 }
 
-/** 文字列が `(数字)` ちょうどのときだけ、中の数字を差し替える。 */
-const REF_NUMBER = /^\((\d+)\)$/
-
-function renderRef({ text, label }: Reference, byLabel: Map<string, number>): string {
+/**
+ * 参照（0083）。採番されていれば `(1)` というリンクにする。
+ * Quartoの `Equation 1` には**しない**。日本語で「式 @eq-density より」と
+ * 書いたときに「式 Equation 1 より」になるため。
+ * 採番されていないラベルはリンクにせず、書いたまま文字として残す
+ * （飛べないリンクを作ると、打ち間違いが押せてしまう）。
+ */
+function renderRef({ label }: Reference, byLabel: Map<string, number>): string {
   const number = byLabel.get(label)
+  if (number === undefined) return escapeHtml(`@${label}`)
 
-  /*
-    方言の参照（0083）。採番されていれば `(1)` というリンクにする。
-    Quartoの `Equation 1` には**しない**。日本語で「式 @eq-density より」と
-    書いたときに「式 Equation 1 より」になるため。
-    採番されていないラベルはリンクにせず、書いたまま文字として残す
-    （飛べないリンクを作ると、打ち間違いが押せてしまう）。
-  */
-  if (text === null) {
-    if (number === undefined) return escapeHtml(`@${label}`)
-    return `<a href="#eq-${number}">(${number})</a>`
-  }
-
-  const href = number === undefined ? `#eq-${label}` : `#eq-${number}`
-  const shown = number === undefined ? text : text.replace(REF_NUMBER, `(${number})`)
-
-  return `<a href="${escapeHtml(href)}">${escapeHtml(shown)}</a>`
+  return `<a href="#eq-${number}">(${number})</a>`
 }
 
 const MARKED_OPTIONS = { async: false, breaks: true, gfm: true } as const
