@@ -30,9 +30,9 @@ const LEGACY_PREFIX = 'matheditor:'
 // run は下で定義する。ここでは名前と表示名だけ先に並べ、実体を後から入れる。
 // name はコマンドラインで打つのでASCII、title は出力に出すので日本語。
 
-/** @type {{ name: string, title: string, run: () => Promise<void> }[]} */
+/** @type {{ name: string, title: string, run: () => Promise<void>, defaultRun: boolean }[]} */
 const sections = []
-const section = (name, title, run) => sections.push({ name, title, run })
+const section = (name, title, run, defaultRun = true) => sections.push({ name, title, run, defaultRun })
 
 // ---- 実行対象の決定（ブラウザを起動する前に済ませる） ----
 
@@ -70,6 +70,8 @@ let lastCheckAt = Date.now()
  * 判定そのもの（閾値も待ち方も）は印の有無で変わらない。
  */
 const check = (label, ok, detail = '', { timing = false } = {}) => {
+  const isWidthCheck = /幅[0-9]+/.test(label)
+  if (currentSection === 'width' ? !isWidthCheck : isWidthCheck) return
   const now = Date.now()
   results.push({
     section: currentSection,
@@ -5461,6 +5463,16 @@ section('guide', '算式記載ガイド（0079）', async () => {
   console.log(`スクリーンショット: ${OUT}/guide.png, ${OUT}/guide-narrow.png`)
 })
 
+// 幅のチェックは、元の区分で用意していた文書・言語・タブの状態を保ったまま流す。
+// 既定実行では記録せず、width を指定したときだけこの区分として記録する。
+const widthSources = [...sections]
+section('width', '画面幅', async () => {
+  for (const source of widthSources) {
+    await resetState()
+    await source.run()
+  }
+}, false)
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
@@ -5471,7 +5483,7 @@ if (unknown.length > 0) {
   console.error(`使える区分: ${names.join(' / ')}`)
   process.exit(1)
 }
-const selected = requested.length > 0 ? sections.filter((s) => requested.includes(s.name)) : sections
+const selected = requested.length > 0 ? sections.filter((s) => requested.includes(s.name)) : sections.filter((s) => s.defaultRun)
 
 await mkdir(OUT, { recursive: true })
 
