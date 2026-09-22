@@ -97,6 +97,7 @@
 | [0085](0085-drop-old-equation-notation.md) | 式の番号と参照の古い書き方を落とす | closed | [仕様](../specs/0085-drop-old-equation-notation.md) |
 | [0086](0086-width-checks-section.md) | 幅に関わる検証を1つの区分にまとめ、既定では流さない | closed | [仕様](../specs/0086-width-checks-section.md) |
 | [0087](0087-personal-snippets.md) | 自分用の定型を登録して再利用できない | implemented | [仕様](../specs/0087-personal-snippets.md) |
+| [0088](0088-personal-snippet-backup.md) | 自分用スニペットをバックアップ・移行できない | implemented | [仕様](../specs/0088-personal-snippet-backup.md) |
 
 ## 着手順の目安
 

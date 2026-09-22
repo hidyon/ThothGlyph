@@ -17,6 +17,8 @@ type Props = {
   selectedText: () => string
   onSaveSnippet: (name: string, body: string, id?: string) => boolean
   onDeleteSnippet: (id: string) => boolean
+  onExportSnippets: () => void
+  onImportSnippets: (files: FileList | null) => void
   lang: Lang
   renderLatex?: (latex: string) => string
 }
@@ -46,6 +48,8 @@ export function SymbolPalette({
   selectedText,
   onSaveSnippet,
   onDeleteSnippet,
+  onExportSnippets,
+  onImportSnippets,
   lang,
   renderLatex,
 }: Props) {
@@ -56,6 +60,7 @@ export function SymbolPalette({
   const [draftError, setDraftError] = useState('')
   const rendered = useRenderedLatex(renderLatex)
   const searchInput = useRef<HTMLInputElement>(null)
+  const importInput = useRef<HTMLInputElement>(null)
   const resultsPanel = useRef<HTMLDivElement>(null)
 
   const { hits, omitted } = useMemo(() => searchPalette(query), [query])
@@ -207,6 +212,28 @@ export function SymbolPalette({
       >
         {pick(messages.personalSaveSelection, lang)}
       </button>
+      <div className="personal-snippets__backup">
+        <button type="button" className="button button--quiet" onClick={onExportSnippets}>
+          {pick(messages.personalExport, lang)}
+        </button>
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={() => importInput.current?.click()}
+        >
+          {pick(messages.personalImport, lang)}
+        </button>
+        <input
+          ref={importInput}
+          className="personal-snippets__file"
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => {
+            onImportSnippets(event.target.files)
+            event.target.value = ''
+          }}
+        />
+      </div>
       {draftError !== '' && <p className="personal-snippets__error">{draftError}</p>}
       {draft !== null && (
         <form

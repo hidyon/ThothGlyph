@@ -35,7 +35,12 @@ import { contentFor, fileNameFor, isEmptySource } from './lib/downloadName'
 import type { Engine } from './lib/previewEngine'
 import { loadEngine } from './lib/previewEngine'
 import { sampleDocument } from './sampleDocument'
-import { loadPersonalSnippets, savePersonalSnippets } from './lib/personalSnippets'
+import {
+  createPersonalSnippetsBackup,
+  loadPersonalSnippets,
+  readPersonalSnippetsBackup,
+  savePersonalSnippets,
+} from './lib/personalSnippets'
 import type { PersonalSnippet } from './lib/personalSnippets'
 
 /** 入力が止まってから保存するまでの待ち時間。localStorageは同期APIなので1文字ごとには書かない。 */
@@ -493,6 +498,44 @@ export default function App() {
     return true
   }
 
+  const handleExportPersonalSnippets = () => {
+    const url = URL.createObjectURL(
+      new Blob([createPersonalSnippetsBackup(personalSnippets)], {
+        type: 'application/json;charset=utf-8',
+      }),
+    )
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'thothglyph-snippets.json'
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    showNotice(pick(messages.personalExported, lang))
+  }
+
+  const handleImportPersonalSnippets = async (files: FileList | null) => {
+    const [file] = files ?? []
+    if (file === undefined) return
+
+    let imported: PersonalSnippet[] | null
+    try {
+      imported = readPersonalSnippetsBackup(await file.text())
+    } catch {
+      imported = null
+    }
+    if (imported === null) {
+      showNotice(pick(messages.personalImportInvalid, lang))
+      return
+    }
+    if (!window.confirm(pick(messages.personalImportConfirm, lang))) return
+    if (!savePersonalSnippets(imported)) {
+      showNotice(pick(messages.personalSaveFailed, lang))
+      return
+    }
+
+    setPersonalSnippets(imported)
+    showNotice(pick(messages.personalImported, lang))
+  }
+
   const handleOpenFiles = async (files: FileList | null) => {
     if (files === null || files.length === 0) return
     if (files.length > 1) {
@@ -604,6 +647,8 @@ export default function App() {
         selectedText={selectedText}
         onSaveSnippet={handleSavePersonalSnippet}
         onDeleteSnippet={handleDeletePersonalSnippet}
+        onExportSnippets={handleExportPersonalSnippets}
+        onImportSnippets={handleImportPersonalSnippets}
         lang={lang}
         renderLatex={engine?.renderLatex}
       />
