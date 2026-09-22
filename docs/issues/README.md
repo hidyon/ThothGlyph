@@ -92,7 +92,7 @@
 | [0080](0080-guide-search.md) | 算式記載ガイドの中を探せない | open | — |
 | [0081](0081-load-headroom.md) | スロットルなしの初期表示が基準250msに収まらない | open | — |
 | [0082](0082-bake-equation-numbers.md) | 持ち出した文書では式の番号が合っていない | open | — |
-| [0083](0083-crossref-dialect.md) | 式のラベルと参照を既存の方言で書けるようにする | open | — |
+| [0083](0083-crossref-dialect.md) | 式のラベルと参照を既存の方言で書けるようにする | closed | [仕様](../specs/0083-crossref-dialect.md) |
 | [0084](0084-readme-nonstandard.md) | Markdown標準ではない機能がREADMEから見分けられない | open | — |
 
 ## 着手順の目安
