@@ -29,7 +29,11 @@ type Formula = {
 }
 
 /** 本文からの参照（`[(1)](#eq-ラベル)`）。差し戻すときに番号を引く（0044）。 */
-type Reference = { text: string; label: string }
+/**
+ * 本文からの参照。`text` が null のものは方言の `@eq-…`（0083）で、
+ * 番号そのもの（`(1)`）として描く。旧記法（`[(1)](#eq-…)`）は書いた文字列を持つ。
+ */
+type Reference = { text: string | null; label: string }
 
 const PLACEHOLDER_PREFIX = '%%MATHEDITOR_MATH_'
 const PLACEHOLDER_SUFFIX = '%%'
@@ -60,17 +64,31 @@ const GRAPH_FENCE = /^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/
 // $$...$$ を先に見る（$...$ に食われないように）。
 // インライン側は $ の直後・直前が空白でないものだけを数式とみなし、
 // エスケープされた \$ と、$100 のような通貨表記を巻き込みにくくする。
-const MATH_PATTERN = /\$\$([\s\S]+?)\$\$|(?<![\\$])\$(?!\s)((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\$)/g
+//
+// ブロック数式の閉じ `$$` の後ろに続く `{#eq-ラベル}` は、Quartoの綴りに
+// 合わせたラベル（0083）。**数式と同じ1つの塊として食べる**ので、本文に
+// 文字として残らない。付けられるのはブロック数式だけ。
+const MATH_PATTERN = /\$\$([\s\S]+?)\$\$(?:[ \t]*\{#(eq-[a-z0-9_-]+)\})?|(?<![\\$])\$(?!\s)((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\$)/g
 
 /*
   数式と、本文からの参照（0044）を**1度の走査でまとめて**見つける。
   別々に走査すると、2回目は「1回目の退避後の位置」しか分からず、
   元ソースの位置（0010の行番号・0020の数式の範囲）へ引き直せない。
 
-  グループは 1:ブロック数式 2:インライン数式 3:参照の文字列 4:参照のラベル。
+  グループは 1:ブロック数式 2:ラベル（0083） 3:インライン数式
+  4:参照の文字列 5:参照のラベル 6:方言の参照のラベル（0083）。
 */
 const REF_PATTERN = /\[([^\]\n]*)\]\(#eq-([^)\s]*)\)/
-const MASK_PATTERN = new RegExp(`${MATH_PATTERN.source}|${REF_PATTERN.source}`, 'g')
+/*
+  方言の参照（0083）。`@eq-density` の形で、ラベルは ASCII 小文字だけ。
+  日本語を許すと `@eq-密度より` のように**ラベルの終わりが判定できない**。
+  前が英数字・`_`・`@` のときは参照とみなさない（メールアドレスを巻き込まない）。
+*/
+const AT_REF_PATTERN = /(?<![\w@])@(eq-[a-z0-9_-]+)/
+const MASK_PATTERN = new RegExp(
+  `${MATH_PATTERN.source}|${REF_PATTERN.source}|${AT_REF_PATTERN.source}`,
+  'g',
+)
 
 type Segment = { text: string; isCode: boolean }
 
@@ -210,15 +228,23 @@ function extractBlocks(source: string): {
 
       // 参照リンク（0044）。番号は文書を最後まで見ないと決まらないので、
       // ここでは中身を控えるだけにして、差し戻しのときに引く。
-      if (match[4] !== undefined) {
-        const index = refs.push({ text: match[3] ?? '', label: match[4] }) - 1
+      if (match[5] !== undefined) {
+        const index = refs.push({ text: match[4] ?? '', label: match[5] }) - 1
+        replaced(refPlaceholderFor(index), match[0].length)
+        last = start + match[0].length
+        continue
+      }
+
+      // 方言の参照（0083）。`@eq-density` はラベルだけを持ち、文字列は持たない。
+      if (match[6] !== undefined) {
+        const index = refs.push({ text: null, label: match[6] }) - 1
         replaced(refPlaceholderFor(index), match[0].length)
         last = start + match[0].length
         continue
       }
 
       const isBlock = match[1] !== undefined
-      const raw = isBlock ? match[1] : match[2]
+      const raw = isBlock ? match[1] : match[3]
       const latex = raw.trim()
       // 中身が空の $$ $$ は数式にしない。文字として残す。
       if (latex.length === 0) kept(match[0])
@@ -231,9 +257,15 @@ function extractBlocks(source: string): {
         const contentStart =
           original + (isBlock ? 2 : 1) + (raw.length - raw.trimStart().length)
         const tagged = taggedFormula(latex, isBlock)
+        /*
+          ラベルは `{#eq-…}`（0083）を優先し、無ければ `\tag{…}`（0044）を見る。
+          両方あるときに `{#eq-…}` を採るのは、こちらが「参照のための名前」を
+          書く場所だと決めたため。`\tag` は0044どおりLaTeXから外れる。
+        */
         const index =
           formulas.push({
             ...tagged,
+            label: match[2] ?? tagged.label,
             displayMode: isBlock,
             start: contentStart,
             end: contentStart + latex.length,
@@ -443,6 +475,19 @@ const REF_NUMBER = /^\((\d+)\)$/
 
 function renderRef({ text, label }: Reference, byLabel: Map<string, number>): string {
   const number = byLabel.get(label)
+
+  /*
+    方言の参照（0083）。採番されていれば `(1)` というリンクにする。
+    Quartoの `Equation 1` には**しない**。日本語で「式 @eq-density より」と
+    書いたときに「式 Equation 1 より」になるため。
+    採番されていないラベルはリンクにせず、書いたまま文字として残す
+    （飛べないリンクを作ると、打ち間違いが押せてしまう）。
+  */
+  if (text === null) {
+    if (number === undefined) return escapeHtml(`@${label}`)
+    return `<a href="#eq-${number}">(${number})</a>`
+  }
+
   const href = number === undefined ? `#eq-${label}` : `#eq-${number}`
   const shown = number === undefined ? text : text.replace(REF_NUMBER, `(${number})`)
 

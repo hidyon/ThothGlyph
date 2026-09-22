@@ -142,22 +142,26 @@ $$
 
 ### 12. 式の番号と参照
 
-ブロック数式の中に \`\\tag{ラベル}\` を書くと、その式に番号が付く。
-本文からは \`[(ラベル)](#eq-ラベル)\` で参照でき、番号は上から順に振り直される。
+ブロック数式の閉じ \`$$\` のうしろに \`{#eq-ラベル}\` を書くと、その式に番号が付く。
+本文からは \`@eq-ラベル\` で参照でき、番号は上から順に振り直される。
+**ラベルは英小文字・数字・\`-\` \`_\` だけ**（\`eq-\` で始める）。
 
 \`\`\`
 $$
-a^2 + b^2 = c^2 \\tag{ピタゴラス}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-式 [(ピタゴラス)](#eq-ピタゴラス) より。
+@eq-pythagoras より。
 \`\`\`
 
 $$
-a^2 + b^2 = c^2 \\tag{ピタゴラス}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-式 [(ピタゴラス)](#eq-ピタゴラス) より。
+@eq-pythagoras より。
+
+この書き方はQuartoと同じ綴り。古い書き方（\`\\tag{名前}\` と
+\`[(1)](#eq-名前)\`）も読めるが、新しく書くならこちらを使う。
 
 ### 13. 関数のグラフ
 
@@ -315,22 +319,26 @@ $$
 
 ### 12. Equation numbers and references
 
-Write \`\\tag{label}\` inside display math to number that equation.
-Refer to it with \`[(label)](#eq-label)\`; numbers are assigned top to bottom.
+Write \`{#eq-label}\` after the closing \`$$\` to number that equation.
+Refer to it with \`@eq-label\`; numbers are assigned top to bottom.
+**Labels use lowercase letters, digits, \`-\` and \`_\` only**, starting with \`eq-\`.
 
 \`\`\`
 $$
-a^2 + b^2 = c^2 \\tag{pythagoras}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-By [(pythagoras)](#eq-pythagoras).
+By @eq-pythagoras.
 \`\`\`
 
 $$
-a^2 + b^2 = c^2 \\tag{pythagoras}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-By [(pythagoras)](#eq-pythagoras).
+By @eq-pythagoras.
+
+This is the same spelling Quarto uses. The older form (\`\\tag{name}\` with
+\`[(1)](#eq-name)\`) still works, but prefer this one for new writing.
 
 ### 13. Function graphs
 

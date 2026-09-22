@@ -4477,9 +4477,10 @@ section('math-click', 'プレビューからの編集（0020）', async () => {
   // 2つめのブロック数式（標本平均の式）。
   const blocks = page.locator('.preview .math-anchor--block')
   await blocks.nth(1).click()
-  // サンプルの2つ目のブロック数式。0078で `\tag{標本平均}` が付いた。
+  // サンプルの2つ目のブロック数式。0078で `\tag{標本平均}` が付き、
+  // 0083でラベルが `$$` の外（`$$ {#eq-samplemean}`）へ移ったので式だけが残る。
   const blockLatex =
-    '\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n} \\tag{標本平均}'
+    '\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}'
   check(
     'ブロック数式をクリックすると中身だけが選ばれる（$$と改行を含まない）',
     (await selected()) === blockLatex,
@@ -4987,6 +4988,103 @@ section('eq-number', '式の番号と参照（0044）', async () => {
     { timing: true },
   )
 
+  // ---- 方言の記法（0083） ----
+
+  await resetState()
+  const dialect = [
+    '# 方言の確認',
+    '',
+    '$$',
+    'a^2 + b^2 = c^2',
+    '$$ {#eq-pythagoras}',
+    '',
+    filler,
+    '@eq-pythagoras と @eq-typo を見る。',
+    '',
+  ].join('\n')
+  await fill(dialect, 1)
+
+  const dialectNumbers = await numbers()
+  check('{#eq-…} を書いた式に (1) が出る', dialectNumbers[0] === '(1)', JSON.stringify(dialectNumbers))
+  check(
+    '{#eq-…} が本文に文字として残らない',
+    !(await page.locator('.preview').innerText()).includes('{#eq-pythagoras}'),
+  )
+  const dialectRefs = await refs()
+  check(
+    '@eq-… が (1) というリンクになり、採番されていないラベルはリンクにならない',
+    dialectRefs.length === 1 && dialectRefs[0].href === '#eq-1' && dialectRefs[0].text === '(1)',
+    JSON.stringify(dialectRefs),
+  )
+  check(
+    '採番されていない @eq-typo は文字のまま残る',
+    (await page.locator('.preview').innerText()).includes('@eq-typo'),
+  )
+
+  // 参照をたどる（0044と同じ振る舞いであること）。
+  await editor().click()
+  await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    ta.setSelectionRange(5, 9)
+  })
+  const beforeAtRef = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return { start: ta.selectionStart, end: ta.selectionEnd, scroll: previewScrollTop() }
+    function previewScrollTop() {
+      return document.querySelector('.pane--preview .preview').scrollTop
+    }
+  })
+  await page.locator('.preview a[href="#eq-1"]').click()
+  await page.waitForTimeout(400)
+  const afterAtRef = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return {
+      start: ta.selectionStart,
+      end: ta.selectionEnd,
+      scroll: document.querySelector('.pane--preview .preview').scrollTop,
+      hash: location.hash,
+    }
+  })
+  check(
+    '@eq-… の参照を押すとプレビューがその式へ動く',
+    afterAtRef.scroll < beforeAtRef.scroll,
+    `${beforeAtRef.scroll} → ${afterAtRef.scroll}`,
+  )
+  check(
+    '@eq-… の参照を押してもソースのカーソルと選択範囲が動かない',
+    afterAtRef.start === beforeAtRef.start && afterAtRef.end === beforeAtRef.end,
+    `${beforeAtRef.start}-${beforeAtRef.end} → ${afterAtRef.start}-${afterAtRef.end}`,
+  )
+  check('@eq-… の参照でURLにハッシュが付かない', afterAtRef.hash === '', afterAtRef.hash)
+
+  // 旧記法と混ざっても文書順に振られる（読める形を残す約束）。
+  await fill(
+    ['$$', 'x = 1 \\tag{old}', '$$', '', '$$', 'y = 2', '$$ {#eq-new}', '', '[(1)](#eq-old) と @eq-new。', ''].join('\n'),
+    2,
+  )
+  const mixed = await numbers()
+  const mixedRefs = await refs()
+  check('旧記法と新記法が混ざっても上から (1) (2) になる', JSON.stringify(mixed) === '["(1)","(2)"]', JSON.stringify(mixed))
+  check(
+    '旧記法の参照と新記法の参照が両方それぞれの番号を指す',
+    JSON.stringify(mixedRefs.map((r) => `${r.text}${r.href}`)) === '["(1)#eq-1","(2)#eq-2"]',
+    JSON.stringify(mixedRefs),
+  )
+
+  // サンプル文書（初期表示）が新記法で書かれていること。
+  await resetState()
+  const sample = await editor().inputValue()
+  check(
+    'サンプル文書が新記法（{#eq-…} と @eq-…）で書かれている',
+    sample.includes('$$ {#eq-density}') && sample.includes('@eq-density') && !sample.includes('\\tag{'),
+  )
+  const sampleNums = await numbers()
+  check(
+    'サンプル文書の番号が (1) (2) のまま出る',
+    JSON.stringify(sampleNums) === '["(1)","(2)"]',
+    JSON.stringify(sampleNums),
+  )
+
   await resetState()
   console.log(`スクリーンショット: ${OUT}/eq-number.png, ${OUT}/eq-number-narrow.png`)
 })
@@ -5171,6 +5269,22 @@ section('guide', '算式記載ガイド（0079）', async () => {
   check('ガイドの中に壊れた数式（katex-error）が1件もない', headings.errors === 0, `${headings.errors}件`)
   check('第1部のグラフが描かれる', headings.graphs === 1, `${headings.graphs}個`)
   console.log('ガイドの数式:', headings.formulas)
+
+  // 第1部12項の手本が新記法であること（0083）。旧記法の混在で読み手が迷わない。
+  const guideRef = await page.evaluate(() => {
+    const body = document.querySelector('.guide__body')
+    const text = body.innerText
+    return {
+      dialect: text.includes('{#eq-pythagoras}') && text.includes('@eq-pythagoras'),
+      numbered: [...body.querySelectorAll('.eq-number')].map((el) => el.textContent),
+    }
+  })
+  check('ガイド第1部12項の手本が新記法（0083）で書かれている', guideRef.dialect)
+  check(
+    'ガイドの手本の式に番号 (1) が描かれる',
+    guideRef.numbered.includes('(1)'),
+    JSON.stringify(guideRef.numbered),
+  )
 
   const fracRow = await page.evaluate(() => {
     const row = [...document.querySelectorAll('.guide__body tr')].find(

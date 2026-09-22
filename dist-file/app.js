@@ -400,22 +400,26 @@ $$
 
 ### 12. 式の番号と参照
 
-ブロック数式の中に \`\\tag{ラベル}\` を書くと、その式に番号が付く。
-本文からは \`[(ラベル)](#eq-ラベル)\` で参照でき、番号は上から順に振り直される。
+ブロック数式の閉じ \`$$\` のうしろに \`{#eq-ラベル}\` を書くと、その式に番号が付く。
+本文からは \`@eq-ラベル\` で参照でき、番号は上から順に振り直される。
+**ラベルは英小文字・数字・\`-\` \`_\` だけ**（\`eq-\` で始める）。
 
 \`\`\`
 $$
-a^2 + b^2 = c^2 \\tag{ピタゴラス}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-式 [(ピタゴラス)](#eq-ピタゴラス) より。
+@eq-pythagoras より。
 \`\`\`
 
 $$
-a^2 + b^2 = c^2 \\tag{ピタゴラス}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-式 [(ピタゴラス)](#eq-ピタゴラス) より。
+@eq-pythagoras より。
+
+この書き方はQuartoと同じ綴り。古い書き方（\`\\tag{名前}\` と
+\`[(1)](#eq-名前)\`）も読めるが、新しく書くならこちらを使う。
 
 ### 13. 関数のグラフ
 
@@ -571,22 +575,26 @@ $$
 
 ### 12. Equation numbers and references
 
-Write \`\\tag{label}\` inside display math to number that equation.
-Refer to it with \`[(label)](#eq-label)\`; numbers are assigned top to bottom.
+Write \`{#eq-label}\` after the closing \`$$\` to number that equation.
+Refer to it with \`@eq-label\`; numbers are assigned top to bottom.
+**Labels use lowercase letters, digits, \`-\` and \`_\` only**, starting with \`eq-\`.
 
 \`\`\`
 $$
-a^2 + b^2 = c^2 \\tag{pythagoras}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-By [(pythagoras)](#eq-pythagoras).
+By @eq-pythagoras.
 \`\`\`
 
 $$
-a^2 + b^2 = c^2 \\tag{pythagoras}
-$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
 
-By [(pythagoras)](#eq-pythagoras).
+By @eq-pythagoras.
+
+This is the same spelling Quarto uses. The older form (\`\\tag{name}\` with
+\`[(1)](#eq-name)\`) still works, but prefer this one for new writing.
 
 ### 13. Function graphs
 
@@ -681,22 +689,22 @@ Please report this to https://github.com/markedjs/marked.`,e){let e=`<p>An error
 `)){let e=i.trim();if(e.length===0||e.startsWith(`#`))continue;let a=zd.exec(e);if(a!==null){let e=a[1],n=Cd(e);if(!n.ok)return{ok:!1,error:w.graphBadExpression(e.trim())};t.push(n.expression);continue}let o=Bd.exec(e),s=o===null?Vd.exec(e):null;if(o!==null||s!==null){let t=Ld((o??s)[1],e);if(!t.ok)return t;o===null?r=t.range:n=t.range;continue}return{ok:!1,error:w.graphUnknownLine(e)}}return t.length===0?{ok:!1,error:w.graphNoFunction}:t.length>3?{ok:!1,error:w.graphTooManyFunctions}:{ok:!0,spec:{functions:t,x:n,y:r}}}function Ld(e,t){let n=e.indexOf(`..`);if(n<0)return{ok:!1,error:w.graphBadRange(t)};let[r,i]=[e.slice(0,n),e.slice(n+2)].map(e=>{let t=Cd(e);if(!t.ok||t.expression.usesX)return null;let n=t.expression.evaluate(NaN);return Number.isFinite(n)?n:null});return r===null||i===null?{ok:!1,error:w.graphBadRange(t)}:r>=i?{ok:!1,error:w.graphEmptyRange(t)}:{ok:!0,range:{min:r,max:i}}}var Rd,zd,Bd,Vd,Hd=t((()=>{Fd(),T(),Rd={min:-5,max:5},zd=/^y\s*=\s*(.+)$/,Bd=/^x\s*:\s*(.+)$/,Vd=/^y\s*:\s*(.+)$/}));function Ud(e){let t=[0];for(let n=0;n<e.length;n+=1)e[n]===`
 `&&t.push(n+1);return t}function Wd(e,t){let n=0,r=e.length-1,i=0;for(;n<=r;){let a=n+r>>1;e[a].masked<=t?(i=a,n=a+1):r=a-1}let a=e[i];return a===void 0?t:a.original+(t-a.masked)}function Gd(e,t){let n=0,r=e.length-1,i=0;for(;n<=r;){let a=n+r>>1;e[a]<=t?(i=a,n=a+1):r=a-1}return i+1}var Kd=t((()=>{}));function qd(e,t){let n=e.functions.length>=2,r={left:rf.left,right:tf-rf.right,top:rf.top,bottom:nf-rf.bottom-(n?af:0)},i=e.functions.map(t=>Jd(t.evaluate,e.x)),a=e.y??Yd(i.flat());if(a===null)return{ok:!1,error:w.graphNothingToPlot};let o=t=>r.left+(t-e.x.min)/(e.x.max-e.x.min)*(r.right-r.left),s=e=>r.bottom-(e-a.min)/(a.max-a.min)*(r.bottom-r.top),c=[],l=[],u=[];for(let t=0;t<sf;t+=1){let n=e.x.min+(e.x.max-e.x.min)*t/4,i=lf(o(n));l.push(`<line x1="${i}" y1="${r.top}" x2="${i}" y2="${r.bottom}"/>`),u.push(`<text class="graph__tick" x="${i}" y="${r.bottom+14}" text-anchor="middle">${$d(n)}</text>`);let c=a.min+(a.max-a.min)*t/4,d=lf(s(c));l.push(`<line x1="${r.left}" y1="${d}" x2="${r.right}" y2="${d}"/>`),u.push(`<text class="graph__tick" x="${r.left-6}" y="${lf(d+4)}" text-anchor="end">${$d(c)}</text>`)}c.push(`<g class="graph__grid">${l.join(``)}</g>`);let d=[];if(e.x.min<0&&e.x.max>0){let e=lf(o(0));d.push(`<line x1="${e}" y1="${r.top}" x2="${e}" y2="${r.bottom}"/>`)}if(a.min<0&&a.max>0){let e=lf(s(0));d.push(`<line x1="${r.left}" y1="${e}" x2="${r.right}" y2="${e}"/>`)}d.length>0&&c.push(`<g class="graph__axis">${d.join(``)}</g>`),c.push(`<g class="graph__ticks">${u.join(``)}</g>`),i.forEach((e,t)=>{let n=Xd(e,a,o,s);n.length!==0&&c.push(`<path class="graph__line graph__line--${t+1}" d="${n}"/>`)}),n&&c.push(Zd(e,r.left));let f=C(w.graphAlt(e.functions.map(e=>`y = ${e.source}`).join(`, `)),t);return{ok:!0,svg:`<svg class="graph" viewBox="0 0 ${tf} ${nf}" role="img" aria-label="${ef(f)}">${c.join(``)}</svg>`}}function Jd(e,t){let n=[];for(let r=0;r<=of;r+=1){let i=t.min+(t.max-t.min)*r/of;n.push({x:i,y:e(i)})}return n}function Yd(e){let t=e.map(e=>e.y).filter(e=>Number.isFinite(e)).sort((e,t)=>e-t);if(t.length===0)return null;let n=Math.floor(t.length*.05),r=t.slice(n,t.length-n),i=r[0]??t[0],a=r.at(-1)??t.at(-1);if(a-i<1e-12)return{min:i-1,max:a+1};let o=(a-i)*.1;return{min:i-o,max:a+o}}function Xd(e,t,n,r){let i=[],a=!1;for(let o of e){if(!(Number.isFinite(o.y)&&o.y>=t.min&&o.y<=t.max)){a=!1;continue}i.push(`${a?`L`:`M`}${lf(n(o.x))},${lf(r(o.y))}`),a=!0}return i.join(` `)}function Zd(e,t){return`<g class="graph__legend">${e.functions.map((e,n)=>{let r=t+n*cf;return`<line class="graph__line graph__line--${n+1}" x1="${r}" y1="310" x2="${r+18}" y2="310"/><text class="graph__tick" x="${r+24}" y="314">${ef(Qd(`y = ${e.source}`))}</text>`}).join(``)}</g>`}function Qd(e){return e.length<=15?e:`${e.slice(0,14)}…`}function $d(e){let t=Number(e.toPrecision(3));return String(Object.is(t,-0)?0:t)}function ef(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`)}var tf,nf,rf,af,of,sf,cf,lf,uf=t((()=>{ee(),T(),tf=480,nf=320,rf={top:10,right:8,bottom:26,left:60},af=22,of=400,sf=5,cf=145,lf=e=>Math.round(e*100)/100}));function df(e){let t=[],n=[],r=null,i=e=>{n.length!==0&&(t.push({text:n.join(``),isCode:e}),n=[])};for(let t of e.split(`
 `)){let e=`${t}\n`;if(r===null){let a=t.match(zf);a&&(i(!1),r=a[1]),n.push(e);continue}n.push(e),t.trim().startsWith(r)&&(i(!0),r=null)}i(r!==null);let a=t.at(-1);return a&&!e.endsWith(`
-`)&&(a.text=a.text.slice(0,-1)),t.flatMap(e=>e.isCode?[e]:ff(e.text))}function ff(e){let t=[],n=0;for(let r of e.matchAll(Bf)){let i=r.index;i>n&&t.push({text:e.slice(n,i),isCode:!1}),t.push({text:r[0],isCode:!0}),n=i+r[0].length}return n<e.length&&t.push({text:e.slice(n),isCode:!1}),t}function pf(e){let t=[],n=[],r=[],i=[{masked:0,original:0}],a=[],o=0,s=0,c=(e,t)=>{a.push(e),o+=e.length,s+=t,i.push({masked:o,original:s})},l=e=>{a.push(e),o+=e.length,s+=e.length};for(let i of df(e)){if(i.isCode){let e=hf(i.text,n);e===i.text?l(i.text):c(e,i.text.length);continue}let e=0;for(let n of i.text.matchAll(Rf)){let a=n.index;if(a>e&&l(i.text.slice(e,a)),n[4]!==void 0){let t=r.push({text:n[3]??``,label:n[4]})-1;c(Ff(t),n[0].length),e=a+n[0].length;continue}let o=n[1]!==void 0,u=o?n[1]:n[2],d=u.trim();if(d.length===0)l(n[0]);else{let e=s+(o?2:1)+(u.length-u.trimStart().length),r=mf(d,o),i=t.push({...r,displayMode:o,start:e,end:e+d.length})-1;c(jf(i),n[0].length)}e=a+n[0].length}e<i.text.length&&l(i.text.slice(e))}return{masked:a.join(``),formulas:t,graphs:n,refs:r,offsets:i}}function mf(e,t){if(!t)return{latex:e,label:null};let n=[...e.matchAll(If)];if(n.length!==1)return{latex:e,label:null};let r=n[0][1].trim();return r===``?{latex:e,label:null}:{latex:e.replace(If,``).trim(),label:r}}function hf(e,t){let n=e.split(`
+`)&&(a.text=a.text.slice(0,-1)),t.flatMap(e=>e.isCode?[e]:ff(e.text))}function ff(e){let t=[],n=0;for(let r of e.matchAll(Bf)){let i=r.index;i>n&&t.push({text:e.slice(n,i),isCode:!1}),t.push({text:r[0],isCode:!0}),n=i+r[0].length}return n<e.length&&t.push({text:e.slice(n),isCode:!1}),t}function pf(e){let t=[],n=[],r=[],i=[{masked:0,original:0}],a=[],o=0,s=0,c=(e,t)=>{a.push(e),o+=e.length,s+=t,i.push({masked:o,original:s})},l=e=>{a.push(e),o+=e.length,s+=e.length};for(let i of df(e)){if(i.isCode){let e=hf(i.text,n);e===i.text?l(i.text):c(e,i.text.length);continue}let e=0;for(let n of i.text.matchAll(Rf)){let a=n.index;if(a>e&&l(i.text.slice(e,a)),n[5]!==void 0){let t=r.push({text:n[4]??``,label:n[5]})-1;c(Ff(t),n[0].length),e=a+n[0].length;continue}if(n[6]!==void 0){let t=r.push({text:null,label:n[6]})-1;c(Ff(t),n[0].length),e=a+n[0].length;continue}let o=n[1]!==void 0,u=o?n[1]:n[3],d=u.trim();if(d.length===0)l(n[0]);else{let e=s+(o?2:1)+(u.length-u.trimStart().length),r=mf(d,o),i=t.push({...r,label:n[2]??r.label,displayMode:o,start:e,end:e+d.length})-1;c(jf(i),n[0].length)}e=a+n[0].length}e<i.text.length&&l(i.text.slice(e))}return{masked:a.join(``),formulas:t,graphs:n,refs:r,offsets:i}}function mf(e,t){if(!t)return{latex:e,label:null};let n=[...e.matchAll(If)];if(n.length!==1)return{latex:e,label:null};let r=n[0][1].trim();return r===``?{latex:e,label:null}:{latex:e.replace(If,``).trim(),label:r}}function hf(e,t){let n=e.split(`
 `);if(!Lf.test(n[0]??``))return e;n.at(-1)===``&&n.pop();let r=n.length>=2&&zf.test(n.at(-1).trim()),i=n.slice(1,r?-1:void 0).join(`
-`),a=t.push(i)-1;return`${Nf(a)}\n`}function gf(e){let t=`${e.displayMode?`block`:`inline`}:${e.latex}`,n=$.get(t);if(n!==void 0)return n;let r=_f(e);if($.size>=Vf){let e=$.keys().next().value;e!==void 0&&$.delete(e)}return $.set(t,r),r}function _f({latex:e,displayMode:t}){return Hs.renderToString(e,{displayMode:t,throwOnError:!1,errorColor:`#dc2626`,strict:!1})}function vf(e){let t=new Map,n=1;return{numbers:e.map(({label:e})=>{if(e===null)return null;let r=n;return n+=1,t.has(e)||t.set(e,r),r}),byLabel:t}}function yf({displayMode:e},t){let n=[`math-anchor`];return e&&n.push(`math-anchor--block`),t!==null&&n.push(`math-anchor--numbered`),n.join(` `)}function bf(e,t,n,r,i){return e.replace(Hf,(e,a,o)=>{let s=Number(o);if(a===`GRAPH`){let t=r[s];return t===void 0?e:Tf(t,i)}let c=t[s];if(c===void 0)return e;let l=n[s]??null,u=l===null?``:` id="eq-${l}"`,d=l===null?``:`<span class="eq-number">(${l})</span>`;return`<span class="${yf(c,l)}"${u} data-math-start="${c.start}" data-math-end="${c.end}">${gf(c)}${d}</span>`})}function xf(e,t,n){return e.replace(Uf,(e,r)=>{let i=t[Number(r)];return i===void 0?e:Sf(i,n)})}function Sf({text:e,label:t},n){let r=n.get(t),i=r===void 0?`#eq-${t}`:`#eq-${r}`,a=r===void 0?e:e.replace(Wf,`(${r})`);return`<a href="${Of(i)}">${Of(a)}</a>`}function Cf(e,t,n){let r=ql.lexer(e,Gf),i=Ud(t),a=[],o=0;for(let e of r){let t=[e];t.links=r.links;let s=ql.parser(t,Gf),c=Gd(i,Wd(n,o));o+=e.raw.length,a.push(s===``?s:s.replace(Kf,`$1 data-line="${c}"`))}return a.join(``)}function wf(e,t=`ja`){let{masked:n,formulas:r,graphs:i,refs:a,offsets:o}=pf(e),{numbers:s,byLabel:c}=vf(r),l=xf(Cf(n,e,o),a,c);return bf(jl.sanitize(l,{USE_PROFILES:{html:!0,mathMl:!0,svg:!0}}),r,s,i,t)}function Tf(e,t){let n=`${t}:${e}`,r=qf.get(n);if(r!==void 0)return r;let i=Ef(e,t);if(qf.size>=Jf){let e=qf.keys().next().value;e!==void 0&&qf.delete(e)}return qf.set(n,i),i}function Ef(e,t){let n=Id(e);if(!n.ok)return Df(C(n.error,t));let r=qd(n.spec,t);return r.ok?jl.sanitize(r.svg,{USE_PROFILES:{html:!0,mathMl:!0,svg:!0}}):Df(C(r.error,t))}function Df(e){return`<span class="graph-error">${Of(e)}</span>`}function Of(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`)}var kf,Af,jf,Mf,Nf,Pf,Ff,If,Lf,Rf,zf,Bf,$,Vf,Hf,Uf,Wf,Gf,Kf,qf,Jf,Yf=t((()=>{Ml(),Us(),Sd(),Hd(),ee(),Kd(),uf(),kf=`%%MATHEDITOR_MATH_`,Af=`%%`,jf=e=>`${kf}${e}${Af}`,Mf=`%%MATHEDITOR_GRAPH_`,Nf=e=>`${Mf}${e}${Af}`,Pf=`%%MATHEDITOR_REF_`,Ff=e=>`${Pf}${e}${Af}`,If=/\\tag\{([^{}\n]*)\}/g,Lf=/^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/,Rf=RegExp(`\\$\\$([\\s\\S]+?)\\$\\$|(?<![\\\\$])\\$(?!\\s)((?:\\\\.|[^\\\\$\\n])+?)(?<!\\s)\\$(?!\\$)|\\[([^\\]\\n]*)\\]\\(#eq-([^)\\s]*)\\)`,`g`),zf=/^ {0,3}(`{3,}|~{3,})/,Bf=/(`+)[\s\S]*?\1/g,$=new Map,Vf=500,Hf=/%%MATHEDITOR_(MATH|GRAPH)_(\d+)%%/g,Uf=/%%MATHEDITOR_REF_(\d+)%%/g,Wf=/^\((\d+)\)$/,Gf={async:!1,breaks:!0,gfm:!0},Kf=/^(\s*<[a-zA-Z][a-zA-Z0-9-]*)/,qf=new Map,Jf=100})),Xf=r({guideDocument:()=>rc,renderLatex:()=>Zf,renderMarkdown:()=>wf}),Zf,Qf=t((()=>{Ct(),Us(),ic(),Yf(),Zf=e=>Hs.renderToString(e,{throwOnError:!1,displayMode:!1})})),$f=null;function ep(){return $f??=St(()=>Promise.resolve().then(()=>(Qf(),Xf)),void 0,{}.url).catch(e=>{throw $f=null,e}),$f}var tp=`# 正規分布と標本平均
+`),a=t.push(i)-1;return`${Nf(a)}\n`}function gf(e){let t=`${e.displayMode?`block`:`inline`}:${e.latex}`,n=$.get(t);if(n!==void 0)return n;let r=_f(e);if($.size>=Vf){let e=$.keys().next().value;e!==void 0&&$.delete(e)}return $.set(t,r),r}function _f({latex:e,displayMode:t}){return Hs.renderToString(e,{displayMode:t,throwOnError:!1,errorColor:`#dc2626`,strict:!1})}function vf(e){let t=new Map,n=1;return{numbers:e.map(({label:e})=>{if(e===null)return null;let r=n;return n+=1,t.has(e)||t.set(e,r),r}),byLabel:t}}function yf({displayMode:e},t){let n=[`math-anchor`];return e&&n.push(`math-anchor--block`),t!==null&&n.push(`math-anchor--numbered`),n.join(` `)}function bf(e,t,n,r,i){return e.replace(Hf,(e,a,o)=>{let s=Number(o);if(a===`GRAPH`){let t=r[s];return t===void 0?e:Tf(t,i)}let c=t[s];if(c===void 0)return e;let l=n[s]??null,u=l===null?``:` id="eq-${l}"`,d=l===null?``:`<span class="eq-number">(${l})</span>`;return`<span class="${yf(c,l)}"${u} data-math-start="${c.start}" data-math-end="${c.end}">${gf(c)}${d}</span>`})}function xf(e,t,n){return e.replace(Uf,(e,r)=>{let i=t[Number(r)];return i===void 0?e:Sf(i,n)})}function Sf({text:e,label:t},n){let r=n.get(t);if(e===null)return r===void 0?Of(`@${t}`):`<a href="#eq-${r}">(${r})</a>`;let i=r===void 0?`#eq-${t}`:`#eq-${r}`,a=r===void 0?e:e.replace(Wf,`(${r})`);return`<a href="${Of(i)}">${Of(a)}</a>`}function Cf(e,t,n){let r=ql.lexer(e,Gf),i=Ud(t),a=[],o=0;for(let e of r){let t=[e];t.links=r.links;let s=ql.parser(t,Gf),c=Gd(i,Wd(n,o));o+=e.raw.length,a.push(s===``?s:s.replace(Kf,`$1 data-line="${c}"`))}return a.join(``)}function wf(e,t=`ja`){let{masked:n,formulas:r,graphs:i,refs:a,offsets:o}=pf(e),{numbers:s,byLabel:c}=vf(r),l=xf(Cf(n,e,o),a,c);return bf(jl.sanitize(l,{USE_PROFILES:{html:!0,mathMl:!0,svg:!0}}),r,s,i,t)}function Tf(e,t){let n=`${t}:${e}`,r=qf.get(n);if(r!==void 0)return r;let i=Ef(e,t);if(qf.size>=Jf){let e=qf.keys().next().value;e!==void 0&&qf.delete(e)}return qf.set(n,i),i}function Ef(e,t){let n=Id(e);if(!n.ok)return Df(C(n.error,t));let r=qd(n.spec,t);return r.ok?jl.sanitize(r.svg,{USE_PROFILES:{html:!0,mathMl:!0,svg:!0}}):Df(C(r.error,t))}function Df(e){return`<span class="graph-error">${Of(e)}</span>`}function Of(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`)}var kf,Af,jf,Mf,Nf,Pf,Ff,If,Lf,Rf,zf,Bf,$,Vf,Hf,Uf,Wf,Gf,Kf,qf,Jf,Yf=t((()=>{Ml(),Us(),Sd(),Hd(),ee(),Kd(),uf(),kf=`%%MATHEDITOR_MATH_`,Af=`%%`,jf=e=>`${kf}${e}${Af}`,Mf=`%%MATHEDITOR_GRAPH_`,Nf=e=>`${Mf}${e}${Af}`,Pf=`%%MATHEDITOR_REF_`,Ff=e=>`${Pf}${e}${Af}`,If=/\\tag\{([^{}\n]*)\}/g,Lf=/^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/,Rf=RegExp(`\\$\\$([\\s\\S]+?)\\$\\$(?:[ \\t]*\\{#(eq-[a-z0-9_-]+)\\})?|(?<![\\\\$])\\$(?!\\s)((?:\\\\.|[^\\\\$\\n])+?)(?<!\\s)\\$(?!\\$)|\\[([^\\]\\n]*)\\]\\(#eq-([^)\\s]*)\\)|(?<![\\w@])@(eq-[a-z0-9_-]+)`,`g`),zf=/^ {0,3}(`{3,}|~{3,})/,Bf=/(`+)[\s\S]*?\1/g,$=new Map,Vf=500,Hf=/%%MATHEDITOR_(MATH|GRAPH)_(\d+)%%/g,Uf=/%%MATHEDITOR_REF_(\d+)%%/g,Wf=/^\((\d+)\)$/,Gf={async:!1,breaks:!0,gfm:!0},Kf=/^(\s*<[a-zA-Z][a-zA-Z0-9-]*)/,qf=new Map,Jf=100})),Xf=r({guideDocument:()=>rc,renderLatex:()=>Zf,renderMarkdown:()=>wf}),Zf,Qf=t((()=>{Ct(),Us(),ic(),Yf(),Zf=e=>Hs.renderToString(e,{throwOnError:!1,displayMode:!1})})),$f=null;function ep(){return $f??=St(()=>Promise.resolve().then(()=>(Qf(),Xf)),void 0,{}.url).catch(e=>{throw $f=null,e}),$f}var tp=`# 正規分布と標本平均
 
 測定誤差のようなばらつきは、正規分布 $\\mathcal{N}(\\mu, \\sigma^2)$ で近似できることが多い。
 確率変数 $X$ がこれに従うことを $X \\sim \\mathcal{N}(\\mu, \\sigma^2)$ と書く。
 
 $$
-f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right) \\tag{密度}
-$$
+f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right)
+$$ {#eq-density}
 
 - 期待値は $\\mathrm{E}(X) = \\mu$
 - 分散は $\\mathrm{Var}(X) = \\sigma^2$
 - $\\mu \\pm \\sigma$ の内側に約68%が入る
 
-式 [(1)](#eq-密度) で $\\mu = 0$、$\\sigma = 1$ とした標準正規分布を描いてみる。
+@eq-density で $\\mu = 0$、$\\sigma = 1$ とした標準正規分布を描いてみる。
 
 \`\`\`graph
 y = exp(-x^2/2)/sqrt(2*pi)
@@ -708,10 +716,10 @@ x: -4..4
 $n$ 個の標本の平均 $\\overline{X}$ は、$n$ が大きいほど $\\mu$ の近くに集まる。
 
 $$
-\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n} \\tag{標本平均}
-$$
+\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}
+$$ {#eq-samplemean}
 
-式 [(2)](#eq-標本平均) のとおり、分散は $n$ に反比例する。
+@eq-samplemean のとおり、分散は $n$ に反比例する。
 標本から推定した $\\mu$ の値は $\\widehat{\\mu}$ と書く。
 
 パレットのボタンを押すと、カーソル位置に数式コマンドが入ります。
@@ -721,14 +729,14 @@ Spread such as measurement error is often approximated by a normal distribution 
 We write $X \\sim \\mathcal{N}(\\mu, \\sigma^2)$ to say that $X$ follows it.
 
 $$
-f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right) \\tag{density}
-$$
+f(x) = \\frac{1}{\\sqrt{2\\pi}\\,\\sigma} \\exp\\left( -\\frac{(x - \\mu)^2}{2\\sigma^2} \\right)
+$$ {#eq-density}
 
 - The mean is $\\mathrm{E}(X) = \\mu$
 - The variance is $\\mathrm{Var}(X) = \\sigma^2$
 - About 68% of the mass lies within $\\mu \\pm \\sigma$
 
-Here is equation [(1)](#eq-density) with $\\mu = 0$ and $\\sigma = 1$.
+Here is equation @eq-density with $\\mu = 0$ and $\\sigma = 1$.
 
 \`\`\`graph
 y = exp(-x^2/2)/sqrt(2*pi)
@@ -740,10 +748,10 @@ x: -4..4
 The mean $\\overline{X}$ of $n$ samples clusters closer to $\\mu$ as $n$ grows.
 
 $$
-\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n} \\tag{samplemean}
-$$
+\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}
+$$ {#eq-samplemean}
 
-As [(2)](#eq-samplemean) shows, the variance is inversely proportional to $n$.
+As @eq-samplemean shows, the variance is inversely proportional to $n$.
 An estimate of $\\mu$ from a sample is written $\\widehat{\\mu}$.
 
 Press a palette button to insert a command at the cursor.

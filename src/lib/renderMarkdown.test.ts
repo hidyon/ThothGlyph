@@ -499,3 +499,94 @@ describe('式の番号と参照（0044）', () => {
     expect(renderMarkdown(source)).toBe(first)
   })
 })
+
+describe('方言のラベルと参照（0083）', () => {
+  const doc = (body: string) => renderMarkdown(body)
+
+  it('閉じの $$ の後ろの {#eq-…} で採番され、idが付く', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n')
+
+    expect(html).toContain('id="eq-1"')
+    expect(html).toContain('<span class="eq-number">(1)</span>')
+  })
+
+  it('{#eq-…} は本文に文字として残らない', () => {
+    expect(doc('$$\nx = 1\n$$ {#eq-density}\n')).not.toContain('{#eq-density}')
+  })
+
+  it('@eq-… が現在の番号のリンクになる', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n\n@eq-density より。\n')
+
+    expect(html).toContain('<a href="#eq-1">(1)</a>')
+  })
+
+  it('採番されていないラベルはリンクにならず、書いたまま残る', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n\n@eq-typo より。\n')
+
+    expect(html).toContain('@eq-typo')
+    expect(html).not.toContain('href="#eq-typo"')
+  })
+
+  it('コードの中の @eq-… と {#eq-…} は変換されない', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n\n`@eq-density` と書く。\n')
+
+    expect(html).toContain('<code>@eq-density</code>')
+  })
+
+  it('前が英数字の @eq-… は参照とみなさない', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n\nmail@eq-density は住所。\n')
+
+    expect(html).toContain('mail@eq-density')
+    expect(html).not.toContain('<a href="#eq-1">(1)</a>')
+  })
+
+  it('日本語のラベルはラベルとみなさず、文字として残る', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-密度}\n')
+
+    expect(html).toContain('{#eq-密度}')
+    expect(html).not.toContain('eq-number')
+  })
+
+  it('ラベルの後ろに日本語が続いても参照として切れる', () => {
+    const html = doc('$$\nx = 1\n$$ {#eq-density}\n\n@eq-densityより。\n')
+
+    expect(html).toContain('<a href="#eq-1">(1)</a>より')
+  })
+
+  it('同じラベルが2つあると、どちらも採番され参照は最初を指す', () => {
+    const html = doc(
+      '$$\nx = 1\n$$ {#eq-a}\n\n$$\ny = 2\n$$ {#eq-a}\n\n@eq-a を見る。\n',
+    )
+
+    expect(html).toContain('id="eq-1"')
+    expect(html).toContain('id="eq-2"')
+    expect(html).toContain('<a href="#eq-1">(1)</a>')
+  })
+
+  it('旧記法（\\tag）と混ざっても文書順に番号が振られる', () => {
+    const html = doc(
+      '$$\nx = 1 \\tag{old}\n$$\n\n$$\ny = 2\n$$ {#eq-new}\n\n[(1)](#eq-old) と @eq-new。\n',
+    )
+
+    expect(html).toContain('id="eq-1"')
+    expect(html).toContain('id="eq-2"')
+    expect(html).toContain('<a href="#eq-1">(1)</a>')
+    expect(html).toContain('<a href="#eq-2">(2)</a>')
+  })
+
+  it('{#eq-…} と \\tag の両方があるときはラベルに {#eq-…} を採る', () => {
+    const html = doc('$$\nx = 1 \\tag{y}\n$$ {#eq-x}\n\n@eq-x と [(1)](#eq-y)。\n')
+
+    // 番号は1つだけ。参照は @eq-x が当たり、[(1)](#eq-y) は当たらない。
+    expect(html.match(/eq-number/g)).toHaveLength(1)
+    expect(html).toContain('<a href="#eq-1">(1)</a>')
+    expect(html).toContain('href="#eq-y"')
+  })
+
+  it('インライン数式にはラベルを付けられない', () => {
+    const html = doc('文中の $x = 1$ {#eq-inline} はラベルにならない。\n')
+
+    expect(html).toContain('{#eq-inline}')
+    expect(html).not.toContain('eq-number')
+  })
+})
