@@ -59,10 +59,12 @@
 | `src/lib/findMatches.ts` | 文書内の検索・置換（一致の列挙と置換後の全文）（[0043](specs/0043-find-replace.md)） |
 | `src/lib/highlightRanges.ts` | 検索の一致を塗る層に入れるHTML（[0043](specs/0043-find-replace.md)） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
+| `src/guideDocument.ts` / `src/lib/guideTable.ts` / `guideCommands.ts` | 算式記載ガイド（本文・表の組み立て・生成したコマンド一覧）（[0079](specs/0079-notation-guide.md)） |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
 | `scripts/measure-load.mjs` | 本番ビルドの大きさと読み込み時間の実測 |
 | `scripts/make-icons.mjs` | `favicon.svg` からPNGを書き出す |
+| `scripts/extract-katex-commands.mjs` | KaTeXのソースからコマンド一覧を生成（[0079](specs/0079-notation-guide.md)） |
 | `docs/` | 要求・アーキテクチャ・機能・テストの4文書と、issue／issue仕様／振り返り |
 
 コンポーネントに条件分岐やデータ加工を書かない。`lib/` の純粋関数に出して、
@@ -237,11 +239,14 @@ LaTeX文字列と `displayMode` の組をキーに、KaTeXの出力をモジュ�
 KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの前提が崩れる）。
 **6** のグラフのSVGは迂回しない（差し戻す前に1つずつDOMPurifyを通す。0037）。
 
-`dangerouslySetInnerHTML` を使う箇所は**2つだけ**で、どちらも入口が決まっている。
+`dangerouslySetInnerHTML` を使う箇所は**3つだけ**で、どれも入口が決まっている。
 
 1. `Preview` — 渡ってくるHTMLが上のパイプラインを通っていることが前提。
    他の経路からHTMLを渡さない。
-2. `Editor` の検索の塗り層（[0043](specs/0043-find-replace.md)） —
+2. `GuidePanel`（[0079](specs/0079-notation-guide.md)） — 渡すのは
+   `renderMarkdown(guideDocument(lang), lang)` の結果だけ。ガイドの中身は
+   リポジトリが持つ文字列で、利用者の入力は混ざらない。
+3. `Editor` の検索の塗り層（[0043](specs/0043-find-replace.md)） —
    `lib/highlightRanges.ts` の `highlightHtml` が作った文字列だけを渡す。
    この関数は `mark` 以外の要素を作らず、`&` `<` `>` をエスケープする
    （単体テストで固定）。要素を並べる形をやめたのは速さのため（400件で
@@ -508,6 +513,11 @@ JSを2つに分けている。
   **幅は描画後のボタンに合わせて詰めてある**（40px、溢れは省略記号）。
   そのまま出すとボタンが広がって段数が増え、届いた瞬間にパレットが縮む。
 
+**算式記載ガイドの中身も遅延チャンク側に置く**（[0079](specs/0079-notation-guide.md)）。
+954件のコマンド表と本文で約68 kBあり、初期チャンクに入れるとN10に効く。
+`engine.ts` から `guideDocument` を読むことで遅延側に寄せてある。
+エンジンが届く前にガイドを開いた場合は、パネルに `準備中…` を出す。
+
 エンジンの取得に失敗しても**エディタは使えたままにする**（書いたものを失わせない）。
 `loadEngine()` は失敗したPromiseを捨てるので、次に呼ばれたらもう一度試せる。
 
@@ -518,12 +528,18 @@ JSを2つに分けている。
 | 分割前 | 579.98 kB（gzip 180.50） | 36.09 kB | 1964 ms | 2021 ms |
 | 分割後 | 243.20 kB（gzip 76.82） | 6.32 kB | 1085 ms | 1939 ms |
 
+0079の時点の実測は**初期272.20 kB（gzip 85.86）・遅延400.62 kB・
+初期CSS 12.00 kB**、Fast 3G + CPU 4倍でtextareaまで1079ms。
+初期CSSは基準の10 kBを超えたまま（[0073](issues/0073-initial-css-size.md)）、
+スロットルなしのtextareaまでは250msの線を割った
+（[0081](issues/0081-load-headroom.md)）。
+
 ## 8. ビルドの出力は2つある（[0074](specs/0074-file-protocol.md)）
 
 | コマンド | 出力 | 形 | 配り方 |
 |---|---|---|---|
 | `npm run build` | `dist/` | ESモジュール。上の分割のまま（初期268.85 kB + 遅延340.62 kB） | HTTPで配る |
-| `npm run build:file` | `dist-file/` | **1本のIIFE**（app.js 602.8 kB）。CSSも1つ | `index.html` を直接開く |
+| `npm run build:file` | `dist-file/` | **1本のIIFE**（app.js 674.2 kB。0079のガイドで+71.4 kB）。CSSも1つ | `index.html` を直接開く |
 
 **`file://` ではESモジュールが使えない。** パスの問題ではなく、origin が `null`
 になるためモジュールの取得そのものがCORSで拒否される（`--base=./` でも同じ）。

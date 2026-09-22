@@ -88,7 +88,9 @@
 | [0076](0076-block-math-perf.md) | ブロック数式の多い文書で入力が基準の50msを超える | open | — |
 | [0077](0077-palette-tag.md) | パレットから式の番号（`\tag`）を入れられない | open | — |
 | [0078](0078-sample-equation-numbers.md) | サンプル文書に式の番号と参照が出てこない | closed | [仕様](../specs/0078-sample-equation-numbers.md) |
-| [0079](0079-notation-guide.md) | 書ける記法とコマンドを、編集中に調べられない | open | — |
+| [0079](0079-notation-guide.md) | 書ける記法とコマンドを、編集中に調べられない | closed | [仕様](../specs/0079-notation-guide.md) |
+| [0080](0080-guide-search.md) | 算式記載ガイドの中を探せない | open | — |
+| [0081](0081-load-headroom.md) | スロットルなしの初期表示が基準250msに収まらない | open | — |
 
 ## 着手順の目安
 

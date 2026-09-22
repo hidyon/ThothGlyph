@@ -52,6 +52,16 @@ export const messages = {
   savedFile: (name: string) => t(`${name} を保存しました`, `Saved ${name}`),
   saveNothing: t('書き出す内容がありません', 'There is nothing to save'),
 
+  // 算式記載ガイド（0079）
+  guide: t('ガイド', 'Guide'),
+  /** 幅480px以下で出す記号。長いほうは aria-label に残る（0033と同じ扱い）。 */
+  guideShort: t('?', '?'),
+  guideTitle: t(
+    '書ける記法とコマンドの一覧を開く',
+    'Open the list of notation and commands you can use',
+  ),
+  guideClose: t('閉じる', 'Close'),
+
   themePrefix: t('テーマ: ', 'Theme: '),
   themeTitle: t(
     'テーマを切り替える（自動 → ライト → ダーク）',

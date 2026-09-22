@@ -496,8 +496,9 @@ section('layout', 'レイアウト', async () => {
       })),
     )
   check(
-    '幅360pxでツールバーの4ボタンすべてが画面内に収まる（0033）',
-    phoneButtons.length === 4 && phoneButtons.every((b) => b.right <= 360),
+    // 0079でガイドが5つ目として増えた（幅480px以下では `?` だけになる）。
+    '幅360pxでツールバーの5ボタンすべてが画面内に収まる（0033・0079）',
+    phoneButtons.length === 5 && phoneButtons.every((b) => b.right <= 360),
     phoneButtons.map((b) => `${b.text}=${b.right}`).join(' '),
   )
   check(
@@ -4988,6 +4989,317 @@ section('eq-number', '式の番号と参照（0044）', async () => {
 
   await resetState()
   console.log(`スクリーンショット: ${OUT}/eq-number.png, ${OUT}/eq-number-narrow.png`)
+})
+
+// ---- 算式記載ガイド（0079） ----
+
+section('guide', '算式記載ガイド（0079）', async () => {
+  await resetState()
+
+  const guideButton = () => page.getByRole('button', { name: 'ガイド' })
+  const panel = () => page.locator('.guide__panel')
+  const panelBox = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.guide__panel')
+      if (el === null) return null
+      const r = el.getBoundingClientRect()
+      return {
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+        scrollW: document.documentElement.scrollWidth,
+        innerW: window.innerWidth,
+      }
+    })
+  /** 表の数式が出そろうまで待つ。964件のうち1件（\tag）は文言なので963件。 */
+  const guideRendered = () =>
+    page.waitForFunction(() => document.querySelectorAll('.guide__body .katex').length >= 900, null, {
+      timeout: 20000,
+    })
+
+  // ---- 開閉 ----
+
+  check('ツールバーにガイドボタンがある', (await guideButton().count()) === 1)
+
+  const openedAt = Date.now()
+  await guideButton().click()
+  await guideRendered()
+  const openMs = Date.now() - openedAt
+  check('押すとガイドのパネルが開く', (await panel().count()) === 1)
+  check(
+    'ガイドを開いてから最後の数式が描かれるまで1.5秒以内',
+    openMs <= 1500,
+    `${openMs}ms`,
+    { timing: true },
+  )
+
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+  check('Escapeで閉じる', (await panel().count()) === 0)
+  check(
+    '閉じるとフォーカスがガイドボタンに戻る',
+    await page.evaluate(() => document.activeElement?.textContent?.includes('ガイド') === true),
+    await page.evaluate(() => document.activeElement?.tagName ?? 'なし'),
+  )
+
+  await guideButton().click()
+  await guideRendered()
+  await page.getByRole('button', { name: '閉じる' }).click()
+  await page.waitForTimeout(100)
+  check('閉じるボタンで閉じる', (await panel().count()) === 0)
+
+  await guideButton().click()
+  await guideRendered()
+  // 背景（パネルの外側）を押す。左上の隅はパネルの余白の中。
+  await page.mouse.click(8, 400)
+  await page.waitForTimeout(100)
+  check('パネルの外側を押すと閉じる', (await panel().count()) === 0)
+
+  // ---- 編集中の文書に触らない ----
+
+  await editor().fill('# 見出し\n\n本文を書いた。\n')
+  await page.waitForTimeout(100)
+  await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    ta.focus()
+    ta.setSelectionRange(10, 13)
+  })
+  await page.waitForFunction(
+    () => (document.querySelector('.toolbar__save')?.textContent ?? '').startsWith('保存しました'),
+    null,
+    { timeout: 5000 },
+  )
+  const beforeGuide = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return {
+      value: ta.value,
+      start: ta.selectionStart,
+      end: ta.selectionEnd,
+      save: document.querySelector('.toolbar__save').textContent,
+    }
+  })
+  await guideButton().click()
+  await guideRendered()
+  const saveWhileOpen = await saveStatus()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+  const afterGuide = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return { value: ta.value, start: ta.selectionStart, end: ta.selectionEnd }
+  })
+  check(
+    '開閉しても編集中の文書とカーソル・選択範囲が変わらない',
+    afterGuide.value === beforeGuide.value &&
+      afterGuide.start === beforeGuide.start &&
+      afterGuide.end === beforeGuide.end,
+    `${JSON.stringify(beforeGuide)} → ${JSON.stringify(afterGuide)}`,
+  )
+  check(
+    'ガイドを開いても保存状態の表示が変わらない',
+    saveWhileOpen === beforeGuide.save,
+    `${beforeGuide.save} → ${saveWhileOpen}`,
+  )
+
+  // ---- 寸法 ----
+
+  const paneBox = () =>
+    page.evaluate(() => {
+      const box = (sel) => {
+        const el = document.querySelector(sel)
+        if (el === null) return null
+        const r = el.getBoundingClientRect()
+        return { w: Math.round(r.width), h: Math.round(r.height) }
+      }
+      return {
+        palette: box('.palette'),
+        source: box('textarea'),
+        preview: box('.pane--preview .preview'),
+      }
+    })
+
+  await page.setViewportSize({ width: 1440, height: 667 })
+  await page.waitForTimeout(150)
+  const panesBefore = await paneBox()
+  await guideButton().click()
+  await guideRendered()
+  const wide = await panelBox()
+  check('幅1440×667でパネルが960×619pxで出る', wide.w === 960 && wide.h === 619, `${wide.w}×${wide.h}`)
+  const panesDuring = await paneBox()
+  check(
+    'パネルを開いてもパレット・ソース・プレビューの寸法が変わらない',
+    JSON.stringify(panesBefore) === JSON.stringify(panesDuring),
+    `${JSON.stringify(panesBefore)} → ${JSON.stringify(panesDuring)}`,
+  )
+  await page.screenshot({ path: `${OUT}/guide.png` })
+
+  await page.setViewportSize({ width: 721, height: 667 })
+  await page.waitForTimeout(150)
+  const at721 = await panelBox()
+  check('幅721×667でパネルが673×619pxになる', at721.w === 673 && at721.h === 619, `${at721.w}×${at721.h}`)
+
+  await page.setViewportSize({ width: 720, height: 667 })
+  await page.waitForTimeout(150)
+  const at720 = await panelBox()
+  check('幅720×667でパネルが全面（720×667px）になる', at720.w === 720 && at720.h === 667, `${at720.w}×${at720.h}`)
+
+  await page.setViewportSize({ width: 360, height: 667 })
+  await page.waitForTimeout(150)
+  const at360 = await panelBox()
+  check('幅360×667でパネルが全面（360×667px）になる', at360.w === 360 && at360.h === 667, `${at360.w}×${at360.h}`)
+  check('幅360pxでパネルを開いても横スクロールが出ない', at360.scrollW <= at360.innerW, `${at360.scrollW} / ${at360.innerW}`)
+  await page.screenshot({ path: `${OUT}/guide-narrow.png` })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+
+  // ---- 中身 ----
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await guideButton().click()
+  await guideRendered()
+  const headings = await page.evaluate(() => ({
+    part1: [...document.querySelectorAll('.guide__body h3')]
+      .map((el) => el.textContent.trim())
+      .filter((text) => /^\d+\. /.test(text)).length,
+    part2: [...document.querySelectorAll('.guide__body h3')]
+      .map((el) => el.textContent.trim())
+      .filter((text) => /（\d+）$/.test(text)).length,
+    errors: document.querySelectorAll('.guide__body .katex-error').length,
+    formulas: document.querySelectorAll('.guide__body .katex').length,
+    graphs: document.querySelectorAll('.guide__body svg.graph').length,
+  }))
+  check('第1部の13項目の見出しが出る', headings.part1 === 13, `${headings.part1}件`)
+  check('第2部の分類の見出しが14件（13分類＋環境）出る', headings.part2 === 14, `${headings.part2}件`)
+  check('ガイドの中に壊れた数式（katex-error）が1件もない', headings.errors === 0, `${headings.errors}件`)
+  check('第1部のグラフが描かれる', headings.graphs === 1, `${headings.graphs}個`)
+  console.log('ガイドの数式:', headings.formulas)
+
+  const fracRow = await page.evaluate(() => {
+    const row = [...document.querySelectorAll('.guide__body tr')].find(
+      (tr) => tr.querySelector('code')?.textContent === '\\frac{a}{b}',
+    )
+    if (row === undefined) return null
+    const cells = [...row.querySelectorAll('td')]
+    return {
+      command: cells[0]?.textContent.trim(),
+      drawn: cells[1]?.querySelector('.katex') !== null,
+      name: cells[2]?.textContent.trim(),
+    }
+  })
+  check(
+    '`\\frac{a}{b}` の行にコマンド・描画・名前の3つが出る',
+    fracRow !== null && fracRow.command === '\\frac{a}{b}' && fracRow.drawn && fracRow.name === '分数',
+    JSON.stringify(fracRow),
+  )
+
+  const reachedEnd = await page.evaluate(() => {
+    const body = document.querySelector('.guide__body')
+    body.scrollTop = body.scrollHeight
+    const rows = body.querySelectorAll('tr')
+    const last = rows[rows.length - 1]
+    const r = last.getBoundingClientRect()
+    const b = body.getBoundingClientRect()
+    return { visible: r.top >= b.top - 1 && r.bottom <= b.bottom + 1, text: last.textContent.trim() }
+  })
+  check('縦にスクロールすると最後の行まで届く', reachedEnd.visible, reachedEnd.text.slice(0, 40))
+
+  // ---- ダーク ----
+
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForTimeout(150)
+  const darkContrast = await contrastOf('.guide__body', '.guide__panel')
+  check(
+    'ダークでガイドの文字と背景のコントラストが4.5:1以上',
+    darkContrast >= 4.5,
+    darkContrast.toFixed(2),
+  )
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.keyboard.press('Escape')
+
+  // ---- 英語表示 ----
+
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(150)
+  await page.getByRole('button', { name: 'Guide' }).click()
+  await guideRendered()
+  const enTitle = await page.locator('.guide__title').innerText()
+  const enHeading = await page.evaluate(
+    () => document.querySelector('.guide__body h1')?.textContent.trim(),
+  )
+  check(
+    '英語表示でガイドの見出しが英語になる',
+    enTitle === 'Guide' && enHeading === 'Math Notation Guide',
+    `${enTitle} / ${enHeading}`,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+
+  // 英語・幅360px・保存状態ありでツールバーが溢れないこと（N9の回帰。0079で5つ目のボタンが増えた）
+  await page.setViewportSize({ width: 360, height: 667 })
+  await editor().fill('x')
+  await page.waitForFunction(
+    () => (document.querySelector('.toolbar__save')?.textContent ?? '').startsWith('Saved'),
+    null,
+    { timeout: 5000 },
+  )
+  const enNarrow = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    innerW: window.innerWidth,
+    label: [...document.querySelectorAll('.toolbar button')]
+      .map((b) => b.innerText.trim())
+      .join('|'),
+  }))
+  check(
+    '英語・幅360px・保存状態ありでツールバーの横スクロールが出ない',
+    enNarrow.scrollW <= enNarrow.innerW,
+    `${enNarrow.scrollW} / ${enNarrow.innerW}（${enNarrow.label}）`,
+  )
+  // 幅360pxでは `言語:` の文字が消えるので、名前は状態の文字だけになる。
+  await page.getByRole('button', { name: /Language|English/ }).click()
+  await page.waitForTimeout(150)
+  const jaNarrow = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    innerW: window.innerWidth,
+    guide: [...document.querySelectorAll('.toolbar button')]
+      .map((b) => b.innerText.trim())
+      .find((text) => text === '?'),
+  }))
+  check(
+    '日本語・幅360pxでもツールバーの横スクロールが出ない',
+    jaNarrow.scrollW <= jaNarrow.innerW,
+    `${jaNarrow.scrollW} / ${jaNarrow.innerW}`,
+  )
+  check('幅360pxではガイドボタンが `?` で出る', jaNarrow.guide === '?', String(jaNarrow.guide))
+
+  /*
+    幅481〜720pxは、ガイドだけが記号で他の文言が長いままの帯。
+    英語・幅540pxはこの帯でいちばん混む（`Reset to sample` と `Copy Markdown`）。
+  */
+  await page.getByRole('button', { name: /言語|日本語/ }).click()
+  await page.setViewportSize({ width: 540, height: 667 })
+  await page.waitForTimeout(150)
+  const enBand = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    innerW: window.innerWidth,
+    guide: document.querySelector('.button--guide').innerText.trim(),
+  }))
+  check(
+    '英語・幅540pxでツールバーの横スクロールが出ない',
+    enBand.scrollW <= enBand.innerW,
+    `${enBand.scrollW} / ${enBand.innerW}`,
+  )
+  check('幅540pxでもガイドボタンが `?` で出る', enBand.guide === '?', enBand.guide)
+  await page.getByRole('button', { name: /Language|English/ }).click()
+  await page.waitForTimeout(150)
+
+  // 幅375pxでtextareaの高さが207px以上のまま（0033の回帰）
+  await page.setViewportSize({ width: 375, height: 667 })
+  await page.waitForTimeout(150)
+  const taHeight = await page.evaluate(() =>
+    Math.round(document.querySelector('textarea').getBoundingClientRect().height),
+  )
+  check('幅375pxでtextareaの高さが207px以上のまま', taHeight >= 207, `${taHeight}px`)
+
+  await resetState()
+  console.log(`スクリーンショット: ${OUT}/guide.png, ${OUT}/guide-narrow.png`)
 })
 
 // ---- 実行 ----
