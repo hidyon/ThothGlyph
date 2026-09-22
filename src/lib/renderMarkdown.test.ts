@@ -381,109 +381,55 @@ const texOf = (html: string, n = 0): string | null => {
   return found[n]?.[1] ?? null
 }
 
-describe('式の番号と参照（0044）', () => {
-  it('\\tag を書いたブロック数式に番号とidが付く', () => {
+describe('式の番号と参照（0044の記法は0085で落とした）', () => {
+  /*
+    `\tag{名前}` と `[(1)](#eq-名前)` は**もう印ではない**（0085）。
+    落としたことをここで固定する。書いたものが壊れない（文字とリンクとして
+    残る）ことも一緒に見る。
+  */
+  it('\\tag を書いても番号もidも付かない', () => {
     const html = renderMarkdown('$$\nx=1 \\tag{a}\n$$')
-
-    expect(html).toContain('id="eq-1"')
-    expect(html).toContain('<span class="eq-number">(1)</span>')
-    expect(html).toContain('math-anchor--numbered')
-  })
-
-  it('\\tag のないブロック数式には番号もidも付かない', () => {
-    const html = renderMarkdown('$$\nx=1\n$$')
 
     expect(html).not.toContain('id="eq-')
     expect(html).not.toContain('eq-number')
     expect(html).not.toContain('math-anchor--numbered')
   })
 
-  it('番号は文書順で、印のない式を飛ばして数える', () => {
-    const html = renderMarkdown('$$\na \\tag{x}\n$$\n\n$$\nb\n$$\n\n$$\nc \\tag{y}\n$$')
-
-    expect(html).toContain('id="eq-1"')
-    expect(html).toContain('id="eq-2"')
-    expect(html).not.toContain('id="eq-3"')
-    // 印のない式は2番ではなく、番号そのものを持たない。
-    expect([...html.matchAll(/class="eq-number">\((\d+)\)/g)].map((m) => m[1])).toEqual(['1', '2'])
-  })
-
-  it('KaTeXへ渡すLaTeXから \\tag が外れている', () => {
+  it('\\tag はKaTeXへそのまま渡る（外さない）', () => {
     const html = renderMarkdown('$$\nx=1 \\tag{a}\n$$')
 
-    expect(texOf(html)).toBe('x=1')
+    expect(texOf(html)).toBe('x=1 \\tag{a}')
+    // KaTeX自身が描くので、壊れた式にはならない。
+    expect(html).not.toContain('katex-error')
   })
 
-  it('インライン数式の \\tag は採番せず、KaTeXのエラーのまま', () => {
+  it('インライン数式の \\tag はKaTeXのエラーのまま', () => {
     const html = renderMarkdown('あ $x=1 \\tag{a}$ い')
 
     expect(html).not.toContain('eq-number')
     expect(html).toContain('katex-error')
   })
 
-  it('\\tag が2つある式は採番せず、KaTeXのエラーを見せる', () => {
+  it('\\tag が2つある式はKaTeXのエラーのまま', () => {
     const html = renderMarkdown('$$\nx=1 \\tag{a} \\tag{b}\n$$')
 
     expect(html).not.toContain('eq-number')
     expect(html).toContain('katex-error')
   })
 
-  it('中身が空の \\tag{} は印にしない', () => {
-    const html = renderMarkdown('$$\nx=1 \\tag{}\n$$')
+  it('[(1)](#eq-名前) はただのリンクになる（数字も飛び先も書き換えない）', () => {
+    const html = renderMarkdown('$$\na\n$$ {#eq-quad}\n\n式 [(5)](#eq-quad) より')
 
-    expect(html).not.toContain('eq-number')
+    expect(refAt(html)).toEqual({ href: '#eq-quad', text: '(5)' })
   })
 
-  it('コードブロックの中の \\tag は採番されない', () => {
-    const html = renderMarkdown('```\n$$\nx=1 \\tag{a}\n$$\n```')
+  it('番号を直接書いたリンク（#eq-1）は飛び先が残る', () => {
+    const html = renderMarkdown('$$\na\n$$ {#eq-quad}\n\n式 [(1)](#eq-1) より')
 
-    expect(html).not.toContain('eq-number')
-  })
-
-  it('参照のリンク先と (数字) が現在の番号になる', () => {
-    const html = renderMarkdown(
-      '$$\na \\tag{quad}\n$$\n\n$$\nb \\tag{mean}\n$$\n\n式 [(5)](#eq-mean) より',
-    )
-
-    expect(refAt(html)).toEqual({ href: '#eq-2', text: '(2)' })
-  })
-
-  it('(数字) の形でない文字列はそのまま残す', () => {
-    const html = renderMarkdown('$$\na \\tag{quad}\n$$\n\n[解の公式](#eq-quad) を見よ')
-
-    expect(refAt(html)).toEqual({ href: '#eq-1', text: '解の公式' })
-  })
-
-  it('採番されていないラベルへの参照は書き換えない', () => {
-    const html = renderMarkdown('$$\na \\tag{quad}\n$$\n\n式 [(1)](#eq-typo) より')
-
-    expect(refAt(html)).toEqual({ href: '#eq-typo', text: '(1)' })
-  })
-
-  it('コードの中の参照は書き換えない', () => {
-    const html = renderMarkdown('$$\na \\tag{quad}\n$$\n\n`[(1)](#eq-quad)`')
-
-    expect(refAt(html)).toBe(null)
-    expect(html).toContain('<code>[(1)](#eq-quad)</code>')
-  })
-
-  it('同じラベルが2つあるとき、参照は最初のものを指す', () => {
-    const html = renderMarkdown('$$\na \\tag{x}\n$$\n\n$$\nb \\tag{x}\n$$\n\n[(1)](#eq-x)')
-
-    // 両方に番号は付く（1と2）が、参照は1番を指す。
-    expect(html).toContain('id="eq-1"')
-    expect(html).toContain('id="eq-2"')
     expect(refAt(html)).toEqual({ href: '#eq-1', text: '(1)' })
   })
 
-  it('参照を退避しても後続のブロックの data-line がずれない', () => {
-    // 1行目に参照（退避で長さが変わる）、3行目に見出し。
-    const html = renderMarkdown('式 [(1)](#eq-quad) より\n\n## 見出し\n')
-
-    expect(lineOf(html, 'h2')).toBe(3)
-  })
-
-  it('数式の中身の範囲は \\tag を外しても元のまま（0020）', () => {
+  it('数式の中身の範囲は \\tag を含めて元のまま（0020）', () => {
     const source = '$$\nx=1 \\tag{a}\n$$'
     const range = anchorRange(renderMarkdown(source))
 
@@ -491,8 +437,15 @@ describe('式の番号と参照（0044）', () => {
     expect(source.slice(3, 14)).toBe('x=1 \\tag{a}')
   })
 
+  it('参照を退避しても後続のブロックの data-line がずれない', () => {
+    // 1行目に参照（退避で長さが変わる）、3行目に見出し。
+    const html = renderMarkdown('式 @eq-quad より\n\n## 見出し\n')
+
+    expect(lineOf(html, 'h2')).toBe(3)
+  })
+
   it('キャッシュの有無で出力が変わらない', () => {
-    const source = '$$\nx=1 \\tag{a}\n$$\n\n[(1)](#eq-a)'
+    const source = '$$\nx=1\n$$ {#eq-a}\n\n@eq-a'
     clearFormulaCache()
     const first = renderMarkdown(source)
 
@@ -563,21 +516,21 @@ describe('方言のラベルと参照（0083）', () => {
     expect(html).toContain('<a href="#eq-1">(1)</a>')
   })
 
-  it('旧記法（\\tag）と混ざっても文書順に番号が振られる', () => {
+  it('\\tag の式は数に入らず、{#eq-…} の式だけが採番される（0085）', () => {
     const html = doc(
       '$$\nx = 1 \\tag{old}\n$$\n\n$$\ny = 2\n$$ {#eq-new}\n\n[(1)](#eq-old) と @eq-new。\n',
     )
 
+    // \tag の式は採番されないので、{#eq-new} の式が1番になる。
     expect(html).toContain('id="eq-1"')
-    expect(html).toContain('id="eq-2"')
+    expect(html).not.toContain('id="eq-2"')
     expect(html).toContain('<a href="#eq-1">(1)</a>')
-    expect(html).toContain('<a href="#eq-2">(2)</a>')
   })
 
-  it('{#eq-…} と \\tag の両方があるときはラベルに {#eq-…} を採る', () => {
+  it('{#eq-…} と \\tag の両方があるとき、ラベルは {#eq-…} で \\tag は描かれる', () => {
     const html = doc('$$\nx = 1 \\tag{y}\n$$ {#eq-x}\n\n@eq-x と [(1)](#eq-y)。\n')
 
-    // 番号は1つだけ。参照は @eq-x が当たり、[(1)](#eq-y) は当たらない。
+    // 番号（eq-number）は1つ。KaTeXが描く \tag はそれとは別に出る。
     expect(html.match(/eq-number/g)).toHaveLength(1)
     expect(html).toContain('<a href="#eq-1">(1)</a>')
     expect(html).toContain('href="#eq-y"')

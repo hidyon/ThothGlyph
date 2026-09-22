@@ -86,7 +86,7 @@
 | [0074](0074-file-protocol.md) | 静的ファイルだけ（file://）では開けない | closed | [仕様](../specs/0074-file-protocol.md) |
 | [0075](0075-lint-dist-file.md) | lintがビルド出力を見て1538件の警告を出す | open | — |
 | [0076](0076-block-math-perf.md) | ブロック数式の多い文書で入力が基準の50msを超える | open | — |
-| [0077](0077-palette-tag.md) | パレットから式の番号（`\tag`）を入れられない | open | — |
+| [0077](0077-palette-tag.md) | パレットから式のラベルと参照を入れられない | open | — |
 | [0078](0078-sample-equation-numbers.md) | サンプル文書に式の番号と参照が出てこない | closed | [仕様](../specs/0078-sample-equation-numbers.md) |
 | [0079](0079-notation-guide.md) | 書ける記法とコマンドを、編集中に調べられない | closed | [仕様](../specs/0079-notation-guide.md) |
 | [0080](0080-guide-search.md) | 算式記載ガイドの中を探せない | open | — |
@@ -94,7 +94,7 @@
 | [0082](0082-bake-equation-numbers.md) | 持ち出した文書では式の番号が合っていない | open | — |
 | [0083](0083-crossref-dialect.md) | 式のラベルと参照を既存の方言で書けるようにする | closed | [仕様](../specs/0083-crossref-dialect.md) |
 | [0084](0084-readme-nonstandard.md) | Markdown標準ではない機能がREADMEから見分けられない | closed | [仕様](../specs/0084-readme-nonstandard.md) |
-| [0085](0085-drop-old-equation-notation.md) | 式の番号と参照の古い書き方を落とす | open | — |
+| [0085](0085-drop-old-equation-notation.md) | 式の番号と参照の古い書き方を落とす | closed | [仕様](../specs/0085-drop-old-equation-notation.md) |
 
 ## 着手順の目安
 

@@ -160,8 +160,8 @@ $$ {#eq-pythagoras}
 
 @eq-pythagoras より。
 
-この書き方はQuartoと同じ綴り。古い書き方（\`\\tag{名前}\` と
-\`[(1)](#eq-名前)\`）も読めるが、新しく書くならこちらを使う。
+この書き方はQuartoと同じ綴り。LaTeXの \`\\tag{名前}\` は番号にならず、
+書いた名前がそのまま式の右に出る。
 
 ### 13. 関数のグラフ
 
@@ -337,8 +337,8 @@ $$ {#eq-pythagoras}
 
 By @eq-pythagoras.
 
-This is the same spelling Quarto uses. The older form (\`\\tag{name}\` with
-\`[(1)](#eq-name)\`) still works, but prefer this one for new writing.
+This is the same spelling Quarto uses. LaTeX's \`\\tag{name}\` is not a number
+here: the name itself is drawn to the right of the equation.
 
 ### 13. Function graphs
 
