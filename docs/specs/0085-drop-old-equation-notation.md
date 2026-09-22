@@ -1,7 +1,7 @@
 # 0085: 式の番号と参照の古い書き方を落とす
 
 - 対応issue: [0085](../issues/0085-drop-old-equation-notation.md)
-- 状態: draft
+- 状態: approved
 - 作成日: 2026-09-22
 
 ## 目的
