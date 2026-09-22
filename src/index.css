@@ -624,6 +624,31 @@ body {
 }
 
 /*
+  プレビューの数式をクリックするとソースの該当箇所が選べる（0020）。
+  押せることが分かるようにカーソルとホバーの地を出し、選んだものに輪郭を出す。
+  どちらもレイアウトを動かさない（背景色と outline だけ）。
+*/
+.preview .math-anchor {
+  display: inline-block;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.preview .math-anchor:hover {
+  background: var(--accent-soft);
+}
+
+/* ブロック数式のラッパ。inline のままだと輪郭が行ボックスに沿って引かれる。 */
+.preview .math-anchor--block {
+  display: block;
+}
+
+.preview .math-anchor--active {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
   文書内の検索・置換バー（0043）。開いたときだけ出る。
 
   行の中も折り返させる（.find__row の flex-wrap と入力欄の min-width: 0）。

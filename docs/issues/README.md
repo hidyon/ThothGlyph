@@ -31,7 +31,7 @@
 | [0017](0017-verify-script-structure.md) | 検証スクリプトが育ちすぎている | closed | [仕様](../specs/0017-verify-script-structure.md) |
 | [0018](0018-formula-library.md) | 有名な公式を選んで挿入する | closed | [仕様](../specs/0018-formula-library.md) |
 | [0019](0019-app-icon.md) | アプリのアイコン | closed | [仕様](../specs/0019-app-icon.md) |
-| [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | open | — |
+| [0020](0020-preview-click-to-edit.md) | プレビューでクリックした箇所をパレットで編集する | closed | [仕様](../specs/0020-preview-click-to-edit.md) |
 | [0021](0021-undo.md) | パレットで挿入したあとUndoで戻せない | closed | [仕様](../specs/0021-undo.md) |
 | [0022](0022-narrow-pane-switch.md) | 狭い画面でソースとプレビューを切り替えられない | open | — |
 | [0023](0023-snapshot-recovery.md) | 誤操作から書いたものを取り戻せない | open | — |

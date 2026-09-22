@@ -4363,6 +4363,250 @@ section('palette-decor', '装飾・書体（0068・0070）', async () => {
   console.log(`スクリーンショット: ${OUT}/palette-decor.png`)
 })
 
+// ---- 0020: プレビューでクリックした箇所をパレットで編集する ----
+
+section('math-click', 'プレビューからの編集（0020）', async () => {
+  await resetState()
+
+  /** textareaで選ばれている文字列。 */
+  const selected = () =>
+    page.evaluate(() => {
+      const ta = document.querySelector('textarea')
+      return ta.value.slice(ta.selectionStart, ta.selectionEnd)
+    })
+  /** n番目の .math-anchor（プレビュー内、文書順）。 */
+  const anchor = (n) => page.locator('.preview .math-anchor').nth(n)
+  /*
+    輪郭の有無は **style** で見る。`outline-width` は style が none のときも
+    既定値（medium = 3px）を返すので、幅だけでは判定できない。
+  */
+  const outlineOf = (n) =>
+    page.evaluate((i) => {
+      const style = getComputedStyle(document.querySelectorAll('.preview .math-anchor')[i])
+      return `${style.outlineStyle} ${style.outlineWidth}`
+    }, n)
+
+  // サンプル文書の最初のインライン数式は $\mathcal{N}(\mu, \sigma^2)$。
+  await anchor(0).click()
+  check(
+    'インライン数式をクリックするとソースの中身が選ばれる',
+    (await selected()) === '\\mathcal{N}(\\mu, \\sigma^2)',
+    JSON.stringify(await selected()),
+  )
+  check(
+    'クリックのあとtextareaにフォーカスがある',
+    await page.evaluate(() => document.activeElement === document.querySelector('textarea')),
+  )
+  check(
+    'クリックした数式に2px以上の輪郭が出る',
+    /^solid/.test(await outlineOf(0)) && Number.parseFloat((await outlineOf(0)).split(' ')[1]) >= 2,
+    await outlineOf(0),
+  )
+  check(
+    '選ばれていない数式には輪郭が出ない',
+    (await outlineOf(1)).startsWith('none'),
+    await outlineOf(1),
+  )
+  check(
+    '印が付いている数式は文書内で1つだけ',
+    (await page.locator('.preview .math-anchor--active').count()) === 1,
+  )
+
+  // 選択の色と輪郭が同時に見えている状態を残す（見た目が論点なので画像で見る）。
+  await page.screenshot({ path: `${OUT}/math-click.png` })
+
+  // 2つめのブロック数式（標本平均の式）。
+  const blocks = page.locator('.preview .math-anchor--block')
+  await blocks.nth(1).click()
+  const blockLatex =
+    '\\mathrm{E}(\\overline{X}) = \\mu, \\quad \\mathrm{Var}(\\overline{X}) = \\frac{\\sigma^2}{n}'
+  check(
+    'ブロック数式をクリックすると中身だけが選ばれる（$$と改行を含まない）',
+    (await selected()) === blockLatex,
+    JSON.stringify(await selected()),
+  )
+  check(
+    '別の数式をクリックすると印はそちらだけに移る',
+    (await page.locator('.preview .math-anchor--active').count()) === 1,
+  )
+
+  // 選んだ状態でパレットの「囲む」記号を押すと、選択を包んで入る（0009の規則）。
+  await anchor(0).click()
+  await page.getByRole('tab', { name: '基本', exact: true }).first().click()
+  await page.getByRole('button', { name: '平方根' }).first().click()
+  check(
+    '選んだ数式をパレットの平方根で囲める',
+    (await editor().inputValue()).includes('$\\sqrt{\\mathcal{N}(\\mu, \\sigma^2)}$'),
+    JSON.stringify(
+      (await editor().inputValue()).split('\n').find((line) => line.includes('sqrt')) ?? '',
+    ),
+  )
+  check(
+    '挿入（ソースの変化）で印が消える',
+    (await page.locator('.preview .math-anchor--active').count()) === 0,
+  )
+
+  await resetState()
+
+  // 本文とグラフのクリックでは選択が動かない。
+  await anchor(0).click()
+  const beforeBodyClick = await selected()
+  await page.locator('.preview p', { hasText: '測定誤差' }).first().click({ position: { x: 4, y: 4 } })
+  check('本文をクリックしても選択が変わらない', (await selected()) === beforeBodyClick)
+
+  await page.locator('.preview svg.graph').click()
+  check('グラフをクリックしても選択が変わらない', (await selected()) === beforeBodyClick)
+
+  check(
+    '数式のカーソルが pointer',
+    (await page.evaluate(
+      () => getComputedStyle(document.querySelector('.preview .math-anchor')).cursor,
+    )) === 'pointer',
+  )
+
+  // 1文字打つと印は消える（位置がずれ、指していたものが変わるため）。
+  await anchor(0).click()
+  await page.keyboard.press('End')
+  await page.keyboard.type('x')
+  await page.waitForTimeout(100)
+  check(
+    '1文字打つと印が消える',
+    (await page.locator('.preview .math-anchor--active').count()) === 0,
+  )
+
+  await resetState()
+
+  // 見えている数式を選んでもスクロールは動かない（0010の同期を起こさない）。
+  const previewScrollBefore = await page.evaluate(
+    () => document.querySelector('.preview').scrollTop,
+  )
+  await blocks.nth(0).click()
+  await page.waitForTimeout(300)
+  const previewScrollAfter = await page.evaluate(
+    () => document.querySelector('.preview').scrollTop,
+  )
+  check(
+    '見えている数式を選んでもプレビューのスクロールが動かない',
+    previewScrollAfter === previewScrollBefore,
+    `${previewScrollBefore} → ${previewScrollAfter}`,
+  )
+
+  /*
+    初期表示では見えない、文書の末尾の数式を選ぶ。
+
+    **「textareaのscrollTopが増える」では見られない。** プレビューを下へ
+    動かした時点で0010の同期がソースを追わせるので、クリックの時点では
+    たいてい既に見えている（実測: プレビュー最下端でscrollTop 4928、
+    クリック後も4928）。寄せは同期がずれたときの保険なので、
+    **結果（選んだ範囲が表示範囲にあるか）**で判定する。
+  */
+  await resetState()
+  const longSource = Array.from(
+    { length: 60 },
+    (_, i) => `## 節 ${i}\n\n式 $x^{${i}}$ である。\n`,
+  ).join('\n')
+  await editor().fill(longSource)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.preview .katex').length === 60,
+    null,
+    { timeout: 30000 },
+  )
+  const last = page.locator('.preview .math-anchor').last()
+  await last.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+  await last.click()
+  const afterScroll = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    const lineHeight = Number.parseFloat(getComputedStyle(ta).lineHeight)
+    const line = ta.value.slice(0, ta.selectionStart).split('\n').length - 1
+    return {
+      scrollTop: ta.scrollTop,
+      selected: ta.value.slice(ta.selectionStart, ta.selectionEnd),
+      visible:
+        line * lineHeight >= ta.scrollTop - lineHeight &&
+        line * lineHeight <= ta.scrollTop + ta.clientHeight,
+    }
+  })
+  check(
+    '文書の末尾の数式を選ぶと、その中身が選ばれる',
+    afterScroll.selected === 'x^{59}',
+    JSON.stringify(afterScroll.selected),
+  )
+  check(
+    'そのとき選んだ範囲がソースの表示範囲に入っている',
+    afterScroll.visible,
+    `scrollTop ${afterScroll.scrollTop}`,
+  )
+
+  // 輪郭は要素の2px外に出る。狭い幅で横スクロールを増やさないこと。
+  await resetState()
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.waitForTimeout(200)
+  const widthBefore = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    client: document.documentElement.clientWidth,
+  }))
+  const narrowAnchor = page.locator('.preview .math-anchor--block').last()
+  await narrowAnchor.scrollIntoViewIfNeeded()
+  await narrowAnchor.click()
+  const widthAfter = await page.evaluate(() => ({
+    scroll: document.documentElement.scrollWidth,
+    client: document.documentElement.clientWidth,
+  }))
+  check(
+    '幅360pxで印を出してもページの横スクロールが増えない',
+    widthAfter.scroll <= Math.max(widthBefore.scroll, widthAfter.client),
+    `${widthBefore.scroll} → ${widthAfter.scroll}（表示幅 ${widthAfter.client}）`,
+  )
+  await page.screenshot({ path: `${OUT}/math-click-narrow.png` })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await resetState()
+
+  // 英語表示でも同じ操作ができる。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await ready()
+  await page.locator('.preview .math-anchor').first().click()
+  check(
+    '英語表示でも数式をクリックしてソースを選べる',
+    (await selected()) === '\\mathcal{N}(\\mu, \\sigma^2)',
+    JSON.stringify(await selected()),
+  )
+
+  await resetState()
+
+  // 400節・400数式。ラッパのぶん増えても入力の体感が落ちないこと。
+  const longDoc = Array.from(
+    { length: 400 },
+    (_, i) => `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
+  ).join('\n')
+  await editor().fill(longDoc)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.preview .katex').length === 400,
+    null,
+    { timeout: 30000 },
+  )
+  const TYPED = 20
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  const typeStart = Date.now()
+  await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
+  const perKey = (Date.now() - typeStart) / TYPED
+  check(
+    '400数式での入力反映が1文字あたり50ms以内（ラッパを足した後）',
+    perKey <= 50,
+    `${perKey.toFixed(1)}ms/文字`,
+    { timing: true },
+  )
+  check(
+    '400件すべてがラッパを持つ',
+    (await page.locator('.preview .math-anchor').count()) === 400,
+  )
+
+  await resetState()
+  console.log(`スクリーンショット: ${OUT}/math-click.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
