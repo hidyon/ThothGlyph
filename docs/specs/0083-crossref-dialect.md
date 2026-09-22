@@ -1,7 +1,7 @@
 # 0083: 式のラベルと参照を、既存の方言で書けるようにする
 
 - 対応issue: [0083](../issues/0083-crossref-dialect.md)
-- 状態: draft
+- 状態: approved
 - 作成日: 2026-09-22
 
 ## 目的
