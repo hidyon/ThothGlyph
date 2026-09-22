@@ -7,27 +7,25 @@ import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
 import type { PaletteItem } from '../lib/palette'
 import { FORMULA_TAB_ICON, describeInsertion, paletteGroups } from '../lib/palette'
+import type { PersonalSnippet } from '../lib/personalSnippets'
 import { hitKey, hitSnippet, searchPalette } from '../lib/search'
 
 type Props = {
   onInsert: (snippet: string) => void
-  /** 検索欄からエディタへ戻る（Escape）ための経路。 */
   onFocusEditor: () => void
+  snippets: PersonalSnippet[]
+  selectedText: () => string
+  onSaveSnippet: (name: string, body: string, id?: string) => boolean
+  onDeleteSnippet: (id: string) => boolean
   lang: Lang
-  /** 数式の描画エンジン（0024）。別チャンクなので、届くまでは undefined。 */
   renderLatex?: (latex: string) => string
 }
 
-/**
- * 公式のタブは記号のタブの後ろに1つだけ足す。記号のグループと中身の作りが
- * 違うので、タブの添字で見分ける（名前で見分けると言語ごとに条件が要る）。
- */
-const FORMULA_TAB_INDEX = paletteGroups.length
+type Draft = { id?: string; name: string; body: string }
 
-/**
- * ラベルは静的なLaTeXなので、一度だけ描画してキャッシュする。言語には依らない。
- * エンジンが届く前は空のMapを返し、ラベルはLaTeXのソースのまま出す（0024）。
- */
+const FORMULA_TAB_INDEX = paletteGroups.length
+const PERSONAL_TAB_INDEX = paletteGroups.length + 1
+
 function useRenderedLatex(render: ((latex: string) => string) | undefined) {
   return useMemo(() => {
     if (render === undefined) return new Map<string, string>()
@@ -41,30 +39,37 @@ function useRenderedLatex(render: ((latex: string) => string) | undefined) {
   }, [render])
 }
 
-export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Props) {
-  // 選択中のタブは名前ではなく添字で持つ。言語を切り替えても選択が外れない。
+export function SymbolPalette({
+  onInsert,
+  onFocusEditor,
+  snippets,
+  selectedText,
+  onSaveSnippet,
+  onDeleteSnippet,
+  lang,
+  renderLatex,
+}: Props) {
   const [activeTab, setActiveTab] = useState(0)
   const [activeFormulaTab, setActiveFormulaTab] = useState(0)
-  // 検索中もタブの選択はそのまま残す。クエリを消せば見ていたタブに戻る。
   const [query, setQuery] = useState('')
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [draftError, setDraftError] = useState('')
   const rendered = useRenderedLatex(renderLatex)
   const searchInput = useRef<HTMLInputElement>(null)
   const resultsPanel = useRef<HTMLDivElement>(null)
 
   const { hits, omitted } = useMemo(() => searchPalette(query), [query])
   const searching = query.trim().length > 0
-
   const showsFormulas = activeTab === FORMULA_TAB_INDEX
+  const showsPersonal = activeTab === PERSONAL_TAB_INDEX
   const group = paletteGroups[activeTab] ?? paletteGroups[0]
   const formulaGroup = formulaGroups[activeFormulaTab] ?? formulaGroups[0]
-
-  // タブは「名前とアイコン」の組で扱う。公式タブだけ paletteGroups の外にある。
   const tabs = [
     ...paletteGroups.map((candidate) => ({ name: candidate.name, icon: candidate.icon })),
     { name: messages.formulaTab, icon: FORMULA_TAB_ICON },
+    { name: messages.personalTab, icon: '★' },
   ]
 
-  /** 結果のボタン。矢印キーは折り返しを見ず、並び順の前後として扱う。 */
   const resultButtons = () =>
     Array.from(resultsPanel.current?.querySelectorAll<HTMLButtonElement>('.palette__item') ?? [])
 
@@ -89,7 +94,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
     }
     if (event.key === 'Escape') {
       event.preventDefault()
-      // 空のままのEscapeは「パレットから出たい」の意味に取る。
       if (query === '') onFocusEditor()
       else setQuery('')
     }
@@ -112,14 +116,9 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
     }
   }
 
-  /** 検索結果では、どのグループの記号かをtooltipに添える。 */
   const withGroup = (description: string, from?: Text) =>
     from === undefined ? description : pick(messages.inGroup(description, pick(from, lang)), lang)
 
-  /**
-   * ラベルの中身。エンジンが届くまではLaTeXのソースをそのまま出す。
-   * 空にするとボタンの見分けがつかなくなるし、押せば挿入は効くため。
-   */
   const labelOf = (
     latex: string,
   ): {
@@ -127,7 +126,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
     dangerouslySetInnerHTML?: { __html: string }
   } => {
     const html = rendered.get(latex)
-    // ソースは span に包む。ボタン自身（inline-flex）では省略記号が効かない。
     return html === undefined
       ? { children: <span className="palette__source">{latex}</span> }
       : { dangerouslySetInnerHTML: { __html: html } }
@@ -142,7 +140,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
         className="palette__item"
         title={description}
         aria-label={description}
-        // フォーカスがtextareaから外れると選択範囲を失うので、押下前に既定動作を止める。
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => onInsert(item.snippet)}
         {...labelOf(item.label)}
@@ -174,17 +171,136 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
     )
   }
 
+  const startSavingSelection = () => {
+    const body = selectedText()
+    if (body === '') {
+      setDraftError(pick(messages.personalNeedSelection, lang))
+      return
+    }
+    setDraft({ name: '', body })
+    setDraftError('')
+  }
+
+  const submitDraft = () => {
+    if (draft === null) return
+    if (draft.name.trim() === '') {
+      setDraftError(pick(messages.personalNameRequired, lang))
+      return
+    }
+    if (draft.body === '') {
+      setDraftError(pick(messages.personalBodyRequired, lang))
+      return
+    }
+    if (onSaveSnippet(draft.name, draft.body, draft.id)) {
+      setDraft(null)
+      setDraftError('')
+    }
+  }
+
+  const personalPanel = (
+    <div className="personal-snippets" role="tabpanel" aria-label={pick(messages.personalTab, lang)}>
+      <button
+        type="button"
+        className="button button--quiet personal-snippets__save-selection"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={startSavingSelection}
+      >
+        {pick(messages.personalSaveSelection, lang)}
+      </button>
+      {draftError !== '' && <p className="personal-snippets__error">{draftError}</p>}
+      {draft !== null && (
+        <form
+          className="personal-snippets__form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submitDraft()
+          }}
+        >
+          <label>
+            {pick(messages.personalName, lang)}
+            <input
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              autoFocus
+            />
+          </label>
+          <label>
+            {pick(messages.personalBody, lang)}
+            <textarea
+              value={draft.body}
+              onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+              rows={4}
+            />
+          </label>
+          <div className="personal-snippets__actions">
+            <button type="submit" className="button">
+              {pick(draft.id === undefined ? messages.personalSave : messages.personalUpdate, lang)}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => {
+                setDraft(null)
+                setDraftError('')
+              }}
+            >
+              {pick(messages.personalCancel, lang)}
+            </button>
+          </div>
+        </form>
+      )}
+      {snippets.length === 0 ? (
+        <p className="personal-snippets__empty">{pick(messages.personalEmpty, lang)}</p>
+      ) : (
+        <ul className="personal-snippets__list">
+          {snippets.map((snippet) => (
+            <li key={snippet.id} className="personal-snippets__item">
+              <button
+                type="button"
+                className="personal-snippets__insert"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onInsert(snippet.body)}
+              >
+                {snippet.name}
+              </button>
+              <div className="personal-snippets__item-actions">
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => {
+                    setDraft(snippet)
+                    setDraftError('')
+                  }}
+                >
+                  {pick(messages.personalEdit, lang)}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => {
+                    if (
+                      window.confirm(pick(messages.personalDeleteConfirm(snippet.name), lang)) &&
+                      onDeleteSnippet(snippet.id)
+                    ) {
+                      setDraft((current) => (current?.id === snippet.id ? null : current))
+                    }
+                  }}
+                >
+                  {pick(messages.personalDelete, lang)}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+
   return (
     <section className="palette" aria-label={pick(messages.paletteLabel, lang)}>
-      {/* ソース・プレビューと同じ見出し（0056）。横帯のときはCSSで隠す
-          （縦帯では帯の余白に載るので高さが増えないが、横帯では30px増えて
-          textareaがそのぶん減る）。 */}
       <header className="pane__header pane__header--palette">
         {pick(messages.paletteHeader, lang)}
       </header>
-      {/* タブと検索欄を同じ行に並べる。検索欄に行を与えると、狭い画面で
-          パレットが更に高くなる（0032）。display:contents でタブは
-          この行の直接の子として並びつつ、role="tablist" の入れ物は残す。 */}
       <div className="palette__bar">
         <div className="palette__tabs" role="tablist">
           {tabs.map(({ name, icon }, index) => (
@@ -192,7 +308,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
               key={name.en}
               type="button"
               role="tab"
-              // 横断検索の最中は「このタブを見ている」が嘘になるので、どれも選ばない。
               aria-selected={!searching && index === activeTab}
               className={
                 !searching && index === activeTab
@@ -204,7 +319,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
                 setActiveTab(index)
               }}
             >
-              {/* アイコンはラベルの飾りなので読み上げから外す（0053）。 */}
               <span className="palette__tab-icon" aria-hidden="true">
                 {icon}
               </span>
@@ -234,7 +348,6 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
           {hits.length === 0 ? (
             <p className="palette__empty">{pick(messages.searchEmpty, lang)}</p>
           ) : (
-            // 記号と公式が同じ一覧に並ぶので、キーは種別を含めたものにする。
             hits.map((hit) => (
               <Fragment key={hitKey(hit)}>
                 {hit.kind === 'symbol'
@@ -271,11 +384,12 @@ export function SymbolPalette({ onInsert, onFocusEditor, lang, renderLatex }: Pr
               </button>
             ))}
           </div>
-
           <div className="palette__items" aria-label={pick(formulaGroup.name, lang)}>
             {formulaGroup.formulas.map((formula) => formulaButton(formula))}
           </div>
         </div>
+      ) : showsPersonal ? (
+        personalPanel
       ) : (
         <div className="palette__items" role="tabpanel" aria-label={pick(group.name, lang)}>
           {group.items.map((item) => symbolButton(item))}

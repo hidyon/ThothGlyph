@@ -106,6 +106,26 @@ export const messages = {
   paletteDivider: t('パレットとソースの境目', 'Divider between palette and source'),
   sourceDivider: t('ソースとプレビューの境目', 'Divider between source and preview'),
   formulaTab: t('公式', 'Formulas'),
+  personalTab: t('自分用', 'Personal'),
+  personalSaveSelection: t('選択範囲を登録', 'Save selection'),
+  personalEmpty: t('よく使うMarkdownを選択して登録できます', 'Select Markdown to save it here'),
+  personalNeedSelection: t('登録する範囲を選択してください', 'Select text to save first'),
+  personalName: t('名前', 'Name'),
+  personalBody: t('内容', 'Content'),
+  personalSave: t('登録', 'Save'),
+  personalUpdate: t('更新', 'Update'),
+  personalEdit: t('編集', 'Edit'),
+  personalDelete: t('削除', 'Delete'),
+  personalCancel: t('キャンセル', 'Cancel'),
+  personalNameRequired: t('名前を入力してください', 'Enter a name'),
+  personalBodyRequired: t('内容を入力してください', 'Enter content'),
+  personalSaved: t('自分用スニペットを保存しました', 'Saved personal snippet'),
+  personalSaveFailed: t(
+    '自分用スニペットを保存できません（ブラウザの設定か容量の上限）',
+    'Cannot save personal snippets (browser settings or storage limit)',
+  ),
+  personalDeleteConfirm: (name: string) =>
+    t('「' + name + '」を削除します。よろしいですか？', 'Delete “' + name + '”?'),
 
   // パレットの検索
   searchLabel: t('記号を検索', 'Search symbols'),
