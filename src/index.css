@@ -643,6 +643,28 @@ body {
   display: block;
 }
 
+/*
+  番号付きの式（0044）。式と番号を横に並べ、**幅が足りないときは式のほうを
+  ブロック内で横スクロールさせる**（番号は右端に残す）。
+  KaTeXの \tag に描かせると mtable width:100% になり、幅360pxで式と番号が
+  重なって読めなくなる（実測）。
+*/
+.preview .math-anchor--numbered {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.preview .math-anchor--numbered .katex-display {
+  flex: 1;
+  /* これが無いと flex の子は中身より縮まず、番号を押し出す。 */
+  min-width: 0;
+}
+
+.preview .eq-number {
+  flex-shrink: 0;
+}
+
 .preview .math-anchor--active {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
