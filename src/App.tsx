@@ -595,6 +595,7 @@ export default function App() {
           onScrollSync={() => handleScrollSync('preview')}
           onMathClick={handleMathClick}
           activeMath={activeMath}
+          onFollowRef={setActiveMath}
         />
       </main>
     </div>

@@ -18,12 +18,18 @@ import { renderGraph } from './renderGraph'
  */
 
 type Formula = {
+  /** KaTeXへ渡すLaTeX。採番する式では `\tag{…}` を外してある（0044）。 */
   latex: string
   displayMode: boolean
-  /** 元ソース上の「中身の範囲」。`source.slice(start, end)` が latex に一致する（0020）。 */
+  /** 元ソース上の「中身の範囲」。0020。`\tag` を外しても範囲は元のまま。 */
   start: number
   end: number
+  /** `\tag{…}` のラベル。採番しない式では null（0044）。 */
+  label: string | null
 }
+
+/** 本文からの参照（`[(1)](#eq-ラベル)`）。差し戻すときに番号を引く（0044）。 */
+type Reference = { text: string; label: string }
 
 const PLACEHOLDER_PREFIX = '%%MATHEDITOR_MATH_'
 const PLACEHOLDER_SUFFIX = '%%'
@@ -36,6 +42,18 @@ const GRAPH_PLACEHOLDER_PREFIX = '%%MATHEDITOR_GRAPH_'
 const graphPlaceholderFor = (index: number) =>
   `${GRAPH_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`
 
+const REF_PLACEHOLDER_PREFIX = '%%MATHEDITOR_REF_'
+
+const refPlaceholderFor = (index: number) =>
+  `${REF_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_SUFFIX}`
+
+/*
+  採番の印（0044）。中身がラベルで、`{}` と改行は含まない。
+  **2つ以上あるものは採番しない。** KaTeXが `Multiple \tag` で断るので、
+  外して黙って1つにすると誤りが見えなくなる（実測）。
+*/
+const TAG_PATTERN = /\\tag\{([^{}\n]*)\}/g
+
 // 情報文字列が graph ちょうどのフェンスだけをグラフにする（```graphql は対象外）。
 const GRAPH_FENCE = /^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/
 
@@ -43,6 +61,16 @@ const GRAPH_FENCE = /^ {0,3}(?:`{3,}|~{3,})graph[ \t]*$/
 // インライン側は $ の直後・直前が空白でないものだけを数式とみなし、
 // エスケープされた \$ と、$100 のような通貨表記を巻き込みにくくする。
 const MATH_PATTERN = /\$\$([\s\S]+?)\$\$|(?<![\\$])\$(?!\s)((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\$)/g
+
+/*
+  数式と、本文からの参照（0044）を**1度の走査でまとめて**見つける。
+  別々に走査すると、2回目は「1回目の退避後の位置」しか分からず、
+  元ソースの位置（0010の行番号・0020の数式の範囲）へ引き直せない。
+
+  グループは 1:ブロック数式 2:インライン数式 3:参照の文字列 4:参照のラベル。
+*/
+const REF_PATTERN = /\[([^\]\n]*)\]\(#eq-([^)\s]*)\)/
+const MASK_PATTERN = new RegExp(`${MATH_PATTERN.source}|${REF_PATTERN.source}`, 'g')
 
 type Segment = { text: string; isCode: boolean }
 
@@ -134,10 +162,12 @@ function extractBlocks(source: string): {
   masked: string
   formulas: Formula[]
   graphs: string[]
+  refs: Reference[]
   offsets: OffsetMap
 } {
   const formulas: Formula[] = []
   const graphs: string[] = []
+  const refs: Reference[] = []
 
   /*
     退避のたびに「退避後の位置」と「元ソースの位置」の対応を控える（0010）。
@@ -174,9 +204,18 @@ function extractBlocks(source: string): {
     }
 
     let last = 0
-    for (const match of segment.text.matchAll(MATH_PATTERN)) {
+    for (const match of segment.text.matchAll(MASK_PATTERN)) {
       const start = match.index
       if (start > last) kept(segment.text.slice(last, start))
+
+      // 参照リンク（0044）。番号は文書を最後まで見ないと決まらないので、
+      // ここでは中身を控えるだけにして、差し戻しのときに引く。
+      if (match[4] !== undefined) {
+        const index = refs.push({ text: match[3] ?? '', label: match[4] }) - 1
+        replaced(refPlaceholderFor(index), match[0].length)
+        last = start + match[0].length
+        continue
+      }
 
       const isBlock = match[1] !== undefined
       const raw = isBlock ? match[1] : match[2]
@@ -191,9 +230,10 @@ function extractBlocks(source: string): {
         */
         const contentStart =
           original + (isBlock ? 2 : 1) + (raw.length - raw.trimStart().length)
+        const tagged = taggedFormula(latex, isBlock)
         const index =
           formulas.push({
-            latex,
+            ...tagged,
             displayMode: isBlock,
             start: contentStart,
             end: contentStart + latex.length,
@@ -207,7 +247,31 @@ function extractBlocks(source: string): {
     if (last < segment.text.length) kept(segment.text.slice(last))
   }
 
-  return { masked: parts.join(''), formulas, graphs, offsets }
+  return { masked: parts.join(''), formulas, graphs, refs, offsets }
+}
+
+/**
+ * 採番の印（`\tag{ラベル}`）を見て、ラベルとKaTeXへ渡すLaTeXを決める（0044）。
+ *
+ * 採番する式では `\tag{…}` を**外して**渡し、番号はHTMLの要素として式の右に出す。
+ * KaTeXの `\tag` は `mtable width="100%"` を作るので、幅が足りないと式と番号が
+ * 重なる（幅360pxで実測）。外しておけば、狭いときに式のほうを横スクロールできる。
+ *
+ * 次のものは**印とみなさない**。LaTeXも加工せず、KaTeXの見せ方に任せる。
+ * - インライン数式（KaTeXが `\tag works only in display equations` を返す）
+ * - `\tag` が2つ以上（KaTeXが `Multiple \tag` を返す。黙って直すと誤りが見えない）
+ * - 中身が空の `\tag{}`（指す名前がない）
+ */
+function taggedFormula(latex: string, isBlock: boolean): { latex: string; label: string | null } {
+  if (!isBlock) return { latex, label: null }
+
+  const tags = [...latex.matchAll(TAG_PATTERN)]
+  if (tags.length !== 1) return { latex, label: null }
+
+  const label = tags[0][1].trim()
+  if (label === '') return { latex, label: null }
+
+  return { latex: latex.replace(TAG_PATTERN, '').trim(), label }
 }
 
 /**
@@ -280,24 +344,109 @@ function renderFormulaUncached({ latex, displayMode }: Formula): string {
  * キャッシュはこれまでどおり効く。属性に入るのは自前で数えた整数2つだけで、
  * 利用者の入力は入らない（サニタイズを迂回する経路を広げない）。
  */
-function anchorClass({ displayMode }: Formula): string {
+/**
+ * 採番（0044）。`\tag` を持つ式に、文書順に1から番号を振る。
+ *
+ * 同じラベルが2つ以上あるときは**どちらにも番号を振るが、参照は最初のものを
+ * 指す**（後から来たほうで上書きしない）。
+ */
+function numberFormulas(formulas: Formula[]): {
+  numbers: (number | null)[]
+  byLabel: Map<string, number>
+} {
+  const byLabel = new Map<string, number>()
+  let next = 1
+
+  const numbers = formulas.map(({ label }) => {
+    if (label === null) return null
+    const number = next
+    next += 1
+    if (!byLabel.has(label)) byLabel.set(label, number)
+    return number
+  })
+
+  return { numbers, byLabel }
+}
+
+function anchorClass({ displayMode }: Formula, number: number | null): string {
   /*
     ブロック数式のラッパは block にする。中の .katex-display は中央寄せの
     ブロックなので、inline のまま包むと輪郭が行ボックスに沿って引かれ、
     式とずれた位置に出る。
   */
-  return displayMode ? 'math-anchor math-anchor--block' : 'math-anchor'
+  const classes = ['math-anchor']
+  if (displayMode) classes.push('math-anchor--block')
+  if (number !== null) classes.push('math-anchor--numbered')
+  return classes.join(' ')
 }
 
-function restoreFormulas(html: string, formulas: Formula[]): string {
-  return formulas.reduce(
-    (acc, formula, index) =>
-      acc.replaceAll(
-        placeholderFor(index),
-        `<span class="${anchorClass(formula)}" data-math-start="${formula.start}" data-math-end="${formula.end}">${renderFormula(formula)}</span>`,
-      ),
-    html,
-  )
+/**
+ * 数式とグラフを1度の走査でまとめて差し戻す。
+ *
+ * **1件ずつ `replaceAll` を呼ばない。** 1件につきHTML全体を1回走査することに
+ * なり、件数に比例して重くなる（400数式＋100参照の文書で1文字52.4ms、
+ * N1の50msを超えた。0044で参照が増えて表に出た）。
+ * 置換をコールバックで書けば、`$&` のような置換文字列の特別扱いも避けられる。
+ */
+const RESTORE_PATTERN = /%%MATHEDITOR_(MATH|GRAPH)_(\d+)%%/g
+
+function restoreBlocks(
+  html: string,
+  formulas: Formula[],
+  numbers: (number | null)[],
+  graphs: string[],
+  lang: Lang,
+): string {
+  return html.replace(RESTORE_PATTERN, (whole, kind: string, digits: string) => {
+    const index = Number(digits)
+
+    if (kind === 'GRAPH') {
+      const body = graphs[index]
+      return body === undefined ? whole : renderGraphBlock(body, lang)
+    }
+
+    const formula = formulas[index]
+    if (formula === undefined) return whole
+
+    const number = numbers[index] ?? null
+    // id に入るのは自前で数えた数字だけ。ラベル（利用者の入力）は入れない（0044）。
+    const id = number === null ? '' : ` id="eq-${number}"`
+    const shown = number === null ? '' : `<span class="eq-number">(${number})</span>`
+
+    return `<span class="${anchorClass(formula, number)}"${id} data-math-start="${formula.start}" data-math-end="${formula.end}">${renderFormula(formula)}${shown}</span>`
+  })
+}
+
+/**
+ * 本文からの参照を差し戻す（0044）。
+ *
+ * ラベルが採番されていれば、リンク先を `#eq-<番号>` に差し替え、文字列が
+ * `(数字)` の形ならその数字も現在の番号にする。見つからないラベルは
+ * **何もしない**（書いたまま残り、押しても飛ばない）。
+ *
+ * **差し戻すのはサニタイズより前**（パイプラインの4と5の間）。ここで作る
+ * HTMLも他と同じく5のDOMPurifyを1回で通るので、抜け道を増やさずに済む。
+ * 1件ずつ `sanitize` を呼ぶ形にすると、参照100件の文書で1文字あたり
+ * 52.2msかかり、N1の50msを超えた（実測）。
+ */
+const REF_RESTORE_PATTERN = /%%MATHEDITOR_REF_(\d+)%%/g
+
+function restoreRefs(html: string, refs: Reference[], byLabel: Map<string, number>): string {
+  return html.replace(REF_RESTORE_PATTERN, (whole, digits: string) => {
+    const ref = refs[Number(digits)]
+    return ref === undefined ? whole : renderRef(ref, byLabel)
+  })
+}
+
+/** 文字列が `(数字)` ちょうどのときだけ、中の数字を差し替える。 */
+const REF_NUMBER = /^\((\d+)\)$/
+
+function renderRef({ text, label }: Reference, byLabel: Map<string, number>): string {
+  const number = byLabel.get(label)
+  const href = number === undefined ? `#eq-${label}` : `#eq-${number}`
+  const shown = number === undefined ? text : text.replace(REF_NUMBER, `(${number})`)
+
+  return `<a href="${escapeHtml(href)}">${escapeHtml(shown)}</a>`
 }
 
 const MARKED_OPTIONS = { async: false, breaks: true, gfm: true } as const
@@ -343,9 +492,10 @@ function parseWithLines(masked: string, source: string, offsets: OffsetMap): str
 }
 
 export function renderMarkdown(source: string, lang: Lang = 'ja'): string {
-  const { masked, formulas, graphs, offsets } = extractBlocks(source)
+  const { masked, formulas, graphs, refs, offsets } = extractBlocks(source)
+  const { numbers, byLabel } = numberFormulas(formulas)
 
-  const rawHtml = parseWithLines(masked, source, offsets)
+  const rawHtml = restoreRefs(parseWithLines(masked, source, offsets), refs, byLabel)
 
   const safeHtml = DOMPurify.sanitize(rawHtml, {
     USE_PROFILES: { html: true, mathMl: true, svg: true },
@@ -357,7 +507,7 @@ export function renderMarkdown(source: string, lang: Lang = 'ja'): string {
   //
   // グラフのSVGはKaTeXと違いDOMPurifyを通せる（実測済み）ので、差し戻す前に
   // 1つずつ通す。抜け道を増やさないため。
-  return restoreFormulas(restoreGraphs(safeHtml, graphs, lang), formulas)
+  return restoreBlocks(safeHtml, formulas, numbers, graphs, lang)
 }
 
 /**
@@ -373,14 +523,6 @@ const GRAPH_CACHE_LIMIT = 100
 /** テスト用。 */
 export function clearGraphCache(): void {
   graphCache.clear()
-}
-
-function restoreGraphs(html: string, graphs: string[], lang: Lang): string {
-  return graphs.reduce(
-    (acc, body, index) =>
-      acc.replaceAll(graphPlaceholderFor(index), renderGraphBlock(body, lang)),
-    html,
-  )
 }
 
 function renderGraphBlock(body: string, lang: Lang): string {

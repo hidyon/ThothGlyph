@@ -55,7 +55,7 @@
 | [0041](0041-theorem-blocks.md) | 定理・定義・証明の囲みがない | open | — |
 | [0042](0042-outline.md) | 長いノートで見出しに飛べない | open | — |
 | [0043](0043-find-replace.md) | 文書の中を検索・置換できない | closed | [仕様](../specs/0043-find-replace.md) |
-| [0044](0044-equation-numbers.md) | 式に番号を振って参照できない | in-progress | [仕様](../specs/0044-equation-numbers.md) |
+| [0044](0044-equation-numbers.md) | 式に番号を振って参照できない | closed | [仕様](../specs/0044-equation-numbers.md) |
 | [0045](0045-paste-image.md) | 手元の画像を貼り付けられない | open | — |
 | [0046](0046-math-macros.md) | 自分用の数式マクロを定義できない | open | — |
 | [0047](0047-macro-leak.md) | 数式の中で定義したマクロが、別の式や別の文書にも残る | open | — |
@@ -85,6 +85,8 @@
 | [0073](0073-initial-css-size.md) | 初期CSSが基準の10 kBを超えている | open | — |
 | [0074](0074-file-protocol.md) | 静的ファイルだけ（file://）では開けない | closed | [仕様](../specs/0074-file-protocol.md) |
 | [0075](0075-lint-dist-file.md) | lintがビルド出力を見て1538件の警告を出す | open | — |
+| [0076](0076-block-math-perf.md) | ブロック数式の多い文書で入力が基準の50msを超える | open | — |
+| [0077](0077-palette-tag.md) | パレットから式の番号（`\tag`）を入れられない | open | — |
 
 ## 着手順の目安
 

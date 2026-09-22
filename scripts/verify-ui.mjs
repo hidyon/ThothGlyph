@@ -4607,6 +4607,330 @@ section('math-click', 'プレビューからの編集（0020）', async () => {
   console.log(`スクリーンショット: ${OUT}/math-click.png`)
 })
 
+// ---- 0044: 式に番号を振って参照する ----
+
+section('eq-number', '式の番号と参照（0044）', async () => {
+  await resetState()
+
+  // 長い式（幅360pxでプレビューに収まらない）と、番号・参照を1つずつ持つ文書。
+  const longMath =
+    '\\int_0^1 x^2 dx + \\sum_{k=1}^{n} k^3 + \\prod_{i=1}^{m} a_i = \\frac{n(n+1)(2n+1)}{6}'
+  /*
+    **参照と飛び先を画面1つぶん以上離す**（間に40段落）。詰めて置くと
+    プレビューがそもそもスクロールせず、「飛ぶ」ことを観測できない
+    （最初に書いた短い文書はこれで 0 → 0 になった）。
+  */
+  const filler = Array.from({ length: 40 }, (_, i) => `本文の${i}行目。\n`).join('\n')
+  const doc = [
+    '# 番号の確認',
+    '',
+    '$$',
+    `${longMath} \\tag{sum}`,
+    '$$',
+    '',
+    filler,
+    '式 [(1)](#eq-sum) と [(1)](#eq-typo) を見る。',
+    '',
+    '$$',
+    'y = 2',
+    '$$',
+    '',
+    '$$',
+    'z = 3 \\tag{密度}',
+    '$$',
+    '',
+    '式 [(2)](#eq-密度) も見る。',
+    '',
+  ].join('\n')
+
+  const fill = async (text, blocks = 3) => {
+    await editor().fill(text)
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('.preview .katex-display').length === n,
+      blocks,
+      { timeout: 20000 },
+    )
+  }
+  const numbers = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.preview .eq-number')].map((el) => el.textContent),
+    )
+  const refs = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.preview a[href^="#eq-"]')].map((a) => ({
+        href: a.getAttribute('href'),
+        text: a.textContent,
+      })),
+    )
+
+  await fill(doc)
+
+  check('番号を書いた式に (1) が出る', (await numbers())[0] === '(1)', JSON.stringify(await numbers()))
+  check(
+    '番号付きの式が2つあり、上から (1) (2) になる',
+    JSON.stringify(await numbers()) === '["(1)","(2)"]',
+    JSON.stringify(await numbers()),
+  )
+  check(
+    '番号のない式には番号が出ない',
+    (await page.locator('.preview .math-anchor--block').count()) === 3 &&
+      (await page.locator('.preview .eq-number').count()) === 2,
+    `式${await page.locator('.preview .math-anchor--block').count()}件 / 番号${await page.locator('.preview .eq-number').count()}件`,
+  )
+  check(
+    '参照のリンク先と数字が現在の番号になる',
+    JSON.stringify((await refs())[0]) === '{"href":"#eq-1","text":"(1)"}',
+    JSON.stringify((await refs())[0]),
+  )
+  check(
+    '日本語のラベルでも引ける',
+    JSON.stringify((await refs())[2]) === '{"href":"#eq-2","text":"(2)"}',
+    JSON.stringify((await refs())[2]),
+  )
+  check(
+    '採番されていないラベルへの参照は書き換わらない',
+    (await refs())[1].href === '#eq-typo',
+    JSON.stringify((await refs())[1]),
+  )
+  // 番号付きの式が見える位置で撮る（この文書は参照を離すために長い）。
+  await page.evaluate(() => {
+    document.querySelector('.preview').scrollTop = 0
+  })
+  await page.waitForTimeout(200)
+  await page.screenshot({ path: `${OUT}/eq-number.png` })
+
+  // 式を1つ上に足すと、番号も参照も揃ったままずれる（手で書き直さない）。
+  /*
+    置換文字列は**関数で渡す**。`String.replace` は置換文字列の中の `$$` を
+    `$` 1つに潰すので、そのまま渡すとブロック数式が壊れる（ここで踏んだ）。
+  */
+  const inserted = ['$$', 'a = 0 \\tag{first}', '$$', ''].join('\n')
+  await fill(
+    doc.replace('# 番号の確認\n', () => `# 番号の確認\n\n${inserted}`),
+    4,
+  )
+  check(
+    '式を上に挿入すると番号が繰り下がる',
+    JSON.stringify(await numbers()) === '["(1)","(2)","(3)"]',
+    JSON.stringify(await numbers()),
+  )
+  check(
+    'そのとき本文の参照も書き直さずに揃う',
+    JSON.stringify((await refs())[0]) === '{"href":"#eq-2","text":"(2)"}',
+    JSON.stringify((await refs())[0]),
+  )
+
+  // 参照をたどる。プレビューだけが動き、ソースの編集位置は動かない。
+  await fill(doc)
+  await page.evaluate(() => {
+    document.querySelector('.preview').scrollTop = 0
+    const ta = document.querySelector('textarea')
+    ta.setSelectionRange(0, 0)
+  })
+  await page.waitForTimeout(200)
+  const beforeFollow = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return { start: ta.selectionStart, end: ta.selectionEnd, url: location.href }
+  })
+  // 飛び先が見えるよう、いったん下まで送ってから上の式への参照を押す。
+  await page.evaluate(() => {
+    document.querySelector('.preview').scrollTop = document.querySelector('.preview').scrollHeight
+  })
+  await page.waitForTimeout(400)
+  const scrollBeforeFollow = await page.evaluate(() => document.querySelector('.preview').scrollTop)
+  await page.locator('.preview a[href="#eq-1"]').click()
+  await page.waitForTimeout(300)
+  const afterFollow = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    const preview = document.querySelector('.preview')
+    const target = document.querySelector('#eq-1')
+    const box = target.getBoundingClientRect()
+    const root = preview.getBoundingClientRect()
+    return {
+      start: ta.selectionStart,
+      end: ta.selectionEnd,
+      url: location.href,
+      scrollTop: preview.scrollTop,
+      // 飛び先がプレビューの見えている範囲に入っているか。
+      visible: box.top >= root.top - 1 && box.bottom <= root.bottom + 1,
+      active: document.querySelectorAll('.math-anchor--active').length,
+    }
+  })
+  check(
+    '参照を押すとプレビューがその式まで動く',
+    afterFollow.scrollTop !== scrollBeforeFollow && afterFollow.visible,
+    `${scrollBeforeFollow} → ${afterFollow.scrollTop}`,
+  )
+  check('飛び先の式に印が出る', afterFollow.active === 1, `${afterFollow.active}件`)
+  check(
+    '参照をたどってもソースのカーソルと選択範囲が動かない',
+    afterFollow.start === beforeFollow.start && afterFollow.end === beforeFollow.end,
+    `${beforeFollow.start}-${beforeFollow.end} → ${afterFollow.start}-${afterFollow.end}`,
+  )
+  check(
+    'URLにハッシュが付かない',
+    afterFollow.url === beforeFollow.url && !afterFollow.url.includes('#'),
+    afterFollow.url,
+  )
+
+  /*
+    飛び先の無い参照は何も起こさない。**先に画面へ入れてから**測る。
+    見えていないリンクを押すとPlaywrightがクリックのために自分でスクロールし、
+    その移動を「参照が動かした」と取り違える（ここで踏んだ）。
+  */
+  const dead = page.locator('.preview a[href="#eq-typo"]')
+  await dead.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(300)
+  const scrollBeforeDead = await page.evaluate(() => document.querySelector('.preview').scrollTop)
+  await dead.click()
+  await page.waitForTimeout(300)
+  const afterDead = await page.evaluate(() => ({
+    scrollTop: document.querySelector('.preview').scrollTop,
+    url: location.href,
+  }))
+  check(
+    '採番されていない参照を押しても動かない',
+    afterDead.scrollTop === scrollBeforeDead && !afterDead.url.includes('#'),
+    `${scrollBeforeDead} → ${afterDead.scrollTop}`,
+  )
+
+  // 番号付きの式も0020のとおりクリックでソースを選べる（番号の上でも同じ）。
+  await fill(doc)
+  await page.locator('#eq-1 .katex-display').click()
+  const selectedMath = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return ta.value.slice(ta.selectionStart, ta.selectionEnd)
+  })
+  check(
+    '番号付きの式をクリックするとソースの中身が選ばれる（\\tag を含む）',
+    selectedMath === `${longMath} \\tag{sum}`,
+    JSON.stringify(selectedMath.slice(-12)),
+  )
+  await page.locator('#eq-1 .eq-number').click()
+  const selectedByNumber = await page.evaluate(() => {
+    const ta = document.querySelector('textarea')
+    return ta.value.slice(ta.selectionStart, ta.selectionEnd)
+  })
+  check('番号の上をクリックしても同じ範囲が選ばれる', selectedByNumber === selectedMath)
+
+  // 幅1440pxでの重なりと位置。
+  const layoutOf = () =>
+    page.evaluate(() => {
+      const wrap = document.querySelector('.math-anchor--numbered')
+      const math = wrap.querySelector('.katex-display')
+      const num = wrap.querySelector('.eq-number')
+      const preview = document.querySelector('.preview')
+      return {
+        gap: Math.round(num.getBoundingClientRect().left - math.getBoundingClientRect().right),
+        numRight: Math.round(num.getBoundingClientRect().right),
+        wrapRight: Math.round(wrap.getBoundingClientRect().right),
+        mathScroll: math.scrollWidth,
+        mathClient: math.clientWidth,
+        previewScroll: preview.scrollWidth,
+        previewClient: preview.clientWidth,
+        docScroll: document.documentElement.scrollWidth,
+        docClient: document.documentElement.clientWidth,
+      }
+    })
+  const wide = await layoutOf()
+  check('幅1440pxで式と番号が重ならない', wide.gap >= 0, `間隔 ${wide.gap}px`)
+  check(
+    '番号が式のブロックの右端に出る',
+    Math.abs(wide.numRight - wide.wrapRight) <= 1,
+    `番号の右端 ${wide.numRight} / ブロックの右端 ${wide.wrapRight}`,
+  )
+
+  // 幅360px。番号と式が重ならず、はみ出しは式の側の横スクロールで受ける。
+  await page.setViewportSize({ width: 360, height: 640 })
+  await page.waitForTimeout(300)
+  const narrow = await layoutOf()
+  check('幅360pxで式と番号が重ならない', narrow.gap >= 0, `間隔 ${narrow.gap}px`)
+  check(
+    '幅360pxでページの横スクロールが増えない',
+    narrow.docScroll <= narrow.docClient,
+    `${narrow.docScroll} / ${narrow.docClient}`,
+  )
+  check(
+    '幅360pxで長い式がブロック内で横スクロールできる',
+    narrow.mathScroll > narrow.mathClient,
+    `内容 ${narrow.mathScroll}px / 枠 ${narrow.mathClient}px`,
+  )
+  // 実際に右端まで送って、式の末尾まで届くことを見る。
+  const scrolledToEnd = await page.evaluate(() => {
+    const math = document.querySelector('.math-anchor--numbered .katex-display')
+    math.scrollLeft = math.scrollWidth
+    return math.scrollLeft > 0 && math.scrollLeft + math.clientWidth >= math.scrollWidth - 1
+  })
+  check('横スクロールで式の末尾まで届く', scrolledToEnd)
+  await page.screenshot({ path: `${OUT}/eq-number-narrow.png` })
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.waitForTimeout(200)
+
+  // ダークでも番号が読める。
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForTimeout(200)
+  const numberContrast = await contrastOf('.preview .eq-number', '.preview')
+  check(
+    'ダークで番号と背景のコントラストが4.5:1以上',
+    numberContrast >= 4.5,
+    `${numberContrast.toFixed(2)}:1`,
+  )
+  await page.emulateMedia({ colorScheme: 'light' })
+
+  // 英語表示でも同じ。
+  await page.getByRole('button', { name: /言語/ }).click()
+  await page.waitForTimeout(300)
+  check(
+    '英語表示でも番号と参照が出る',
+    JSON.stringify(await numbers()) === '["(1)","(2)"]' &&
+      (await refs())[0].href === '#eq-1',
+    `${JSON.stringify(await numbers())} / ${JSON.stringify((await refs())[0])}`,
+  )
+
+  await resetState()
+
+  /*
+    400節・400数式のうち25件に番号と参照を付けた文書での入力コスト。
+
+    **ブロック数式の密度を上げすぎない。** 100件にすると1文字52.4msで
+    N1の50msを超えるが、切り分けたところ原因は0044ではなく
+    ブロック数式そのもの（`\tag` の有無で差が出ない。[0076](../docs/issues/0076-block-math-perf.md)）。
+    ここでは0044のぶんの回帰を見張る。
+  */
+  const longDoc = Array.from({ length: 400 }, (_, i) =>
+    i % 16 === 0
+      ? `## 節 ${i}\n\n$$\n\\int_0^1 x^{${i}} dx \\tag{e${i}}\n$$\n\n式 [(1)](#eq-e${i}) を見る。\n`
+      : `## 節 ${i}\n\n式 $\\int_0^1 x^{${i}} dx = \\frac{1}{${i + 1}}$ である。\n`,
+  ).join('\n')
+  await editor().fill(longDoc)
+  await page.waitForFunction(
+    () => document.querySelectorAll('.preview .katex').length === 400,
+    null,
+    { timeout: 30000 },
+  )
+  check(
+    '400数式のうち25件に番号が付く',
+    (await page.locator('.preview .eq-number').count()) === 25,
+    `${await page.locator('.preview .eq-number').count()}件`,
+  )
+  const TYPED = 20
+  await editor().click()
+  await page.keyboard.press('Control+End')
+  const typeStart = Date.now()
+  await editor().pressSequentially('あ'.repeat(TYPED), { delay: 0 })
+  const perKey = (Date.now() - typeStart) / TYPED
+  check(
+    '番号25件を含む長文での入力反映が1文字あたり50ms以内',
+    perKey <= 50,
+    `${perKey.toFixed(1)}ms/文字`,
+    { timing: true },
+  )
+
+  await resetState()
+  console.log(`スクリーンショット: ${OUT}/eq-number.png, ${OUT}/eq-number-narrow.png`)
+})
+
 // ---- 実行 ----
 
 const names = sections.map((s) => s.name)
