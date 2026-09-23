@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import type { RefObject } from 'react'
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { langLabel } from '../lib/langStorage'
@@ -14,155 +13,56 @@ export type SaveState =
   | { status: 'failed' }
 
 type Props = {
-  source: string
-  saveState: SaveState
-  onReset: () => void
   theme: Theme
   onToggleTheme: () => void
   lang: Lang
   onToggleLang: () => void
-  /** 算式記載ガイドを開く（0079）。 */
-  onOpenGuide: () => void
-  /** ガイドを閉じたときにフォーカスを戻す先（0079）。 */
-  guideButtonRef: RefObject<HTMLButtonElement | null>
-  /** ファイルの読み込みの結果（0012）。コピーの結果と同じ枠に出す。 */
-  notice: string
 }
 
-/**
- * `保存しました 12:34` の時刻部分。秒は出さない（1秒ごとに動いて視線を奪う）。
- *
- * 言語で書式を変えないのは、24時間表記の HH:MM がどちらの言語でも同じ読みだから。
- */
-function formatSavedAt(savedAt: string): string {
-  const date = new Date(savedAt)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false })
-}
-
-function saveMessage(state: SaveState, lang: Lang): string {
-  switch (state.status) {
-    case 'pending':
-      return pick(messages.saving, lang)
-    case 'saved': {
-      const time = formatSavedAt(state.savedAt)
-      return time ? pick(messages.savedAt(time), lang) : pick(messages.saved, lang)
-    }
-    case 'failed':
-      return pick(messages.saveFailed, lang)
-    case 'idle':
-      return ''
-  }
-}
-
-export function Toolbar({
-  source,
-  saveState,
-  onReset,
-  theme,
-  onToggleTheme,
-  lang,
-  onToggleLang,
-  onOpenGuide,
-  guideButtonRef,
-  notice,
-}: Props) {
-  const [copied, setCopied] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(source)
-      setFailed(false)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
-    } catch {
-      // http:// 経由やブラウザ設定でクリップボードAPIが使えないことがある。
-      setCopied(false)
-      setFailed(true)
-      window.setTimeout(() => setFailed(false), 3000)
-    }
-  }
+export function Toolbar({ theme, onToggleTheme, lang, onToggleLang }: Props) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mascotOpen, setMascotOpen] = useState(false)
 
   return (
     <header className="toolbar">
-      <div className="toolbar__brand">
-        {/*
-          記号のパスを書き写さず public/favicon.svg をそのまま参照する。
-          書き写すと favicon を直したときに片方だけ古くなる。
-          隣に ThothGlyph の文字があるので、画像は装飾（alt="")。
-        */}
-        <img className="toolbar__mark" src="./favicon.svg" alt="" width="20" height="20" />
+      <div className="toolbar__identity">
+        <button type="button" className="toolbar__mascot-button" onClick={() => setMascotOpen(true)} aria-label="トトを拡大">
+          <img className="toolbar__mascot" src="./thothglyph-thoth-mascot.png" alt="" />
+        </button>
         <h1 className="toolbar__title">ThothGlyph</h1>
       </div>
-      <div className="toolbar__actions">
-        <span className="toolbar__status" role="status">
-          {copied && pick(messages.copied, lang)}
-          {failed && pick(messages.copyFailed, lang)}
-          {!copied && !failed && notice}
-        </span>
-        {/* 保存状態はコピー結果とは別の要素。同時に出ても互いを消さない。 */}
-        <span
-          className={`toolbar__save${saveState.status === 'failed' ? ' toolbar__save--failed' : ''}`}
-          role="status"
-          // 狭い画面では文言を省略表示するので、全文はtitleで読めるようにする。
-          title={saveMessage(saveState, lang)}
-        >
-          {saveMessage(saveState, lang)}
-        </span>
+      {mascotOpen && (
+        <div className="mascot-dialog" role="dialog" aria-modal="true" aria-label="トト">
+          <button type="button" className="mascot-dialog__backdrop" aria-label="閉じる" onClick={() => setMascotOpen(false)} />
+          <div className="mascot-dialog__content">
+            <img src="./thothglyph-thoth-mascot.png" alt="数式の巻物を持つトト" />
+            <button type="button" className="button button--quiet" onClick={() => setMascotOpen(false)}>閉じる</button>
+          </div>
+        </div>
+      )}
+      <div className="toolbar__settings">
         <button
           type="button"
-          className="button button--quiet"
-          onClick={onToggleLang}
-          title={pick(messages.langTitle, lang)}
+          className="button button--quiet toolbar__settings-button"
+          aria-label={pick(messages.settings, lang)}
+          title={pick(messages.settings, lang)}
+          aria-expanded={settingsOpen}
+          onClick={() => setSettingsOpen((open) => !open)}
         >
-          {/* 狭い画面では「言語:」を省いて状態だけ出す。 */}
-          <span className="button__label">{pick(messages.langPrefix, lang)}</span>
-          {langLabel(lang)}
+          ⚙
         </button>
-        <button
-          type="button"
-          className="button button--quiet"
-          onClick={onToggleTheme}
-          title={pick(messages.themeTitle, lang)}
-        >
-          {/* 狭い画面では「テーマ:」を省いて状態だけ出す。 */}
-          <span className="button__label">{pick(messages.themePrefix, lang)}</span>
-          {themeLabel(theme, lang)}
-        </button>
-        {/*
-          ガイド（0079）。幅480px以下では `?` だけにする。文言のまま足すと、
-          英語表示・幅360px・保存状態ありで13px溢れた（実測）。
-        */}
-        <button
-          type="button"
-          className="button button--quiet button--guide"
-          onClick={onOpenGuide}
-          ref={guideButtonRef}
-          title={pick(messages.guideTitle, lang)}
-          aria-label={pick(messages.guide, lang)}
-        >
-          <span className="button__wide">{pick(messages.guide, lang)}</span>
-          <span className="button__narrow">{pick(messages.guideShort, lang)}</span>
-        </button>
-        {/*
-          幅480px以下では長い文言が画面から溢れるので、短いほうへ差し替える（0033）。
-          どちらを出すかはCSSで決める。aria-labelに長いほうを常に置くのは、
-          読み上げとテストから見える名前を画面幅で変えないため。
-        */}
-        <button
-          type="button"
-          className="button button--quiet"
-          onClick={onReset}
-          aria-label={pick(messages.reset, lang)}
-        >
-          <span className="button__wide">{pick(messages.reset, lang)}</span>
-          <span className="button__narrow">{pick(messages.resetShort, lang)}</span>
-        </button>
-        <button type="button" className="button" onClick={copy} aria-label={pick(messages.copy, lang)}>
-          <span className="button__wide">{pick(messages.copy, lang)}</span>
-          <span className="button__narrow">{pick(messages.copyShort, lang)}</span>
-        </button>
+        {settingsOpen && (
+          <div className="toolbar__settings-menu">
+            <button type="button" className="button button--quiet" onClick={onToggleLang}>
+              {pick(messages.langPrefix, lang)}
+              {langLabel(lang)}
+            </button>
+            <button type="button" className="button button--quiet" onClick={onToggleTheme}>
+              {pick(messages.themePrefix, lang)}
+              {themeLabel(theme, lang)}
+            </button>
+          </div>
+        )}
       </div>
     </header>
   )

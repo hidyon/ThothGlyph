@@ -8,6 +8,7 @@ import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
 import { FindBar } from './FindBar'
+import { PaneIcon } from './PaneIcon'
 
 type Props = {
   value: string
@@ -18,6 +19,8 @@ type Props = {
   onOpenFiles: (files: FileList | null) => void
   /** 編集中の内容を .md として書き出す（0034）。 */
   onSaveFile: () => void
+  onNew: () => void
+  onSample: () => void
   /** 一致をtextarea上で選ぶ（0043）。 */
   onSelectRange: (match: Match) => void
   /** 置換を挿入と同じ経路で行う（0021のUndo履歴に乗せる。0043）。 */
@@ -37,6 +40,8 @@ export function Editor({
   lang,
   onOpenFiles,
   onSaveFile,
+  onNew,
+  onSample,
   onSelectRange,
   onReplace,
   selectedText,
@@ -45,6 +50,7 @@ export function Editor({
 }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   /*
     検索・置換の一時的な状態（0043）。保存はしない。
@@ -175,58 +181,51 @@ export function Editor({
       }}
       onDrop={handleDrop}
     >
-      <header className="pane__header">
-        {pick(messages.editorHeader, lang)}
-        {/*
-          ボタンは1つのまとまりとして右端に置く。見出しと並べて
-          space-between に任せると、ボタン同士が離れて散らばる（0034）。
-          保存が先、読み込みが後。書くほうが主で、読み込みは入口。
-        */}
-        <span className="pane__actions">
-        <button
-          type="button"
-          className="button button--quiet button--small"
-          onClick={openFind}
-          title={pick(messages.findTitle, lang)}
-        >
-          {pick(messages.find, lang)}
-        </button>
-        <button
-          type="button"
-          className="button button--quiet button--small"
-          onClick={onSaveFile}
-          title={pick(messages.saveFileTitle, lang)}
-        >
-          {pick(messages.saveFile, lang)}
-        </button>
-        <button
-          type="button"
-          className="button button--quiet button--small"
-          onClick={() => fileInput.current?.click()}
-          title={pick(messages.openFileTitle, lang)}
-        >
-          {pick(messages.openFile, lang)}
-        </button>
-        {/*
-          視覚的にだけ隠す（display:none にはしない。Playwrightの setInputFiles は
-          入るが、隠し方でDOMから外れる実装に寄せたくない）。
-          input[type=file] 自身も role=button として数えられるので、
-          aria-hidden で隠して入口を上のボタン1つに絞る。
-        */}
-        <input
-          ref={fileInput}
-          type="file"
-          className="sr-only"
-          accept=".md,.markdown,.txt,text/markdown,text/plain"
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={(event) => {
-            onOpenFiles(event.target.files)
-            // 同じファイルを続けて選べるように値を戻す（変化がないと change が出ない）。
-            event.target.value = ''
-          }}
+      <header className="pane__header pane__header--editor">
+        <span className="pane__heading"><PaneIcon name="source" />{pick(messages.editorHeader, lang)}</span>
+        <div className="pane__menu">
+          <button
+            type="button"
+            className="pane__menu-button"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {pick(messages.sourceMenu, lang)} <span aria-hidden="true">⌄</span>
+          </button>
+          {menuOpen && (
+            <div className="pane__menu-list" role="menu">
+              <button type="button" className="pane__menu-item" role="menuitem" onClick={() => { setMenuOpen(false); onNew() }}>
+                {pick(messages.newDocument, lang)}
+              </button>
+              <button type="button" className="pane__menu-item" role="menuitem" onClick={() => { setMenuOpen(false); onSample() }}>
+                {pick(messages.sample, lang)}
+              </button>
+              <button type="button" className="pane__menu-item" role="menuitem" title={pick(messages.findTitle, lang)} onClick={() => { setMenuOpen(false); openFind() }}>
+                {pick(messages.find, lang)}
+              </button>
+              <button type="button" className="pane__menu-item" role="menuitem" title={pick(messages.saveFileTitle, lang)} onClick={() => { setMenuOpen(false); onSaveFile() }}>
+                {pick(messages.saveFile, lang)}
+              </button>
+              <button type="button" className="pane__menu-item" role="menuitem" title={pick(messages.openFileTitle, lang)} onClick={() => { setMenuOpen(false); fileInput.current?.click() }}>
+                {pick(messages.openFile, lang)}
+              </button>
+            </div>
+          )}
+          {/* 視覚的にだけ隠す。ファイル選択の入口はメニューにまとめる。 */}
+          <input
+            ref={fileInput}
+            type="file"
+            className="sr-only"
+            accept=".md,.markdown,.txt,text/markdown,text/plain"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              onOpenFiles(event.target.files)
+              event.target.value = ''
+            }}
           />
-        </span>
+        </div>
       </header>
       {findOpen && (
         <FindBar

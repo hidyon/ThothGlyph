@@ -204,8 +204,8 @@ node scripts/verify-ui.mjs --repeat 5 perf
 
 ### READMEのスクリーンショット（[0035](specs/0035-readme-for-users.md)）
 
-`node scripts/make-screenshots.mjs` で `docs/screenshots/` の3枚
-（1440×900のライトとダーク、360×667のスマートフォン）を撮り直す。
+`node scripts/make-screenshots.mjs` で `docs/screenshots/` の2枚
+（1440×900と360×667のダークテーマ）を撮り直す。
 条件（localStorageを消した初期表示、サンプル文書、数式とパレットの描画待ち）を
 スクリプトが揃えるので、手で撮らない。**画面の見た目を変えたissueでは撮り直す。**
 

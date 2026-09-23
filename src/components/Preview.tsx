@@ -4,6 +4,7 @@ import type { RefObject } from 'react'
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
+import { PaneIcon } from './PaneIcon'
 
 type Props = {
   html: string
@@ -103,7 +104,7 @@ export function Preview({
   return (
     <section className="pane pane--preview" aria-label={pick(messages.previewLabel, lang)}>
       <header className="pane__header">
-        {pick(messages.previewHeader, lang)}
+        <span className="pane__heading"><PaneIcon name="preview" />{pick(messages.previewHeader, lang)}</span>
         {/* 追いつくまでの間だけ出す。プレビュー自体は薄くしない（読めなくなる）。 */}
         {!ready && <span className="pane__note">{pick(messages.previewPreparing, lang)}</span>}
         {ready && stale && <span className="pane__note">{pick(messages.previewStale, lang)}</span>}

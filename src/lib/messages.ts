@@ -18,6 +18,12 @@ export const messages = {
     'コピーできませんでした（手動で選択してください）',
     'Could not copy (please select the text manually)',
   ),
+  newDocument: t('新規作成', 'New'),
+  newDocumentConfirm: t(
+    '編集中の内容を破棄して新しい文書を作成します。よろしいですか？',
+    'Discard what you have written and create a new document?',
+  ),
+  sample: t('サンプル', 'Sample'),
   reset: t('サンプルに戻す', 'Reset to sample'),
   /** 幅480px以下で出す短いほう。長いほうは aria-label に残る（0033）。 */
   resetShort: t('戻す', 'Reset'),
@@ -62,6 +68,9 @@ export const messages = {
   ),
   guideClose: t('閉じる', 'Close'),
 
+  settings: t('設定', 'Settings'),
+  paletteMenu: t('パレット', 'Palette'),
+  sourceMenu: t('メニュー', 'Menu'),
   themePrefix: t('テーマ: ', 'Theme: '),
   themeTitle: t(
     'テーマを切り替える（自動 → ライト → ダーク）',
