@@ -1,8 +1,10 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import type { Ref, RefObject } from 'react'
+import type { CSSProperties, Ref, RefObject } from 'react'
 import type { Match } from '../lib/findMatches'
 import { findMatches, matchAfter, replaceAll, replaceOne, step } from '../lib/findMatches'
 import { highlightHtml } from '../lib/highlightRanges'
+import { editorHighlightHtml } from '../lib/editorHighlight'
+import type { EditorDisplay } from '../lib/editorDisplayStorage'
 import type { InsertResult } from '../lib/insertSnippet'
 import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
@@ -31,6 +33,7 @@ type Props = {
   mirrorRef: RefObject<HTMLDivElement | null>
   /** スクロールしたことをAppへ伝える（プレビューを追わせる。0010）。 */
   onScrollSync: () => void
+  editorDisplay: EditorDisplay
 }
 
 export function Editor({
@@ -47,6 +50,7 @@ export function Editor({
   selectedText,
   mirrorRef,
   onScrollSync,
+  editorDisplay,
 }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -64,6 +68,8 @@ export function Editor({
   const [current, setCurrent] = useState(0)
   const findInput = useRef<HTMLInputElement>(null)
   const highlights = useRef<HTMLDivElement>(null)
+  const syntax = useRef<HTMLDivElement>(null)
+  const lineNumberLayer = useRef<HTMLDivElement>(null)
 
   /*
     一致の計算は入力から遅らせる（プレビューと同じ `useDeferredValue` の手）。
@@ -78,6 +84,8 @@ export function Editor({
   )
   // 置換や編集で件数が減っても、範囲の外を指したままにしない。
   const index = matches.length === 0 ? -1 : Math.min(current, matches.length - 1)
+  const syntaxMarkup = useMemo(() => editorHighlightHtml(deferredValue), [deferredValue])
+  const lineNumbers = useMemo(() => Array.from({ length: value.split('\n').length }, (_, index) => index + 1).join('\n'), [value])
   const highlightMarkup = useMemo(
     () => (matches.length === 0 ? '' : highlightHtml(deferredValue, matches, index)),
     [deferredValue, matches, index],
@@ -142,18 +150,21 @@ export function Editor({
   /** 裏の層を表のtextareaと同じ位置・同じ幅に合わせる。ずれると色が別の文字に付く。 */
   const syncScroll = () => {
     const layer = highlights.current
-    if (layer === null || typeof textareaRef !== 'object' || textareaRef === null) return
+    if (typeof textareaRef !== 'object' || textareaRef === null) return
     const textarea = textareaRef.current
     if (textarea === null) return
 
-    layer.scrollTop = textarea.scrollTop
-    layer.scrollLeft = textarea.scrollLeft
+    for (const element of [layer, syntax.current, lineNumberLayer.current]) {
+      if (element === null) continue
+      element.scrollTop = textarea.scrollTop
+      element.scrollLeft = textarea.scrollLeft
+    }
     /*
       縦スクロールバーが出ると、その幅だけtextareaの折り返しが早くなる。
       層は同じ幅のままなので、揃えないと行がずれる（幅375pxで24pxぶん
       高さが違った）。バーの幅だけ層の右を詰める。
     */
-    layer.style.right = `${textarea.offsetWidth - textarea.clientWidth}px`
+    if (layer !== null) layer.style.right = `${textarea.offsetWidth - textarea.clientWidth}px`
   }
 
   // 選択で動いたスクロールにも追従させる（scrollイベントより後に効かせる）。
@@ -245,7 +256,9 @@ export function Editor({
           onClose={closeFind}
         />
       )}
-      <div className="editor-wrap">
+      <div className={`editor-wrap${editorDisplay.lineNumbers ? '' : ' editor-wrap--no-lines'}`} style={{ '--editor-gutter': `${String(value.split('\n').length).length + 3}ch` } as CSSProperties}>
+        {editorDisplay.lineNumbers && <div className="editor-line-numbers" ref={lineNumberLayer} aria-hidden="true">{lineNumbers}</div>}
+        {editorDisplay.syntaxHighlight && <div className="editor-syntax" ref={syntax} aria-hidden="true" dangerouslySetInnerHTML={{ __html: syntaxMarkup }} />}
         {/*
           行の座標を測るためのミラー（0010）。器だけを置き、中身はAppが
           スクロールのときに入れる。visibility: hidden なので描かれない。
@@ -271,7 +284,7 @@ export function Editor({
         )}
       <textarea
         ref={textareaRef}
-        className={`editor${findOpen && matches.length > 0 ? ' editor--highlighting' : ''}`}
+        className={`editor${findOpen && matches.length > 0 ? ' editor--highlighting' : ''}${editorDisplay.syntaxHighlight ? ' editor--syntax' : ''}`}
         value={value}
         onScroll={() => {
           syncScroll()

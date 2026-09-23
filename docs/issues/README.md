@@ -99,6 +99,8 @@
 | [0087](0087-personal-snippets.md) | 自分用の定型を登録して再利用できない | implemented | [仕様](../specs/0087-personal-snippets.md) |
 | [0088](0088-personal-snippet-backup.md) | 自分用スニペットをバックアップ・移行できない | implemented | [仕様](../specs/0088-personal-snippet-backup.md) |
 | [0090](0090-readme-in-settings.md) | 設定メニューからREADMEを読めない | closed | [仕様](../specs/0090-readme-in-settings.md) |
+| [0091](0091-refresh-product-docs.md) | プロダクト仕様書が現行UIに追随していない | closed | — |
+| [0092](0092-source-line-numbers-and-syntax-highlighting.md) | ソースで行番号とシンタックスハイライトを使えない | closed | [仕様](../specs/0092-source-line-numbers-and-syntax-highlighting.md) |
 
 ## 着手順の目安
 

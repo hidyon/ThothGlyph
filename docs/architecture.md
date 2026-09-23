@@ -19,8 +19,8 @@
 
 状態は `App.tsx` の `source`（Markdownソース文字列）1つに集約する。
 コンポーネントは自分で状態を持たない。例外はUIの一時的な状態だけ
-（パレットの選択タブ、パレットの検索クエリ、コピーの結果表示）。
-**保存する設定**（テーマ・表示言語・領域の分け方（[0057](specs/0057-resizable-panes.md)））は
+（パレットとソースのメニュー、パレットの選択項目と検索クエリ、トトとREADMEのモーダル）。
+**保存する設定**（テーマ・表示言語・領域の分け方（[0057](specs/0057-resizable-panes.md)）・ソース表示設定（[0092](specs/0092-source-line-numbers-and-syntax-highlighting.md)））は
 別の系統で、それぞれ `lib/` に読み書きの純粋関数を持ち、`App.tsx` が state として抱える。
 文書の内容ではないので `source` には混ぜない。
 検索の絞り込みそのものは `lib/search.ts` の純粋関数で、コンポーネントは
@@ -455,9 +455,9 @@ type Text = { ja: string; en: string }
 **ビルド時にも生成しない。** devcontainerの外でもChromiumが要ることになる。
 生成物はコミットし、作り直しは手で流す（`node scripts/make-icons.mjs`）。
 
-ツールバーにも同じ記号を出すが、**パスを書き写さない**。
-`Toolbar.tsx` は `<img src="/favicon.svg">` で原本を参照する（書き写すと
-favicon を直したときに片方だけ古くなる）。アイコンが自前の地を持つので、
+faviconはブラウザのタブ・ブックマーク・ホーム画面だけで使う。ツールバーには
+`public/thothglyph-thoth-mascot.png` を置き、拡大モーダルでも同じ原本を参照する。
+マスコット画像の背景が透明なので、
 文字色を継がせる必要がなく `<img>` で足りる。
 
 記号は直線3本のパスで描き、`<text>` を使わない（見る側のフォントに依存して
@@ -516,11 +516,12 @@ playwright-coreが自力で見つける）。
 JSを2つに分けている。
 
 ```
-初期チャンク : React + アプリ本体（Toolbar / Editor / SymbolPalette の骨組み）+ アプリのCSS
+初期チャンク : React + アプリ本体（Toolbar / Editor / SymbolPalette / ReadmePanel）+ アプリのCSS + README本文
 遅延チャンク : KaTeX + marked + DOMPurify + renderMarkdown + グラフの描画 + KaTeXのCSS
 ```
 
 `lib/engine.ts` が遅延チャンクの入口で、**ここから静的にたどれるものが遅延側に入る**。
+README本文は `ReadmePanel` が `?raw` でビルド時に取り込むため初期チャンクに含まれる。
 `lib/previewEngine.ts` の `loadEngine()` が `import('./engine')` を1回だけ走らせ、
 結果を使い回す。`App` が受け取って `Preview` と `SymbolPalette` へ props で配る。
 
