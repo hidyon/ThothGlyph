@@ -6,6 +6,7 @@ import { messages } from '../lib/messages'
 import type { Engine } from '../lib/previewEngine'
 import { ReadmePanel } from './ReadmePanel'
 import type { Theme } from '../lib/themeStorage'
+import type { EditorDisplay } from '../lib/editorDisplayStorage'
 import { themeLabel } from '../lib/themeStorage'
 
 export type SaveState =
@@ -20,9 +21,11 @@ type Props = {
   lang: Lang
   onToggleLang: () => void
   engine: Engine | null
+  editorDisplay: EditorDisplay
+  onToggleEditorDisplay: (key: 'lineNumbers' | 'syntaxHighlight') => void
 }
 
-export function Toolbar({ theme, onToggleTheme, lang, onToggleLang, engine }: Props) {
+export function Toolbar({ theme, onToggleTheme, lang, onToggleLang, engine, editorDisplay, onToggleEditorDisplay }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mascotOpen, setMascotOpen] = useState(false)
   const [readmeOpen, setReadmeOpen] = useState(false)
@@ -65,6 +68,12 @@ export function Toolbar({ theme, onToggleTheme, lang, onToggleLang, engine }: Pr
             <button type="button" className="button button--quiet" onClick={onToggleTheme}>
               {pick(messages.themePrefix, lang)}
               {themeLabel(theme, lang)}
+            </button>
+            <button type="button" className="button button--quiet" onClick={() => onToggleEditorDisplay('lineNumbers')}>
+              {pick(messages.lineNumbers, lang)}{editorDisplay.lineNumbers ? pick(messages.settingOn, lang) : pick(messages.settingOff, lang)}
+            </button>
+            <button type="button" className="button button--quiet" onClick={() => onToggleEditorDisplay('syntaxHighlight')}>
+              {pick(messages.syntaxHighlight, lang)}{editorDisplay.syntaxHighlight ? pick(messages.settingOn, lang) : pick(messages.settingOff, lang)}
             </button>
             <button type="button" className="button button--quiet" onClick={() => { setSettingsOpen(false); setReadmeOpen(true) }}>
               {pick(messages.readme, lang)}

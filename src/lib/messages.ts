@@ -70,6 +70,10 @@ export const messages = {
 
   settings: t('設定', 'Settings'),
   readme: t('README', 'README'),
+  lineNumbers: t('行番号: ', 'Line numbers: '),
+  syntaxHighlight: t('シンタックスハイライト: ', 'Syntax highlighting: '),
+  settingOn: t('オン', 'On'),
+  settingOff: t('オフ', 'Off'),
   paletteMenu: t('パレット', 'Palette'),
   sourceMenu: t('メニュー', 'Menu'),
   themePrefix: t('テーマ: ', 'Theme: '),

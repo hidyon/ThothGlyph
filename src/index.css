@@ -1631,3 +1631,47 @@ body {
     border-radius: 0;
   }
 }
+
+.editor-line-numbers {
+  flex: 0 0 var(--editor-gutter);
+  padding: 16px 8px 16px 12px;
+  color: var(--text-muted);
+  background: var(--bg-editor);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: right;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.editor-syntax {
+  position: absolute;
+  inset: 0;
+  padding: 16px;
+  color: var(--text);
+  background: var(--bg-editor);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.7;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.editor--syntax { position: relative; z-index: 2; color: transparent; background: transparent; caret-color: var(--text); }
+.editor-highlights { z-index: 1; background: transparent; }
+.syntax-heading { color: var(--accent); font-weight: 700; }
+.syntax-marker { color: var(--text-muted); }
+.syntax-strong { color: var(--accent); }
+.syntax-link { color: var(--accent); }
+.syntax-code, .syntax-code { color: var(--text-muted); }
+.syntax-math { color: var(--danger); }
+.syntax-comment { color: var(--text-muted); font-style: italic; }
+
+.editor-wrap:not(.editor-wrap--no-lines) .editor-syntax,
+.editor-wrap:not(.editor-wrap--no-lines) .editor-highlights,
+.editor-wrap:not(.editor-wrap--no-lines) .editor-mirror { left: var(--editor-gutter); }

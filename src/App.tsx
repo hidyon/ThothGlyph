@@ -8,6 +8,7 @@ import { SymbolPalette } from './components/SymbolPalette'
 import { Toolbar } from './components/Toolbar'
 import type { SaveState } from './components/Toolbar'
 import { loadDocument, saveDocument } from './lib/documentStorage'
+import { loadEditorDisplay, saveEditorDisplay } from './lib/editorDisplayStorage'
 import { mirrorHtml } from './lib/mirrorHtml'
 import type { Anchor, Pair } from './lib/scrollMap'
 import { mapScroll, pairAnchors } from './lib/scrollMap'
@@ -72,6 +73,7 @@ export default function App() {
   // 遅延初期化でマウント時の1回だけ読む。再レンダリングで読み直さない。
   const [restored] = useState(loadDocument)
   const [lang, setLang] = useState<Lang>(loadLang)
+  const [editorDisplay, setEditorDisplay] = useState(loadEditorDisplay)
 
   // 初回訪問のサンプルは、そのとき決まった言語のものを1度だけ選ぶ。以降は
   // 言語を切り替えても差し替えない（利用者が書いたものを消さないため）。
@@ -85,6 +87,10 @@ export default function App() {
    * 編集すると数式の位置がずれ、印がどこを指していたのかが意味を失う。
    * 残すと、別の式へ印が移ったように見える。
    */
+  const toggleEditorDisplay = (key: 'lineNumbers' | 'syntaxHighlight') => {
+    setEditorDisplay((current) => { const next = { ...current, [key]: !current[key] }; saveEditorDisplay(next); return next })
+  }
+
   const updateSource = useCallback((next: string) => {
     setSource(next)
     setActiveMath(null)
@@ -642,6 +648,8 @@ export default function App() {
         lang={lang}
         onToggleLang={handleToggleLang}
         engine={engine}
+        editorDisplay={editorDisplay}
+        onToggleEditorDisplay={toggleEditorDisplay}
       />
       {guideOpen && <GuidePanel lang={lang} engine={engine} onClose={closeGuide} />}
       <SymbolPalette
@@ -681,6 +689,7 @@ export default function App() {
           selectedText={selectedText}
           mirrorRef={mirrorRef}
           onScrollSync={() => handleScrollSync('editor')}
+          editorDisplay={editorDisplay}
         />
         <PaneDivider
           label={pick(messages.sourceDivider, lang)}
