@@ -5,6 +5,7 @@ import { allFormulas, formulaGroups } from '../lib/formulas'
 import type { Lang, Text } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { messages } from '../lib/messages'
+import { PaneIcon } from './PaneIcon'
 import type { PaletteItem } from '../lib/palette'
 import { FORMULA_TAB_ICON, describeInsertion, paletteGroups } from '../lib/palette'
 import type { PersonalSnippet } from '../lib/personalSnippets'
@@ -13,6 +14,7 @@ import { hitKey, hitSnippet, searchPalette } from '../lib/search'
 type Props = {
   onInsert: (snippet: string) => void
   onFocusEditor: () => void
+  onOpenGuide: () => void
   snippets: PersonalSnippet[]
   selectedText: () => string
   onSaveSnippet: (name: string, body: string, id?: string) => boolean
@@ -27,6 +29,7 @@ type Draft = { id?: string; name: string; body: string }
 
 const FORMULA_TAB_INDEX = paletteGroups.length
 const PERSONAL_TAB_INDEX = paletteGroups.length + 1
+const GUIDE_TAB_INDEX = paletteGroups.length + 2
 
 function useRenderedLatex(render: ((latex: string) => string) | undefined) {
   return useMemo(() => {
@@ -44,6 +47,7 @@ function useRenderedLatex(render: ((latex: string) => string) | undefined) {
 export function SymbolPalette({
   onInsert,
   onFocusEditor,
+  onOpenGuide,
   snippets,
   selectedText,
   onSaveSnippet,
@@ -56,6 +60,7 @@ export function SymbolPalette({
   const [activeTab, setActiveTab] = useState(0)
   const [activeFormulaTab, setActiveFormulaTab] = useState(0)
   const [query, setQuery] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [draftError, setDraftError] = useState('')
   const rendered = useRenderedLatex(renderLatex)
@@ -73,6 +78,7 @@ export function SymbolPalette({
     ...paletteGroups.map((candidate) => ({ name: candidate.name, icon: candidate.icon })),
     { name: messages.formulaTab, icon: FORMULA_TAB_ICON },
     { name: messages.personalTab, icon: '★' },
+    { name: messages.guide, icon: '?' },
   ]
 
   const resultButtons = () =>
@@ -326,33 +332,20 @@ export function SymbolPalette({
   return (
     <section className="palette" aria-label={pick(messages.paletteLabel, lang)}>
       <header className="pane__header pane__header--palette">
-        {pick(messages.paletteHeader, lang)}
-      </header>
-      <div className="palette__bar">
-        <div className="palette__tabs" role="tablist">
-          {tabs.map(({ name, icon }, index) => (
-            <button
-              key={name.en}
-              type="button"
-              role="tab"
-              aria-selected={!searching && index === activeTab}
-              className={
-                !searching && index === activeTab
-                  ? 'palette__tab palette__tab--active'
-                  : 'palette__tab'
-              }
-              onClick={() => {
-                setQuery('')
-                setActiveTab(index)
-              }}
-            >
-              <span className="palette__tab-icon" aria-hidden="true">
-                {icon}
-              </span>
-              {pick(name, lang)}
-            </button>
-          ))}
-        </div>
+        <span className="pane__heading"><PaneIcon name="palette" />{pick(messages.paletteHeader, lang)}</span>
+        <div className="palette__menu">
+          <button
+            type="button"
+            className="palette__menu-button"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span aria-hidden="true">{tabs[activeTab]?.icon}</span>
+            {pick(tabs[activeTab]?.name ?? messages.paletteLabel, lang)}
+            <span aria-hidden="true">⌄</span>
+          </button>
+          {menuOpen && (
+            <div className="palette__menu-list" role="menu">
         <input
           ref={searchInput}
           type="search"
@@ -363,8 +356,30 @@ export function SymbolPalette({
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={handleSearchKeyDown}
         />
-      </div>
-
+              {tabs.map(({ name, icon }, index) => (
+                <button
+                  key={name.en}
+                  type="button"
+                  role="menuitem"
+                  className="palette__menu-item"
+                  onClick={() => {
+                    setQuery('')
+                    setMenuOpen(false)
+                    if (index === GUIDE_TAB_INDEX) {
+                      onOpenGuide()
+                      return
+                    }
+                    setActiveTab(index)
+                  }}
+                >
+                  <span aria-hidden="true">{icon}</span>
+                  {pick(name, lang)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
       {searching ? (
         <div
           className="palette__items palette__items--results"

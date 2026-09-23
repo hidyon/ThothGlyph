@@ -116,8 +116,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 16px;
+  gap: 12px;
+  padding: 4px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
@@ -136,9 +136,9 @@ body {
   min-width: 0;
 }
 
-.toolbar__mark {
-  display: block;
-  flex-shrink: 0;
+
+.toolbar__thoth {
+  display: none;
 }
 
 .toolbar__actions {
@@ -875,6 +875,10 @@ body {
 }
 
 @media (max-width: 720px) {
+  .toolbar__thoth {
+    display: none;
+  }
+
   .toolbar {
     padding: 8px 10px;
   }
@@ -1254,4 +1258,303 @@ body {
 
 .personal-snippets__file {
   display: none;
+}
+
+.palette__thoth {
+  height: 150px;
+  overflow: hidden;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.palette__thoth img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  display: block;
+}
+
+@media (max-width: 720px) {
+  .palette__thoth {
+    height: 96px;
+  }
+}
+
+.toolbar__wordmark {
+  display: block;
+  width: 196px;
+  height: 34px;
+}
+
+.palette__thoth {
+  height: 250px;
+  background: transparent;
+}
+
+.palette__thoth img {
+  object-fit: contain;
+  object-position: center;
+}
+
+@media (max-width: 720px) {
+  .toolbar__wordmark {
+    width: 164px;
+    height: 29px;
+  }
+
+  .palette__thoth {
+    height: 170px;
+  }
+}
+
+.toolbar__identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar__emblem {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.toolbar__settings {
+  position: relative;
+}
+
+.toolbar__settings-button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+  border-radius: 50%;
+}
+
+.toolbar__settings-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 6px;
+  min-width: 172px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 18%);
+}
+
+.toolbar__settings-menu .button {
+  justify-content: flex-start;
+}
+
+.palette__thoth {
+  position: relative;
+}
+
+.palette__thoth-main {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.palette__thoth-mascot {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  width: 108px;
+  max-height: 82%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 16%));
+}
+
+@media (max-width: 720px) {
+  .toolbar__emblem {
+    width: 29px;
+    height: 29px;
+  }
+
+  .palette__thoth-mascot {
+    width: 78px;
+    right: 4px;
+  }
+}
+
+.toolbar__mascot {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.toolbar__mascot-button {
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.mascot-dialog {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.mascot-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 55%);
+  border: 0;
+}
+
+.mascot-dialog__content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: min(88vw, 520px);
+  padding: 18px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.mascot-dialog__content img {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+}
+
+.palette__menu {
+  position: relative;
+}
+
+.palette__menu-button,
+.palette__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.palette__menu-button {
+  min-height: 30px;
+  padding: 5px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.palette__menu-list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 5px);
+  left: 0;
+  display: grid;
+  min-width: 190px;
+  padding: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 16%);
+}
+
+.palette__menu-item {
+  padding: 7px 8px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+}
+
+.palette__menu-item:hover {
+  background: var(--accent-soft);
+}
+
+.palette__menu-list .palette__search {
+  width: 100%;
+  margin: 0 0 4px;
+  flex: none;
+}
+
+/* ソースの操作も、パレットと同じく見出し横のメニューに収める。 */
+.pane__header--editor {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.pane__menu {
+  position: relative;
+}
+
+.pane__menu-button,
+.pane__menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.pane__menu-button {
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border-color: var(--border);
+  border-radius: 6px;
+}
+
+.pane__menu-list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: 154px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 16%);
+}
+
+.pane__menu-item {
+  padding: 7px 8px;
+  text-align: left;
+  background: transparent;
+  border-radius: 5px;
+}
+
+.pane__menu-item:hover {
+  background: var(--accent-soft);
+}
+
+/* 各ペインの役割を見出しで素早く見分けられるようにする。 */
+.pane__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pane__icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
 }

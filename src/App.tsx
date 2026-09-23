@@ -89,9 +89,11 @@ export default function App() {
     setSource(next)
     setActiveMath(null)
   }, [])
+  // 保存状態はバックグラウンドで保持する。通知表示の置き場所は今後の設定画面へ移す。
   const [saveState, setSaveState] = useState<SaveState>(
     restored ? { status: 'saved', savedAt: restored.savedAt } : { status: 'idle' },
   )
+  void saveState
   const [theme, setTheme] = useState<Theme>(loadTheme)
   // 3つの領域の分け方（0057）。テーマ・言語と同じ「保存する設定」で、
   // 文書の状態（source）とは別に持つ。
@@ -460,6 +462,7 @@ export default function App() {
 
   // 読み込みの結果（コピーの結果と同じ枠に出す）。数秒で消す。
   const [notice, setNotice] = useState('')
+  void notice
   const noticeTimer = useRef(0)
   const showNotice = useCallback((text: string) => {
     setNotice(text)
@@ -608,6 +611,12 @@ export default function App() {
     })
   }
 
+  const handleNew = () => {
+    if (!window.confirm(pick(messages.newDocumentConfirm, lang))) return
+    updateSource('')
+    textareaRef.current?.focus()
+  }
+
   const handleReset = () => {
     if (!window.confirm(pick(messages.resetConfirm, lang))) return
     updateSource(sampleDocument(lang))
@@ -628,21 +637,16 @@ export default function App() {
       }
     >
       <Toolbar
-        source={source}
-        saveState={saveState}
-        onReset={handleReset}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         lang={lang}
         onToggleLang={handleToggleLang}
-        onOpenGuide={() => setGuideOpen(true)}
-        guideButtonRef={guideButtonRef}
-        notice={notice}
       />
       {guideOpen && <GuidePanel lang={lang} engine={engine} onClose={closeGuide} />}
       <SymbolPalette
         onInsert={handleInsert}
         onFocusEditor={() => textareaRef.current?.focus()}
+        onOpenGuide={() => setGuideOpen(true)}
         snippets={personalSnippets}
         selectedText={selectedText}
         onSaveSnippet={handleSavePersonalSnippet}
@@ -669,6 +673,8 @@ export default function App() {
           lang={lang}
           onOpenFiles={handleOpenFiles}
           onSaveFile={handleSaveFile}
+          onNew={handleNew}
+          onSample={handleReset}
           onSelectRange={handleSelectRange}
           onReplace={handleReplace}
           selectedText={selectedText}

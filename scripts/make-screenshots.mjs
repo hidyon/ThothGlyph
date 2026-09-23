@@ -18,9 +18,8 @@ const OUT = 'docs/screenshots'
 
 /** 撮る条件。README側の説明と1対1で対応させる。 */
 const shots = [
-  { name: 'wide-light.png', width: 1440, height: 900, scheme: 'light' },
-  { name: 'wide-dark.png', width: 1440, height: 900, scheme: 'dark' },
-  { name: 'phone.png', width: 360, height: 667, scheme: 'light' },
+  { name: 'wide.png', width: 1440, height: 900, scheme: 'dark' },
+  { name: 'phone.png', width: 360, height: 667, scheme: 'dark' },
 ]
 
 await mkdir(OUT, { recursive: true })
@@ -28,9 +27,10 @@ await mkdir(OUT, { recursive: true })
 const browser = await chromium.launch({ args: ['--no-sandbox'] })
 const context = await browser.newContext()
 // 画面の文言は日本語で撮る（リポジトリの文書が日本語なので揃える）。
-await context.addInitScript(() =>
-  window.localStorage.setItem('thothglyph:lang:v1', JSON.stringify({ version: 1, lang: 'ja' })),
-)
+await context.addInitScript(() => {
+  window.localStorage.setItem('thothglyph:lang:v1', JSON.stringify({ version: 1, lang: 'ja' }))
+  window.localStorage.setItem('thothglyph:theme:v1', JSON.stringify({ version: 2, theme: 'dark' }))
+})
 const page = await context.newPage()
 
 for (const shot of shots) {

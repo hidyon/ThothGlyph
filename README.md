@@ -2,12 +2,14 @@
 
 # ThothGlyph
 
+<img src="docs/images/thothglyph-mascot.png" width="360" alt="数式の巻物を持つ、ゆるキャラ風のトトのイラスト">
+
 **ThothGlyph**（トトグリフ）は、数式入りのMarkdownを書くためのエディタ。
 左にMarkdownを書くと、右に数式まで描かれた形ですぐプレビューする。記号や公式は
 パレットから選んで入れられるので、LaTeXのコマンドを覚えていなくても書ける。
 書いたものはブラウザに自動で残り、`.md` ファイルとして保存できる。
 
-![ソースとプレビューが左右に並び、上に記号パレットが出ている画面](docs/screenshots/wide-light.png)
+![ソースとプレビューが左右に並び、上に記号パレットが出ている画面](docs/screenshots/wide.png)
 
 ## できること
 
@@ -121,7 +123,7 @@ Markdownには**採番も相互参照もグラフも無い**。次の3つはこ�
 
 | ダーク | スマートフォン（幅360px） |
 |---|---|
-| <img src="docs/screenshots/wide-dark.png" alt="ダークテーマの画面"> | <img src="docs/screenshots/phone.png" width="200" alt="幅360pxの画面"> |
+| <img src="docs/screenshots/wide.png" alt="ダークテーマの画面"> | <img src="docs/screenshots/phone.png" width="200" alt="幅360pxの画面"> |
 
 ## 名前
 
