@@ -5497,6 +5497,58 @@ section('personal-snippets', '自分用スニペット（0087）', async () => {
   await resetState()
 })
 
+// ---- 0090: 設定メニューのREADME ----
+
+section('readme', '設定メニューのREADME（0090）', async () => {
+  const openReadme = async () => {
+    await page.getByRole('button', { name: '設定' }).click()
+    await page.getByRole('button', { name: 'README', exact: true }).click()
+    await page.getByRole('dialog', { name: 'README' }).waitFor()
+  }
+
+  await editor().fill('# READMEを開いても残す内容')
+  const before = await page.evaluate(() => ({
+    value: document.querySelector('textarea')?.value,
+    theme: document.documentElement.dataset.theme ?? 'system',
+    lang: document.documentElement.lang,
+  }))
+
+  await page.getByRole('button', { name: '設定' }).click()
+  check('設定メニューにREADMEがある', await page.getByRole('button', { name: 'README', exact: true }).count() === 1)
+  await page.getByRole('button', { name: 'README', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'README' })
+  await dialog.waitFor()
+  check('READMEのモーダルが開く', await dialog.count() === 1)
+  check('README本文の見出しが表示される', await dialog.getByText('ThothGlyph', { exact: true }).count() >= 1)
+
+  const body = dialog.locator('.readme-panel__body')
+  const bodyMetrics = await body.evaluate((element) => ({ scroll: element.scrollHeight, client: element.clientHeight }))
+  check('README本文を縦にスクロールできる', bodyMetrics.scroll > bodyMetrics.client, `${bodyMetrics.scroll} / ${bodyMetrics.client}`)
+  const images = await dialog.locator('img').evaluateAll((elements) =>
+    elements.map((element) => ({ complete: element.complete, width: element.naturalWidth })),
+  )
+  check('README内の画像がすべて表示される', images.length >= 3 && images.every((image) => image.complete && image.width > 0), JSON.stringify(images))
+  await page.screenshot({ path: `${OUT}/readme.png` })
+
+  await page.keyboard.press('Escape')
+  check('EscapeでREADMEが閉じる', await dialog.count() === 0)
+
+  await openReadme()
+  await dialog.getByRole('button', { name: '閉じる' }).click()
+  check('閉じるボタンでREADMEが閉じる', await dialog.count() === 0)
+
+  await openReadme()
+  await page.locator('.readme-panel').click({ position: { x: 2, y: 2 } })
+  check('背景クリックでREADMEが閉じる', await dialog.count() === 0)
+
+  const after = await page.evaluate(() => ({
+    value: document.querySelector('textarea')?.value,
+    theme: document.documentElement.dataset.theme ?? 'system',
+    lang: document.documentElement.lang,
+  }))
+  check('開閉しても文書・テーマ・言語が変わらない', JSON.stringify(after) === JSON.stringify(before), `${JSON.stringify(before)} → ${JSON.stringify(after)}`)
+})
+
 // 幅のチェックは、元の区分で用意していた文書・言語・タブの状態を保ったまま流す。
 // 既定実行では記録せず、width を指定したときだけこの区分として記録する。
 const widthSources = [...sections]

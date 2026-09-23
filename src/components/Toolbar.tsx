@@ -3,6 +3,8 @@ import type { Lang } from '../lib/i18n'
 import { pick } from '../lib/i18n'
 import { langLabel } from '../lib/langStorage'
 import { messages } from '../lib/messages'
+import type { Engine } from '../lib/previewEngine'
+import { ReadmePanel } from './ReadmePanel'
 import type { Theme } from '../lib/themeStorage'
 import { themeLabel } from '../lib/themeStorage'
 
@@ -17,11 +19,13 @@ type Props = {
   onToggleTheme: () => void
   lang: Lang
   onToggleLang: () => void
+  engine: Engine | null
 }
 
-export function Toolbar({ theme, onToggleTheme, lang, onToggleLang }: Props) {
+export function Toolbar({ theme, onToggleTheme, lang, onToggleLang, engine }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mascotOpen, setMascotOpen] = useState(false)
+  const [readmeOpen, setReadmeOpen] = useState(false)
 
   return (
     <header className="toolbar">
@@ -40,6 +44,7 @@ export function Toolbar({ theme, onToggleTheme, lang, onToggleLang }: Props) {
           </div>
         </div>
       )}
+      {readmeOpen && <ReadmePanel lang={lang} engine={engine} onClose={() => setReadmeOpen(false)} />}
       <div className="toolbar__settings">
         <button
           type="button"
@@ -60,6 +65,9 @@ export function Toolbar({ theme, onToggleTheme, lang, onToggleLang }: Props) {
             <button type="button" className="button button--quiet" onClick={onToggleTheme}>
               {pick(messages.themePrefix, lang)}
               {themeLabel(theme, lang)}
+            </button>
+            <button type="button" className="button button--quiet" onClick={() => { setSettingsOpen(false); setReadmeOpen(true) }}>
+              {pick(messages.readme, lang)}
             </button>
           </div>
         )}

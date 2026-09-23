@@ -60,6 +60,7 @@
 | `src/lib/highlightRanges.ts` | 検索の一致を塗る層に入れるHTML（[0043](specs/0043-find-replace.md)） |
 | `src/lib/i18n.ts` / `messages.ts` | 2言語の文字列の型と、画面の文言 |
 | `src/guideDocument.ts` / `src/lib/guideTable.ts` / `guideCommands.ts` | 算式記載ガイド（本文・表の組み立て・生成したコマンド一覧）（[0079](specs/0079-notation-guide.md)） |
+| `src/components/ReadmePanel.tsx` | ビルド時に取り込むREADMEを画面に重ねて表示する（[0090](specs/0090-readme-in-settings.md)）。README内の固定画像パスだけを `public/` の配布パスへ置き換える |
 | `public/` | そのまま配られる静的ファイル。アイコンとmanifest |
 | `scripts/verify-ui.mjs` | ヘッドレスChromiumでの実機検証 |
 | `scripts/measure-load.mjs` | 本番ビルドの大きさと読み込み時間の実測 |
@@ -252,14 +253,17 @@ LaTeX文字列と `displayMode` の組をキーに、KaTeXの出力をモジュ�
 KaTeXに渡す前のLaTeXを加工しない（加工するとエスケープの前提が崩れる）。
 **6** のグラフのSVGは迂回しない（差し戻す前に1つずつDOMPurifyを通す。0037）。
 
-`dangerouslySetInnerHTML` を使う箇所は**3つだけ**で、どれも入口が決まっている。
+`dangerouslySetInnerHTML` を使う箇所は**4つだけ**で、どれも入口が決まっている。
 
 1. `Preview` — 渡ってくるHTMLが上のパイプラインを通っていることが前提。
    他の経路からHTMLを渡さない。
 2. `GuidePanel`（[0079](specs/0079-notation-guide.md)） — 渡すのは
    `renderMarkdown(guideDocument(lang), lang)` の結果だけ。ガイドの中身は
    リポジトリが持つ文字列で、利用者の入力は混ざらない。
-3. `Editor` の検索の塗り層（[0043](specs/0043-find-replace.md)） —
+3. `ReadmePanel`（[0090](specs/0090-readme-in-settings.md)） — ビルド時に取り込む
+   リポジトリのREADMEを `renderMarkdown` に通した結果だけを渡す。画像のパス置換は
+   固定文字列だけで、利用者の入力は混ざらない。
+4. `Editor` の検索の塗り層（[0043](specs/0043-find-replace.md)） —
    `lib/highlightRanges.ts` の `highlightHtml` が作った文字列だけを渡す。
    この関数は `mark` 以外の要素を作らず、`&` `<` `>` をエスケープする
    （単体テストで固定）。要素を並べる形をやめたのは速さのため（400件で
