@@ -98,6 +98,7 @@
 | [0086](0086-width-checks-section.md) | 幅に関わる検証を1つの区分にまとめ、既定では流さない | closed | [仕様](../specs/0086-width-checks-section.md) |
 | [0087](0087-personal-snippets.md) | 自分用の定型を登録して再利用できない | implemented | [仕様](../specs/0087-personal-snippets.md) |
 | [0088](0088-personal-snippet-backup.md) | 自分用スニペットをバックアップ・移行できない | implemented | [仕様](../specs/0088-personal-snippet-backup.md) |
+| [0090](0090-readme-in-settings.md) | 設定メニューからREADMEを読めない | closed | [仕様](../specs/0090-readme-in-settings.md) |
 
 ## 着手順の目安
 

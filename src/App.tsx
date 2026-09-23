@@ -641,6 +641,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         lang={lang}
         onToggleLang={handleToggleLang}
+        engine={engine}
       />
       {guideOpen && <GuidePanel lang={lang} engine={engine} onClose={closeGuide} />}
       <SymbolPalette

@@ -69,6 +69,7 @@ export const messages = {
   guideClose: t('閉じる', 'Close'),
 
   settings: t('設定', 'Settings'),
+  readme: t('README', 'README'),
   paletteMenu: t('パレット', 'Palette'),
   sourceMenu: t('メニュー', 'Menu'),
   themePrefix: t('テーマ: ', 'Theme: '),
